@@ -1,0 +1,6 @@
+-keep class com.web3auth.unity.android.** { *; }
+-keep class com.web3auth.** { *; }
+-keep class org.torusresearch.** { *; }
+-keep class androidx.browser.customtabs.** { *; }
+-dontwarn com.web3auth.**
+-dontwarn org.torusresearch.**

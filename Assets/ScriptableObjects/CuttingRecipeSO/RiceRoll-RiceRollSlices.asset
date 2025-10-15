@@ -1,0 +1,17 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 485a5f5bf3f4d48ce88f356d7a2610a0, type: 3}
+  m_Name: RiceRoll-RiceRollSlices
+  m_EditorClassIdentifier: 
+  input: {fileID: 11400000, guid: 9e1f77463528c7d4fb478de3c6de3072, type: 2}
+  output: {fileID: 11400000, guid: cc6e5f2a3f6b74944a9ca95dd729bdfa, type: 2}
+  cuttingProgressMax: 3

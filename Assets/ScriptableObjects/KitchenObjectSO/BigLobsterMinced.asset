@@ -1,0 +1,17 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6ed8431454bb0432d9ecf16117024c3b, type: 3}
+  m_Name: BigLobsterMinced
+  m_EditorClassIdentifier: 
+  prefab: {fileID: 3529893374899202239, guid: b8218df5a909b4c41b33a8f88c765c0d, type: 3}
+  sprite: {fileID: 21300000, guid: 2507bb8fc80c4d04f8bc4e1b38a18077, type: 3}
+  objectName: Lobster Minced

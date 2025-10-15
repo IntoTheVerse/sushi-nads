@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d54462fefc4314207834c2d7bbf18633, type: 3}
+  m_Name: Typhoon Claw Temaki
+  m_EditorClassIdentifier: 
+  kitchenObjectSOList:
+  - {fileID: 11400000, guid: 43edb0a38c81ca342803cac24b0dd665, type: 2}
+  - {fileID: 11400000, guid: 8754bc9f16c15ea48bb5422d97f46746, type: 2}
+  - {fileID: 11400000, guid: fc26139ec07054648b066b9ac864ce22, type: 2}
+  - {fileID: 11400000, guid: 340ae9e15afdf044a9a6165c5f9978e2, type: 2}
+  - {fileID: 11400000, guid: 11faf691d866be7439d2e2aa541b2f38, type: 2}
+  - {fileID: 11400000, guid: 61d730514129d314b9fcc8b996f00ba3, type: 2}
+  recipeName: Typhoon Claw Temaki
