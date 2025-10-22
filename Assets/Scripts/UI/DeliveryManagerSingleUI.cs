@@ -7,6 +7,7 @@ using UnityEngine;
 public class DeliveryManagerSingleUI : MonoBehaviour
 {
     [SerializeField] private TextMeshProUGUI recipeNameText;
+    [SerializeField] public Image bg;
     [SerializeField] private Transform iconContainer;
     [SerializeField] private Transform iconTemplate;
     private RecipeSO recipeSO;

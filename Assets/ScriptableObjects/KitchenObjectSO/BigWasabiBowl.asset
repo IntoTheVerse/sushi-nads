@@ -14,4 +14,4 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   prefab: {fileID: 3745958979660062615, guid: 286dbf3dec85b944a807f24902b64a20, type: 3}
   sprite: {fileID: 21300000, guid: beacbd860f744e94a8179522f874e770, type: 3}
-  objectName: Wasabi Slices
+  objectName: Wasabi Chutney

@@ -1,14 +1,18 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class DeliveryManagerUI : MonoBehaviour
 {
     [SerializeField] private Transform container;
     [SerializeField] private Transform recipeTemplate;
+    [SerializeField] private Sprite _selectedOrderSprite;
+    [SerializeField] private Sprite _defaultOrderSprite; // captured from the template at runtime
+
     private readonly List<DeliveryManagerSingleUI> rows = new();
 
     private void Awake() {
-        recipeTemplate.gameObject.SetActive(false);
+        recipeTemplate.gameObject.SetActive(false); 
     }
     private void OnEnable()
     {
@@ -43,7 +47,33 @@ public class DeliveryManagerUI : MonoBehaviour
     }
 
     private void UpdateVisual() {
-        foreach (Transform child in container) {
+        foreach (Transform child in container)
+        {
+            if (child == recipeTemplate) continue;
+            Destroy(child.gameObject);
+        }
+        rows.Clear();
+
+        int i = 0;
+        foreach (RecipeSO recipeSO in DeliveryManager.Instance.GetWaitingRecipeSOList())
+        {
+            Transform recipeTransform = Instantiate(recipeTemplate, container);
+            recipeTransform.gameObject.SetActive(true);
+
+            var row = recipeTransform.GetComponent<DeliveryManagerSingleUI>();
+            row.SetRecipeSO(recipeSO);
+            rows.Add(row);
+
+            // set background sprite: first item = selected (green), others = default
+            var bg = recipeTransform.GetComponent<DeliveryManagerSingleUI>();
+            if (bg)
+            {
+                bg.bg.sprite = (i == 0 && _selectedOrderSprite != null) ? _selectedOrderSprite : _defaultOrderSprite;
+            }
+            i++;
+        }
+
+        /* foreach (Transform child in container) {
             if (child == recipeTemplate) continue;
             Destroy(child.gameObject);
         }
@@ -52,7 +82,7 @@ public class DeliveryManagerUI : MonoBehaviour
             Transform recipeTransform = Instantiate(recipeTemplate, container);
             recipeTransform.gameObject.SetActive(true);
             recipeTransform.GetComponent<DeliveryManagerSingleUI>().SetRecipeSO(recipeSO);
-        }
+        }*/
     }
     private void RefreshCompletedVisuals()
     {
