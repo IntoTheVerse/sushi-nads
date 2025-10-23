@@ -1,11 +1,9 @@
-using System;
+/*using System;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
-using Solana.Unity.SDK;
-using Solana.Unity.Wallet;
 
 /// <summary>
 /// Minimal runtime UI to connect/disconnect a Solana wallet from MainMenuScene.
@@ -46,10 +44,11 @@ public class SolanaWalletUI : MonoBehaviour
         EnsureWeb3Singleton();
         ApplyOptionalRpcOverrides();
         BuildUi();
-
+#if USE_SOLANA_SDK
         Web3.OnLogin += HandleOnLogin;
         Web3.OnLogout += HandleOnLogout;
         Web3.OnWalletChangeState += HandleWalletChangeState;
+#endif
 
         // Only visible on MainMenuScene
         rootCanvas.gameObject.SetActive(SceneManager.GetActiveScene().name == TargetSceneName);
@@ -68,9 +67,11 @@ public class SolanaWalletUI : MonoBehaviour
 
     private void OnDestroy()
     {
+        #if USE_SOLANA_SDK
         Web3.OnLogin -= HandleOnLogin;
         Web3.OnLogout -= HandleOnLogout;
         Web3.OnWalletChangeState -= HandleWalletChangeState;
+        #endif
     }
 
     private void EnsureEventSystem()
@@ -100,6 +101,7 @@ public class SolanaWalletUI : MonoBehaviour
 
     private void EnsureWeb3Singleton()
     {
+        #if USE_SOLANA_SDK
         if (Web3.Instance == null)
         {
             var web3Go = new GameObject("Web3");
@@ -126,11 +128,13 @@ public class SolanaWalletUI : MonoBehaviour
         }
 
         Web3.Instance.rpcCluster = RpcCluster.DevNet; // Solana devnet
+        #endif
     }
 
 
     private void ApplyOptionalRpcOverrides()
-    {
+    {  
+        #if USE_SOLANA_SDK
         // Force Devnet RPC unless explicitly overridden
         var rpcToUse = string.IsNullOrWhiteSpace(customRpcUrl) ? DevnetRpcUrl : customRpcUrl;
         Web3.Instance.rpcCluster = RpcCluster.DevNet;
@@ -145,6 +149,7 @@ public class SolanaWalletUI : MonoBehaviour
             }
         }
         catch { }
+        #endif
     }
 
     private void BuildUi()
@@ -258,12 +263,15 @@ public class SolanaWalletUI : MonoBehaviour
         return go.GetComponent<Button>();
     }
 
+
+#if USE_SOLANA_SDK
     private void HandleOnLogin(Account account)
     {
         RefreshUiState();
         DevLogKeys(account);
         LogLamportsAsync();
     }
+#endif
 
     private void HandleOnLogout()
     {
@@ -276,12 +284,14 @@ public class SolanaWalletUI : MonoBehaviour
     }
 
     private void RefreshUiState()
-    {
+    {  
+        #if USE_SOLANA_SDK
         bool isLoggedIn = Web3.Account != null && !string.IsNullOrEmpty(Web3.Account.PublicKey);
         publicKeyLabel.text = isLoggedIn ? $"Public Key: {Web3.Account.PublicKey}" : "Not connected";
         if (panelRoot != null) panelRoot.SetActive(isLoggedIn);
         disconnectButton.interactable = isLoggedIn;
         copyButton.interactable = isLoggedIn;
+        #endif
     }
 
     // Expose methods to trigger login from external UI (e.g., MainMenuUI)
@@ -294,7 +304,7 @@ public class SolanaWalletUI : MonoBehaviour
     {
         return Connect();
     }
-
+#if USE_SOLANA_SDK
     private void DevLogKeys(Account account)
     {
         if (!enableDevKeyLogging) return;
@@ -312,9 +322,11 @@ public class SolanaWalletUI : MonoBehaviour
         }
 #endif
     }
+#endif
 
     private async Task Connect()
     {
+#if USE_SOLANA_SDK
         try
         {
 #if UNITY_WEBGL && !UNITY_EDITOR
@@ -356,10 +368,12 @@ public class SolanaWalletUI : MonoBehaviour
         {
             Debug.LogError($"Wallet connect failed: {e}");
         }
+#endif
     }
 
     private void Disconnect()
-    {
+    {  
+        #if USE_SOLANA_SDK
         try
         {
             Web3.Instance.Logout();
@@ -368,10 +382,12 @@ public class SolanaWalletUI : MonoBehaviour
         {
             Debug.LogError($"Wallet disconnect failed: {e}");
         }
+        #endif
     }
 
     private void CopyAddress()
-    {
+    {  
+        #if USE_SOLANA_SDK
         if (Web3.Account == null || string.IsNullOrEmpty(Web3.Account.PublicKey))
         {
             return;
@@ -379,10 +395,12 @@ public class SolanaWalletUI : MonoBehaviour
 
         GUIUtility.systemCopyBuffer = Web3.Account.PublicKey;
         Debug.Log("Copied public key to clipboard.");
+        #endif
     }
 
     private async void LogLamportsAsync()
     {
+#if USE_SOLANA_SDK
         try
         {
             if (Web3.Account == null || Web3.Rpc == null) return;
@@ -395,5 +413,6 @@ public class SolanaWalletUI : MonoBehaviour
         {
             Debug.LogWarning($"Failed to fetch lamports: {e.Message}");
         }
+#endif
     }
-}
+}*/

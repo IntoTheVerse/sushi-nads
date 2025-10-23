@@ -1,12 +1,10 @@
-using UnityEngine;
+/*using UnityEngine;
 using UnityEngine.UI;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine.SceneManagement;
 using TMPro;
-using Solana.Unity.SDK;
-using Solana.Unity.Wallet;
 
 public class MainMenuUI : MonoBehaviour
 {
@@ -39,6 +37,7 @@ public class MainMenuUI : MonoBehaviour
         float step = 0.1f;
         while (timeout > 0f)
         {
+#if USE_SOLANA_SDK
             RefreshButtons();
             if (Web3.Account != null && Web3.Account.PublicKey != null)
             {
@@ -46,24 +45,30 @@ public class MainMenuUI : MonoBehaviour
             }
             yield return new WaitForSecondsRealtime(step);
             timeout -= step;
+#endif
         }
+                yield break;
     }
 
     private void OnEnable()
     {
+#if USE_SOLANA_SDK
         Web3.OnLogin += HandleOnLogin;
         Web3.OnLogout += HandleOnLogout;
         Web3.OnWalletChangeState += HandleWalletChange;
+#endif
         RefreshButtons();
         // Extra refresh shortly after enable to catch late Web3 session initialization
         InvokeRepeating(nameof(RefreshButtons), 0.1f, 0.5f);
     }
 
     private void OnDisable()
-    {
+    {  
+        #if USE_SOLANA_SDK
         Web3.OnLogin -= HandleOnLogin;
         Web3.OnLogout -= HandleOnLogout;
         Web3.OnWalletChangeState -= HandleWalletChange;
+#endif
         CancelInvoke(nameof(RefreshButtons));
         if (loginButton != null)
         {
@@ -71,10 +76,12 @@ public class MainMenuUI : MonoBehaviour
         }
     }
 
+#if USE_SOLANA_SDK
     private void HandleOnLogin(Account account)
     {
         RefreshButtons();
     }
+#endif
 
     private void HandleOnLogout()
     {
@@ -84,11 +91,13 @@ public class MainMenuUI : MonoBehaviour
     private void RefreshButtons()
     {
         bool isAuthenticated = false;
+#if USE_SOLANA_SDK
         try
         {
             isAuthenticated = Web3.Account != null && Web3.Account.PublicKey != null && !string.IsNullOrEmpty(Web3.Account.PublicKey.ToString());
         }
         catch { isAuthenticated = false; }
+#endif
         if (playButton != null)
         {
             playButton.gameObject.SetActive(isAuthenticated);
@@ -114,6 +123,7 @@ public class MainMenuUI : MonoBehaviour
 
     private async void OnLoginClicked()
     {
+        #if USE_SOLANA_SDK
         // Prefer using the dedicated UI helper if present
         var walletUi = FindFirstObjectByType<SolanaWalletUI>();
         if (walletUi != null)
@@ -128,7 +138,8 @@ public class MainMenuUI : MonoBehaviour
         {
             Debug.Log("Could not find SolanawalletUI");
         }
-
+#endif
+#if USE_SOLANA_SDK
         // Fallback: call SDK directly on main thread (do not offload to Task.Run)
 #if UNITY_WEBGL && !UNITY_EDITOR
         await Web3.Instance.LoginWalletAdapter();
@@ -138,12 +149,14 @@ public class MainMenuUI : MonoBehaviour
         else
             await Web3.Instance.LoginInGameWallet("kitchen-dash");
 #endif
+#endif
         RefreshButtons();
     }
 
     private void QuitToMainMenu()
     {
         // Logout to ensure default UI state without reloading scene
+#if USE_SOLANA_SDK
         try
         {
             if (Web3.Instance != null)
@@ -152,9 +165,11 @@ public class MainMenuUI : MonoBehaviour
             }
         }
         catch { }
+#endif
         // Refresh buttons after logout
         RefreshButtons();
         // Also schedule another refresh on next frame to catch async state
         Invoke(nameof(RefreshButtons), 0.1f);
     }
 }
+*/
