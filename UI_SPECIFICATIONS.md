@@ -1,4 +1,4 @@
-# Sushi Bonks UI Specifications
+# Sushi Stonks UI Specifications
 
 ## 🎨 Screen Designs for Unity Implementation
 
