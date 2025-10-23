@@ -1,0 +1,33 @@
+{
+  "name": "sushi-bonks-backend",
+  "version": "1.0.0",
+  "description": "Sushi Bonks game backend with Privy integration",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "keywords": ["blockchain", "game", "privy", "base"],
+  "author": "Sushi Bonks Team",
+  "license": "MIT",
+  "dependencies": {
+    "@privy-io/server-auth": "^1.9.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "ethers": "^6.10.0",
+    "express": "^4.18.2",
+    "firebase-admin": "^12.0.0",
+    "helmet": "^7.1.0",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=9.0.0"
+  }
+}
+
