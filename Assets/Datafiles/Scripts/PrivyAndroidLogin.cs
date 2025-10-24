@@ -70,7 +70,9 @@ public class PrivyAndroidLogin : MonoBehaviour
     private void RefreshButtons()
     {
         bool isLoggedIn = PrivyManager.Instance?.User != null;
-        if (isLoggedIn) { loginPanel.SetActive(!isLoggedIn); }
+        if (isLoggedIn) { 
+            mintPanel.SetActive(isLoggedIn);
+            loginPanel.SetActive(!isLoggedIn); }
         else if (!isLoggedIn)
         {
             otpField.text = string.Empty;
