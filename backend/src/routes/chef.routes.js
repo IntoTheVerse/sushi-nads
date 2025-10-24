@@ -1,5 +1,6 @@
 import express from 'express';
 import { chefNFT, gameCore } from '../services/blockchain.service.js';
+import { addSessionSignerToWallet, sendSponsoredTransaction } from '../services/privy.service.js';
 import { requireAuth } from '../middleware/auth.js';
 import { validateMintChef, validateUpdateName } from '../middleware/validation.js';
 import { getCachedProfile, setCachedProfile } from '../services/cache.service.js';
@@ -23,12 +24,16 @@ router.post('/mint', requireAuth, validateMintChef, async (req, res, next) => {
             return res.status(400).json({ error: 'Already has chef NFT' });
         }
         
+        // HACKATHON MODE: Backend pays gas (simple approach)
+        // TODO: Implement Privy gas sponsorship for production
+        
         // Mint chef NFT (gas paid by backend signer)
+        // Note: Contract mints to msg.sender (backend), we'll transfer to player
         const tx = await chefNFT.mintChef(playerName);
         console.log('   Transaction sent:', tx.hash);
         
         const receipt = await tx.wait();
-        console.log('   ✅ Transaction confirmed!');
+        console.log('   ✅ Mint transaction confirmed!');
         
         // Get token ID from event
         const mintEvent = receipt.logs.find(log => {
@@ -44,10 +49,17 @@ router.post('/mint', requireAuth, validateMintChef, async (req, res, next) => {
         if (mintEvent) {
             const parsed = chefNFT.interface.parseLog(mintEvent);
             tokenId = Number(parsed.args.tokenId);
-        } else {
-            // Fallback: query contract
-            tokenId = Number(await chefNFT.getChefTokenId(playerAddress));
         }
+        
+        // Transfer NFT from backend to player
+        console.log(`   Transferring chef #${tokenId} to player ${playerAddress}...`);
+        const transferTx = await chefNFT.transferFrom(
+            process.env.BACKEND_SIGNER_ADDRESS,
+            playerAddress,
+            tokenId
+        );
+        await transferTx.wait();
+        console.log('   ✅ Chef transferred to player!');
         
         res.json({
             success: true,

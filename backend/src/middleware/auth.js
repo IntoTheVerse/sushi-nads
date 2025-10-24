@@ -1,11 +1,44 @@
 import { verifyAuthToken } from '../services/privy.service.js';
 
 /**
- * Middleware to require Privy authentication
- * Verifies the Privy auth token and attaches user info to request
+ * Middleware to require authentication
+ * 
+ * HACKATHON MODE: Accepts wallet address from request body
+ * TODO: Re-enable Privy token verification for production
  */
 export async function requireAuth(req, res, next) {
     try {
+        // HACKATHON WORKAROUND: Use wallet address from request
+        // Privy Unity SDK doesn't expose auth tokens easily
+        const walletAddress = req.body.walletAddress || req.query.walletAddress;
+        
+        if (!walletAddress) {
+            return res.status(400).json({ 
+                error: 'Wallet address required',
+                message: 'Include walletAddress in request body or query params'
+            });
+        }
+        
+        // Validate format
+        if (!walletAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
+            return res.status(400).json({ 
+                error: 'Invalid wallet address format',
+                message: 'Must be a valid Ethereum address'
+            });
+        }
+        
+        // Create minimal user object
+        req.user = {
+            wallet: { address: walletAddress.toLowerCase() },
+            linked_accounts: [{ type: 'wallet', address: walletAddress.toLowerCase() }]
+        };
+        req.walletAddress = walletAddress.toLowerCase();
+        
+        console.log(`⚠️  [HACKATHON MODE] Auth for wallet: ${walletAddress}`);
+        
+        next();
+        
+        /* TODO: Re-enable for production
         const authHeader = req.headers.authorization;
         
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -16,11 +49,8 @@ export async function requireAuth(req, res, next) {
         }
         
         const token = authHeader.replace('Bearer ', '');
-        
-        // Verify token with Privy
         const user = await verifyAuthToken(token);
         
-        // Extract wallet address
         const walletAddress = user.wallet?.address || 
                              user.linked_accounts?.find(a => a.type === 'wallet')?.address;
         
@@ -31,16 +61,16 @@ export async function requireAuth(req, res, next) {
             });
         }
         
-        // Attach user info to request
         req.user = user;
         req.userId = user.id;
         req.walletAddress = walletAddress.toLowerCase();
         
         next();
+        */
     } catch (error) {
         console.error('Authentication error:', error.message);
-        res.status(401).json({ 
-            error: 'Invalid or expired token',
+        res.status(500).json({ 
+            error: 'Authentication failed',
             message: error.message 
         });
     }

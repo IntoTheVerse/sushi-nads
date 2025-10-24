@@ -1,5 +1,6 @@
 import express from 'express';
 import { gameCore } from '../services/blockchain.service.js';
+import { addSessionSignerToWallet, sendSponsoredTransaction } from '../services/privy.service.js';
 import { requireAuth } from '../middleware/auth.js';
 import { validateSessionId } from '../middleware/validation.js';
 import { rateLimitGameActions } from '../middleware/rateLimit.js';
@@ -89,13 +90,27 @@ router.post('/recipe-spawned', requireAuth, validateSessionId, async (req, res, 
 router.post('/recipe-delivered', requireAuth, validateSessionId, async (req, res, next) => {
     try {
         const { sessionId } = req;
+        const user = req.user;
         
         console.log(`✅ Recipe delivered in session ${sessionId}`);
         
-        const tx = await gameCore.recordRecipeDelivered(sessionId);
-        await tx.wait();
+        // Get user's wallet ID
+        const wallet = user.linked_accounts?.find(a => a.type === 'wallet');
+        if (!wallet) {
+            return res.status(400).json({ error: 'No wallet found' });
+        }
         
-        res.json({ success: true });
+        // Encode function call
+        const data = gameCore.interface.encodeFunctionData('recordRecipeDelivered', [sessionId]);
+        
+        // Send sponsored transaction
+        const txResponse = await sendSponsoredTransaction(wallet.wallet_id, {
+            to: process.env.GAMECORE_ADDRESS,
+            data,
+            value: '0x0'
+        });
+        
+        res.json({ success: true, txHash: txResponse.hash, gasSponsored: true });
     } catch (error) {
         next(error);
     }

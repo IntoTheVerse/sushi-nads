@@ -1,5 +1,6 @@
 import express from 'express';
 import { chefNFT, gameCore } from '../services/blockchain.service.js';
+import { addSessionSignerToWallet, sendSponsoredTransaction } from '../services/privy.service.js';
 import { requireAuth } from '../middleware/auth.js';
 import { validateSessionId } from '../middleware/validation.js';
 import { setCachedSession, deleteCachedSession } from '../services/cache.service.js';
@@ -14,6 +15,7 @@ const router = express.Router();
 router.post('/start', requireAuth, async (req, res, next) => {
     try {
         const playerAddress = req.walletAddress;
+        const user = req.user;
         
         console.log(`🎮 Starting session for ${playerAddress}`);
         
@@ -36,31 +38,33 @@ router.post('/start', requireAuth, async (req, res, next) => {
             });
         }
         
-        // Start session on blockchain
-        const tx = await gameCore.startGameSession(playerAddress);
-        console.log('   Transaction sent:', tx.hash);
+        // Get user's wallet ID
+        const wallet = user.linked_accounts?.find(a => a.type === 'wallet');
+        if (!wallet || !wallet.wallet_id) {
+            return res.status(400).json({ error: 'No wallet found for user' });
+        }
         
-        const receipt = await tx.wait();
-        console.log('   ✅ Session started!');
+        // Ensure session signer is added
+        await addSessionSignerToWallet(wallet.wallet_id);
         
-        // Parse SessionStarted event
-        const event = receipt.logs.find(log => {
-            try {
-                const parsed = gameCore.interface.parseLog(log);
-                return parsed && parsed.name === 'SessionStarted';
-            } catch {
-                return false;
-            }
+        // Encode startGameSession function call
+        const data = gameCore.interface.encodeFunctionData('startGameSession', [playerAddress]);
+        
+        // Send sponsored transaction from USER's wallet
+        const txResponse = await sendSponsoredTransaction(wallet.wallet_id, {
+            to: process.env.GAMECORE_ADDRESS,
+            data,
+            value: '0x0'
         });
         
-        let sessionId = 0;
-        let startTime = Date.now();
+        console.log('   ✅ Session started (gas sponsored)!', txResponse.hash);
         
-        if (event) {
-            const parsed = gameCore.interface.parseLog(event);
-            sessionId = Number(parsed.args.sessionId);
-            startTime = Number(parsed.args.startTime) * 1000; // Convert to ms
-        }
+        // Wait for transaction confirmation and get session ID
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        
+        // Query the current session ID for this player
+        const sessionId = Number(await gameCore.getCurrentSessionId(playerAddress));
+        const startTime = Date.now();
         
         // Cache session
         await setCachedSession(sessionId, {
@@ -76,9 +80,10 @@ router.post('/start', requireAuth, async (req, res, next) => {
         res.json({
             success: true,
             sessionId,
-            txHash: receipt.hash,
+            txHash: txResponse.hash,
             startTime,
-            energyRemaining: Number(energy)
+            energyRemaining: Number(energy),
+            gasSponsored: true
         });
     } catch (error) {
         next(error);
@@ -93,6 +98,7 @@ router.post('/end', requireAuth, validateSessionId, async (req, res, next) => {
     try {
         const { sessionId } = req;
         const playerAddress = req.walletAddress;
+        const user = req.user;
         
         console.log(`🏁 Ending session ${sessionId} for ${playerAddress}`);
         
@@ -106,32 +112,30 @@ router.post('/end', requireAuth, validateSessionId, async (req, res, next) => {
             return res.status(400).json({ error: 'Session already ended' });
         }
         
-        // End session (triggers score computation onchain)
-        const tx = await gameCore.endGameSession(sessionId, 'PLAYER_ENDED');
-        console.log('   Transaction sent:', tx.hash);
+        // Get user's wallet ID
+        const wallet = user.linked_accounts?.find(a => a.type === 'wallet');
+        if (!wallet || !wallet.wallet_id) {
+            return res.status(400).json({ error: 'No wallet found for user' });
+        }
         
-        const receipt = await tx.wait();
-        console.log('   ✅ Session ended!');
+        // Encode endGameSession function call
+        const data = gameCore.interface.encodeFunctionData('endGameSession', [sessionId, 'PLAYER_ENDED']);
         
-        // Parse ScoreFinalized event
-        const event = receipt.logs.find(log => {
-            try {
-                const parsed = gameCore.interface.parseLog(log);
-                return parsed && parsed.name === 'ScoreFinalized';
-            } catch {
-                return false;
-            }
+        // Send sponsored transaction
+        const txResponse = await sendSponsoredTransaction(wallet.wallet_id, {
+            to: process.env.GAMECORE_ADDRESS,
+            data,
+            value: '0x0'
         });
         
-        let finalScore = 0;
-        if (event) {
-            const parsed = gameCore.interface.parseLog(event);
-            finalScore = Number(parsed.args.score);
-        } else {
-            // Fallback: query session
-            const updatedSession = await gameCore.getSession(sessionId);
-            finalScore = Number(updatedSession.finalScore);
-        }
+        console.log('   ✅ Session ended (gas sponsored)!', txResponse.hash);
+        
+        // Wait for transaction confirmation then query final score
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        
+        // Query session for final score
+        const updatedSession = await gameCore.getSession(sessionId);
+        const finalScore = Number(updatedSession.finalScore);
         
         // Delete cached session
         await deleteCachedSession(sessionId);
@@ -140,7 +144,8 @@ router.post('/end', requireAuth, validateSessionId, async (req, res, next) => {
             success: true,
             sessionId,
             finalScore,
-            txHash: receipt.hash
+            txHash: txResponse.hash,
+            gasSponsored: true
         });
     } catch (error) {
         next(error);

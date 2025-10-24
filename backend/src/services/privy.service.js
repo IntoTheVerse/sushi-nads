@@ -4,10 +4,15 @@ import dotenv from 'dotenv';
 // Load environment variables first
 dotenv.config();
 
-// Initialize Privy client (NEW API)
+// Initialize Privy client with authorization key for session signers
+// See: https://docs.privy.io/wallets/using-wallets/session-signers/quickstart
 const privy = new PrivyClient({
     appId: process.env.PRIVY_APP_ID,
-    appSecret: process.env.PRIVY_APP_SECRET
+    appSecret: process.env.PRIVY_APP_SECRET,
+    walletApi: {
+        // Authorization key allows backend to send transactions from user wallets
+        authorizationPrivateKey: process.env.PRIVY_BACKEND_AUTH_PRIVATE_KEY
+    }
 });
 
 console.log('🔐 Privy Service Initialized');
@@ -69,46 +74,65 @@ export async function getUserByWalletAddress(address) {
 }
 
 /**
- * Send transaction with gas sponsorship using wallet
- * Note: With @privy-io/node, we use wallet.sendTransaction with gas sponsorship enabled in dashboard
- * @param {string} walletId - Privy wallet ID
- * @param {Object} txParams - Transaction parameters
- * @returns {Promise<Object>} Transaction receipt
+ * Add session signer to user's wallet (allows backend to send txs on their behalf)
+ * See: https://docs.privy.io/wallets/using-wallets/session-signers/add-session-signers
+ * 
+ * @param {string} walletId - User's Privy wallet ID
+ * @returns {Promise<boolean>} Success status
  */
-export async function sendSponsoredTransaction(walletId, txParams) {
+export async function addSessionSignerToWallet(walletId) {
     try {
-        // New API: Use wallets().ethereum().sendTransaction()
-        // Gas sponsorship is automatic if enabled in dashboard for the contract
-        const response = await privy.wallets().ethereum().sendTransaction(walletId, {
-            caip2: 'eip155:84532', // Base Sepolia
-            params: {
-                transaction: txParams
-            }
+        // Add backend authorization key as session signer
+        await privy.wallets().addSessionSigner(walletId, {
+            authorization_key_id: process.env.PRIVY_BACKEND_AUTH_KEY_ID,
+            // Optional: Add policy IDs to restrict what backend can do
+            policy_ids: []
         });
         
-        console.log('✅ Transaction sent:', response.hash);
-        return response;
+        console.log(`✅ Session signer added to wallet ${walletId}`);
+        return true;
     } catch (error) {
-        console.error('❌ Transaction failed:', error.message);
-        throw error;
+        // May fail if already added - that's okay
+        if (error.message?.includes('already exists')) {
+            console.log(`ℹ️  Session signer already exists for wallet ${walletId}`);
+            return true;
+        }
+        console.error('Failed to add session signer:', error.message);
+        return false;
     }
 }
 
 /**
- * Create an embedded wallet for a user
- * @param {string} userId - Privy user ID
- * @returns {Promise<Object>} Wallet object
+ * Send gas-sponsored transaction from user's wallet
+ * See: https://docs.privy.io/wallets/gas-and-asset-management/gas/setup#ethereum-rest-api
+ * 
+ * @param {string} walletId - User's Privy wallet ID
+ * @param {Object} txParams - {to, data, value}
+ * @returns {Promise<Object>} Transaction response
  */
-export async function createWalletForUser(userId) {
+export async function sendSponsoredTransaction(walletId, txParams) {
     try {
-        const wallet = await privy.wallets().create({
-            chain_type: 'ethereum'
+        // Send transaction from user's wallet with gas sponsorship
+        const response = await privy.wallets().ethereum().sendTransaction(walletId, {
+            caip2: 'eip155:84532', // Base Sepolia
+            params: {
+                transaction: {
+                    to: txParams.to,
+                    data: txParams.data,
+                    value: txParams.value || '0x0'
+                }
+            },
+            sponsor: true // ← Privy sponsors gas!
         });
         
-        console.log('✅ Wallet created:', wallet.address);
-        return wallet;
+        console.log('✅ Sponsored tx sent:', response.transaction_hash);
+        
+        return {
+            hash: response.transaction_hash,
+            status: response.status
+        };
     } catch (error) {
-        console.error('❌ Wallet creation failed:', error.message);
+        console.error('❌ Sponsored tx failed:', error);
         throw error;
     }
 }
