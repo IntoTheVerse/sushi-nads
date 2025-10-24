@@ -17,6 +17,8 @@ public class ChefManager : MonoBehaviour
 
     [Header("UI References")]
     [SerializeField] private GameObject mintPanel; // Panel to show/hide based on chef status
+    [SerializeField] private GameObject playPanel; // Panel to show/hide based on chef status
+
     [SerializeField] private TMP_InputField chefNameInput;
     [SerializeField] private Button mintChefButton;
     [SerializeField] private Button refillEnergyButton; // Free energy refill
@@ -141,6 +143,8 @@ public class ChefManager : MonoBehaviour
                 tokenId = profile.player.tokenId;
                 
                 ShowStatus($"✅ Welcome back, {chefName}! (Chef #{tokenId})", Color.green);
+
+                playPanel.SetActive(true);
                 
                 // HIDE mint panel - player already has chef
                 if (mintPanel != null) mintPanel.SetActive(false);
