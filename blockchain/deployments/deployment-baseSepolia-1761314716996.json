@@ -1,0 +1,16 @@
+{
+  "network": "baseSepolia",
+  "chainId": "84532",
+  "deployer": "0xaAf16AD8a1258A98ed77A5129dc6A8813924Ad3C",
+  "timestamp": "2025-10-24T14:05:16.995Z",
+  "contracts": {
+    "ChefNFT": "0x4ef5835f754fb83364ec8bB7CC5e3976087a46ad",
+    "GameCore": "0x04E9f92c8e4Ce69c3f73eac9bF18F3c38d905012",
+    "Leaderboard": "0xD13bb48824451EAEDdB8a4cb000066F65aA7eB44"
+  },
+  "config": {
+    "usdcAddress": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+    "energyRefillCost": "100000",
+    "backendSigner": "0x8cE6f62bFf4ACeaDd4C49116214ba13BF446d527"
+  }
+}
