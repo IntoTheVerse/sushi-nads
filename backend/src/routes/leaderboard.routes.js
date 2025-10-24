@@ -1,5 +1,5 @@
 import express from 'express';
-import { leaderboard, chefNFT } from '../services/blockchain.service.js';
+import { leaderboard, chefNFT, gameCore } from '../services/blockchain.service.js';
 import { optionalAuth } from '../middleware/auth.js';
 import { getCachedLeaderboard, setCachedLeaderboard } from '../services/cache.service.js';
 
@@ -12,7 +12,8 @@ const router = express.Router();
 router.get('/top', optionalAuth, async (req, res, next) => {
     try {
         const limit = parseInt(req.query.limit) || 100;
-        const season = parseInt(req.query.season) || await leaderboard.currentSeason();
+        const currentSeason = await leaderboard.currentSeason();
+        const season = parseInt(req.query.season) || Number(currentSeason);
         
         console.log(`🏆 Fetching top ${limit} players for season ${season}`);
         
@@ -69,7 +70,8 @@ router.get('/player-rank', optionalAuth, async (req, res, next) => {
             return res.status(400).json({ error: 'address parameter or auth required' });
         }
         
-        const season = parseInt(req.query.season) || await leaderboard.currentSeason();
+        const currentSeason = await leaderboard.currentSeason();
+        const season = parseInt(req.query.season) || Number(currentSeason);
         
         const rank = await leaderboard.getPlayerRank(playerAddress);
         const score = await leaderboard.getPlayerHighScore(playerAddress);
