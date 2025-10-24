@@ -279,6 +279,7 @@ public class PrivyAndroidLogin : MonoBehaviour
                 Log("Wallet: " + GetAddress());
                 loginPanel.SetActive(false);
                 mintPanel.SetActive(true);
+                logoutButton.interactable = true;
             }
             else
             {
