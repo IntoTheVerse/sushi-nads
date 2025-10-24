@@ -161,9 +161,7 @@ public class PrivyAndroidLogin : MonoBehaviour
         if (user != null && !user.EmbeddedWallets.Any())
             await user.CreateWallet();
 
-        // Save Privy auth token for API calls
-        SaveAuthToken();
-
+        // No token needed - using wallet-based auth
         Log("Login complete. Wallet: " + GetAddress());
         RefreshButtons();
     }
@@ -315,7 +313,6 @@ public class PrivyAndroidLogin : MonoBehaviour
             // provider keys are typically "google" and "x" (sometimes "twitter")
             await PrivyManager.Instance.OAuth.LoginWithProvider(OAuthProvider.Google, PRIVY_REDIRECT);
             await EnsureWalletAsync();
-            SaveAuthToken(); // Save auth token for API calls
             Log("Google login complete. " + GetAddress());
             RefreshButtons();
         }
@@ -329,7 +326,6 @@ public class PrivyAndroidLogin : MonoBehaviour
         {
             await PrivyManager.Instance.OAuth.LoginWithProvider(OAuthProvider.Twitter, PRIVY_REDIRECT); // if this errors, try "twitter"
             await EnsureWalletAsync();
-            SaveAuthToken(); // Save auth token for API calls
             Log("X login complete. " + GetAddress());
             RefreshButtons();
         }
