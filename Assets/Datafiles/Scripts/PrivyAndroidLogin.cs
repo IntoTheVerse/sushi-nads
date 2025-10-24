@@ -75,6 +75,7 @@ public class PrivyAndroidLogin : MonoBehaviour
         {
             otpField.text = string.Empty;
             loginPanel.SetActive(!isLoggedIn);
+            mintPanel.SetActive(isLoggedIn);
         }
         if (playButton) { playButton.gameObject.SetActive(isLoggedIn); playButton.interactable = isLoggedIn; }
         if (loginButton) { loginButton.gameObject.SetActive(!isLoggedIn); loginButton.interactable = !isLoggedIn; }
@@ -277,7 +278,7 @@ public class PrivyAndroidLogin : MonoBehaviour
                 await EnsureWalletAsync();
                 Log("Wallet: " + GetAddress());
                 loginPanel.SetActive(false);
-                playPanel.SetActive(true);
+                mintPanel.SetActive(true);
             }
             else
             {
