@@ -128,6 +128,11 @@ public class GameAPIClient : MonoBehaviour
         return await SendRequestAsync<RefillEnergyResponse>("/api/chef/refill-energy", "POST");
     }
 
+    public async Task<RefillEnergyResponse> RefillEnergyWithUSDC()
+    {
+        return await SendRequestAsync<RefillEnergyResponse>("/api/chef/refill-energy-usdc", "POST");
+    }
+
     // ============ Session APIs ============
 
     public async Task<StartSessionResponse> StartSession()
@@ -244,6 +249,8 @@ public class RefillEnergyResponse
     public bool success;
     public int newEnergy;
     public string txHash;
+    public string message;
+    public string usdcPaid; // Amount of USDC paid (e.g., "0.1")
 }
 
 [Serializable]
