@@ -46,8 +46,8 @@ curl http://localhost:3000/health
 2. Find `PrivyAndroidLogin` script (in scene or prefab)
 3. Update Inspector fields:
    ```
-   App ID:    cmh3r4kdq0089la0cl6ofujpd
-   Client ID: client-WY6SHePNQHfXAWkwmWqFNFBS2L1XnEs3znGJVW9LuiBzB
+   App ID:    cmh0lyy8p00y7i80c9o3eg6ue
+   Client ID: client-WY6SH3G7kxffDVYNsAhwRXPqxQ6R5xYgwDVPrRspWHrmd
    ```
 
 #### **Step 2: Create GameAPIClient** (2 mins)
