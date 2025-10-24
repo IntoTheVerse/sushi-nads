@@ -1,4 +1,6 @@
+using System;
 using System.Linq;
+using System.Reflection;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -109,6 +111,9 @@ public class PrivyAndroidLogin : MonoBehaviour
         if (user != null && !user.EmbeddedWallets.Any())
             await user.CreateWallet();
 
+        // Save Privy auth token for API calls
+        SaveAuthToken();
+
         Log("Login complete. Wallet: " + GetAddress());
         RefreshButtons();
     }
@@ -117,6 +122,43 @@ public class PrivyAndroidLogin : MonoBehaviour
     {
         var w = PrivyManager.Instance?.User?.EmbeddedWallets?.FirstOrDefault();
         return w != null ? w.Address : "";
+    }
+
+    private void SaveAuthToken()
+    {
+        Debug.Log("🔍 SaveAuthToken called!");
+        
+        // Manual check - inspect PrivyManager directly
+        try
+        {
+            var manager = PrivyManager.Instance;
+            Debug.Log($"✅ PrivyManager exists: {manager != null}");
+            
+            if (manager != null)
+            {
+                Debug.Log($"✅ User exists: {manager.User != null}");
+                
+                // Check if PrivyManager has any method to get token
+                var managerType = manager.GetType();
+                var methods = managerType.GetMethods();
+                
+                Debug.Log("🔍 Checking PrivyManager methods for token...");
+                foreach (var method in methods)
+                {
+                    if (method.Name.ToLower().Contains("token") || method.Name.ToLower().Contains("access"))
+                    {
+                        Debug.Log($"  Found method: {method.Name}()");
+                    }
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"❌ Exception in manual check: {e.Message}");
+        }
+        
+        // Use PrivyTokenHelper to extract and save token
+        PrivyTokenHelper.SaveToken();
     }
 
     // ----------------- Signing -----------------
@@ -201,6 +243,7 @@ public class PrivyAndroidLogin : MonoBehaviour
         try
         {
            PrivyManager.Instance.Logout();   // if your SDK is sync: PrivyManager.Instance.Logout();
+           PrivyTokenHelper.ClearToken();  // Clear saved auth token
             logoutButton.interactable=false;
         }
         catch (System.Exception e)
@@ -219,6 +262,7 @@ public class PrivyAndroidLogin : MonoBehaviour
             // provider keys are typically "google" and "x" (sometimes "twitter")
             await PrivyManager.Instance.OAuth.LoginWithProvider(OAuthProvider.Google, PRIVY_REDIRECT);
             await EnsureWalletAsync();
+            SaveAuthToken(); // Save auth token for API calls
             Log("Google login complete. " + GetAddress());
             RefreshButtons();
         }
@@ -232,6 +276,7 @@ public class PrivyAndroidLogin : MonoBehaviour
         {
             await PrivyManager.Instance.OAuth.LoginWithProvider(OAuthProvider.Twitter, PRIVY_REDIRECT); // if this errors, try "twitter"
             await EnsureWalletAsync();
+            SaveAuthToken(); // Save auth token for API calls
             Log("X login complete. " + GetAddress());
             RefreshButtons();
         }
