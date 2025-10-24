@@ -1,4 +1,8 @@
 import { PrivyClient } from '@privy-io/server-auth';
+import dotenv from 'dotenv';
+
+// Load environment variables first
+dotenv.config();
 
 // Initialize Privy client
 const privy = new PrivyClient(
