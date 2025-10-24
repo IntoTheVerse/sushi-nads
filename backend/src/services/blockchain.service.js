@@ -2,6 +2,10 @@ import { ethers } from 'ethers';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+
+// Load environment variables first
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,8 +22,10 @@ const provider = new ethers.JsonRpcProvider(
     process.env.BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org'
 );
 
-// Initialize backend signer
-const signer = new ethers.Wallet(process.env.BACKEND_PRIVATE_KEY, provider);
+// Initialize backend signer (add 0x prefix if missing)
+const privateKey = process.env.BACKEND_PRIVATE_KEY;
+const formattedKey = privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`;
+const signer = new ethers.Wallet(formattedKey, provider);
 
 console.log('🔗 Blockchain Service Initialized');
 console.log('   Network: Base Sepolia');
