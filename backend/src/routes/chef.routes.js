@@ -25,15 +25,12 @@ router.post('/mint', requireAuth, validateMintChef, async (req, res, next) => {
         }
         
         // HACKATHON MODE: Backend pays gas (simple approach)
-        // TODO: Implement Privy gas sponsorship for production
-        
-        // Mint chef NFT (gas paid by backend signer)
-        // Note: Contract mints to msg.sender (backend), we'll transfer to player
-        const tx = await chefNFT.mintChef(playerName);
+        // Mint chef NFT directly to player using mintChefTo
+        const tx = await chefNFT.mintChefTo(playerAddress, playerName);
         console.log('   Transaction sent:', tx.hash);
         
         const receipt = await tx.wait();
-        console.log('   ✅ Mint transaction confirmed!');
+        console.log('   ✅ Chef minted directly to player!');
         
         // Get token ID from event
         const mintEvent = receipt.logs.find(log => {
@@ -49,17 +46,10 @@ router.post('/mint', requireAuth, validateMintChef, async (req, res, next) => {
         if (mintEvent) {
             const parsed = chefNFT.interface.parseLog(mintEvent);
             tokenId = Number(parsed.args.tokenId);
+        } else {
+            // Fallback: query contract
+            tokenId = Number(await chefNFT.getChefTokenId(playerAddress));
         }
-        
-        // Transfer NFT from backend to player
-        console.log(`   Transferring chef #${tokenId} to player ${playerAddress}...`);
-        const transferTx = await chefNFT.transferFrom(
-            process.env.BACKEND_SIGNER_ADDRESS,
-            playerAddress,
-            tokenId
-        );
-        await transferTx.wait();
-        console.log('   ✅ Chef transferred to player!');
         
         res.json({
             success: true,

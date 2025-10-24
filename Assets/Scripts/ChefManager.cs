@@ -210,8 +210,12 @@ public class ChefManager : MonoBehaviour
                 // Update UI
                 if (chefTokenIdText != null)
                 {
-                    chefTokenIdText.text = $"Chef #{tokenId}";
+                    chefTokenIdText.text = $"Chef #{tokenId}: {chefName}";
                 }
+                
+                // Wait for blockchain to index the transaction
+                Debug.Log("⏳ Waiting for blockchain confirmation...");
+                await Task.Delay(5000); // 5 second delay
                 
                 // Load player profile
                 await LoadPlayerProfile();
@@ -237,16 +241,19 @@ public class ChefManager : MonoBehaviour
     {
         try
         {
+            Debug.Log("📊 Loading player profile...");
             var profile = await GameAPIClient.Instance.GetProfile();
             
             if (profile != null)
             {
                 UpdateUI(profile);
+                Debug.Log("✅ Profile loaded successfully!");
             }
         }
         catch (Exception e)
         {
-            Debug.LogError($"Failed to load profile: {e.Message}");
+            Debug.LogWarning($"⚠️ Profile not ready yet: {e.Message}");
+            Debug.LogWarning("This is normal right after minting. Profile will be available on next login.");
         }
     }
 

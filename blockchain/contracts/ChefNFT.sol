@@ -98,6 +98,27 @@ contract ChefNFT is ERC721, Ownable, ReentrancyGuard {
     }
     
     /**
+     * @notice Mint chef NFT to a specific address
+     * @param to Address to mint the chef to
+     * @param name Chef name (3-20 characters)
+     */
+    function mintChefTo(address to, string memory name) external nonReentrant {
+        if (hasChef[to]) revert AlreadyHasChef();
+        if (bytes(name).length < 3 || bytes(name).length > 20) revert InvalidName();
+        
+        uint256 tokenId = _nextTokenId++;
+        
+        _safeMint(to, tokenId);
+        
+        playerToTokenId[to] = tokenId;
+        chefNames[tokenId] = name;
+        hasChef[to] = true;
+        playerEnergy[to] = 0; // Start with 0 energy, must refill to play
+        
+        emit ChefMinted(to, tokenId, name);
+    }
+    
+    /**
      * @notice Update the chef's name
      * @param newName New name for the chef (3-20 characters)
      */
