@@ -1,10 +1,13 @@
-import { db } from '../config/firebase.js';
+import { getDb } from '../config/firebase.js';
 import { CACHE_TTL } from '../config/constants.js';
 
 /**
  * Cache player energy
  */
 export async function getCachedEnergy(address) {
+    const db = getDb();
+    if (!db) return null; // Firebase not initialized
+    
     try {
         const doc = await db.collection('players').doc(address).get();
         
@@ -26,6 +29,9 @@ export async function getCachedEnergy(address) {
 }
 
 export async function setCachedEnergy(address, energy) {
+    const db = getDb();
+    if (!db) return; // Firebase not initialized
+    
     try {
         await db.collection('players').doc(address).set({
             energy,
@@ -40,6 +46,9 @@ export async function setCachedEnergy(address, energy) {
  * Cache session state
  */
 export async function getCachedSession(sessionId) {
+    const db = getDb();
+    if (!db) return null; // Firebase not initialized
+    
     try {
         const doc = await db.collection('sessions').doc(sessionId.toString()).get();
         return doc.exists ? doc.data() : null;
@@ -50,6 +59,9 @@ export async function getCachedSession(sessionId) {
 }
 
 export async function setCachedSession(sessionId, data) {
+    const db = getDb();
+    if (!db) return; // Firebase not initialized
+    
     try {
         await db.collection('sessions').doc(sessionId.toString()).set({
             ...data,
@@ -61,6 +73,9 @@ export async function setCachedSession(sessionId, data) {
 }
 
 export async function deleteCachedSession(sessionId) {
+    const db = getDb();
+    if (!db) return; // Firebase not initialized
+    
     try {
         await db.collection('sessions').doc(sessionId.toString()).delete();
     } catch (error) {
@@ -72,6 +87,9 @@ export async function deleteCachedSession(sessionId) {
  * Cache leaderboard
  */
 export async function getCachedLeaderboard(season, limit) {
+    const db = getDb();
+    if (!db) return null; // Firebase not initialized
+    
     try {
         const cacheKey = `leaderboard_${season}_${limit}`;
         const doc = await db.collection('cache').doc(cacheKey).get();
@@ -94,6 +112,9 @@ export async function getCachedLeaderboard(season, limit) {
 }
 
 export async function setCachedLeaderboard(season, limit, rankings) {
+    const db = getDb();
+    if (!db) return; // Firebase not initialized
+    
     try {
         const cacheKey = `leaderboard_${season}_${limit}`;
         await db.collection('cache').doc(cacheKey).set({
@@ -109,6 +130,9 @@ export async function setCachedLeaderboard(season, limit, rankings) {
  * Cache player profile
  */
 export async function getCachedProfile(address) {
+    const db = getDb();
+    if (!db) return null; // Firebase not initialized
+    
     try {
         const doc = await db.collection('profiles').doc(address).get();
         
@@ -129,6 +153,9 @@ export async function getCachedProfile(address) {
 }
 
 export async function setCachedProfile(address, profile) {
+    const db = getDb();
+    if (!db) return; // Firebase not initialized
+    
     try {
         await db.collection('profiles').doc(address).set({
             profile,
