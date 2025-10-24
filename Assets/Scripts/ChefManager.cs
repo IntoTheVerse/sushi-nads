@@ -15,6 +15,7 @@ public class ChefManager : MonoBehaviour
     public static ChefManager Instance { get; private set; }
 
     [Header("UI References")]
+    [SerializeField] private GameObject mintPanel; // Panel to show/hide based on chef status
     [SerializeField] private TMP_InputField chefNameInput;
     [SerializeField] private Button mintChefButton;
     [SerializeField] private TMP_Text statusText;
@@ -126,16 +127,24 @@ public class ChefManager : MonoBehaviour
                 chefName = profile.player.name;
                 tokenId = profile.player.tokenId;
                 
-                ShowStatus($"✅ You are: {chefName} (Chef #{tokenId})", Color.green);
+                ShowStatus($"✅ Welcome back, {chefName}! (Chef #{tokenId})", Color.green);
                 
+                // HIDE mint panel - player already has chef
+                if (mintPanel != null) mintPanel.SetActive(false);
+                
+                // Disable minting controls
                 if (mintChefButton != null) mintChefButton.interactable = false;
                 if (chefNameInput != null) chefNameInput.interactable = false;
                 
                 UpdateUI(profile);
+                
+                Debug.Log($"✅ Existing chef found: {chefName} (#{tokenId})");
             }
             else
             {
-                // No chef found
+                // No chef found - show mint panel
+                if (mintPanel != null) mintPanel.SetActive(true);
+                
                 ShowStatus("🎨 Create your chef to start playing!", Color.white);
                 if (mintChefButton != null) mintChefButton.interactable = true;
             }
@@ -144,6 +153,10 @@ public class ChefManager : MonoBehaviour
         {
             // Likely 404 - no chef exists
             Debug.Log("No existing chef found (this is normal for new players)");
+            
+            // SHOW mint panel - new player needs to mint
+            if (mintPanel != null) mintPanel.SetActive(true);
+            
             ShowStatus("🎨 Create your chef to start playing!", Color.white);
             if (mintChefButton != null) mintChefButton.interactable = true;
         }
@@ -213,12 +226,18 @@ public class ChefManager : MonoBehaviour
                     chefTokenIdText.text = $"Chef #{tokenId}: {chefName}";
                 }
                 
+                // Hide mint panel after successful mint
+                if (mintPanel != null) mintPanel.SetActive(false);
+                
                 // Wait for blockchain to index the transaction
                 Debug.Log("⏳ Waiting for blockchain confirmation...");
                 await Task.Delay(5000); // 5 second delay
                 
                 // Load player profile
                 await LoadPlayerProfile();
+                
+                // Show next step message
+                ShowStatus($"✅ Chef ready! Refill energy to play.", Color.green);
             }
             else
             {
