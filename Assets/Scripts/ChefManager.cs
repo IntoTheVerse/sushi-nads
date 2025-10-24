@@ -51,10 +51,10 @@ public class ChefManager : MonoBehaviour
             refillEnergyButton.onClick.AddListener(OnRefillEnergyClicked);
         }
         
-        if (refillEnergyUSDCButton != null)
-        {
-            refillEnergyUSDCButton.onClick.AddListener(OnRefillEnergyUSDCClicked);
-        }
+        // if (refillEnergyUSDCButton != null)
+        // {
+        //     refillEnergyUSDCButton.onClick.AddListener(OnRefillEnergyUSDCClicked);
+        // }
     }
 
     private void Start()
@@ -402,80 +402,80 @@ public class ChefManager : MonoBehaviour
 
     // ============ USDC Energy Refill ============
     
-    private async void OnRefillEnergyUSDCClicked()
-    {
-        if (PrivyManager.Instance?.User == null)
-        {
-            ShowStatus("❌ Please login first", Color.red);
-            return;
-        }
+    // private async void OnRefillEnergyUSDCClicked()
+    // {
+    //     if (PrivyManager.Instance?.User == null)
+    //     {
+    //         ShowStatus("❌ Please login first", Color.red);
+    //         return;
+    //     }
         
-        if (!hasChef)
-        {
-            ShowStatus("❌ Please mint a chef first", Color.red);
-            return;
-        }
+    //     if (!hasChef)
+    //     {
+    //         ShowStatus("❌ Please mint a chef first", Color.red);
+    //         return;
+    //     }
         
-        await RefillEnergyWithUSDC();
-    }
+    //     await RefillEnergyWithUSDC();
+    // }
     
-    public async Task RefillEnergyWithUSDC()
-    {
-        try
-        {
-            ShowStatus("💰 Processing USDC payment...", Color.yellow);
+    // public async Task RefillEnergyWithUSDC()
+    // {
+    //     try
+    //     {
+    //         ShowStatus("💰 Processing USDC payment...", Color.yellow);
             
-            if (refillEnergyUSDCButton != null) refillEnergyUSDCButton.interactable = false;
+    //         if (refillEnergyUSDCButton != null) refillEnergyUSDCButton.interactable = false;
             
-            Debug.Log("💳 Calling backend for USDC refill...");
-            Debug.Log("   Backend will handle USDC approval if needed");
+    //         Debug.Log("💳 Calling backend for USDC refill...");
+    //         Debug.Log("   Backend will handle USDC approval if needed");
             
-            // Backend handles everything (approval + refill)
-            var response = await GameAPIClient.Instance.RefillEnergyWithUSDC();
+    //         // Backend handles everything (approval + refill)
+    //         var response = await GameAPIClient.Instance.RefillEnergyWithUSDC();
             
-            if (response.success)
-            {
-                Debug.Log($"✅ Energy refilled with USDC!");
-                Debug.Log($"   New Energy: {response.newEnergy}");
-                Debug.Log($"   USDC Paid: {response.usdcPaid}");
-                Debug.Log($"   Tx Hash: {response.txHash}");
+    //         if (response.success)
+    //         {
+    //             Debug.Log($"✅ Energy refilled with USDC!");
+    //             Debug.Log($"   New Energy: {response.newEnergy}");
+    //             Debug.Log($"   USDC Paid: {response.usdcPaid}");
+    //             Debug.Log($"   Tx Hash: {response.txHash}");
                 
-                // Get fresh energy count
-                var profile = await GameAPIClient.Instance.GetProfile();
-                int currentEnergy = profile?.player?.energy ?? response.newEnergy;
+    //             // Get fresh energy count
+    //             var profile = await GameAPIClient.Instance.GetProfile();
+    //             int currentEnergy = profile?.player?.energy ?? response.newEnergy;
                 
-                // Update energy UI
-                if (energyText != null)
-                {
-                    energyText.text = $"⚡ Energy: {currentEnergy}";
-                }
+    //             // Update energy UI
+    //             if (energyText != null)
+    //             {
+    //                 energyText.text = $"⚡ Energy: {currentEnergy}";
+    //             }
                 
-                // Show success with Basescan link
-                string basescanUrl = $"https://sepolia.basescan.org/tx/{response.txHash}";
+    //             // Show success with Basescan link
+    //             string basescanUrl = $"https://sepolia.basescan.org/tx/{response.txHash}";
                 
-                ShowStatus(
-                    $"✅ +300 Energy!\n💰 Spent: 0.1 USDC\n🔗 Opening transaction...", 
-                    Color.green
-                );
+    //             ShowStatus(
+    //                 $"✅ +300 Energy!\n💰 Spent: 0.1 USDC\n🔗 Opening transaction...", 
+    //                 Color.green
+    //             );
                 
-                Debug.Log($"🔗 View on Basescan: {basescanUrl}");
-                Application.OpenURL(basescanUrl);
-            }
-            else
-            {
-                ShowStatus("❌ Refill failed", Color.red);
-            }
+    //             Debug.Log($"🔗 View on Basescan: {basescanUrl}");
+    //             Application.OpenURL(basescanUrl);
+    //         }
+    //         else
+    //         {
+    //             ShowStatus("❌ Refill failed", Color.red);
+    //         }
             
-            if (refillEnergyUSDCButton != null) refillEnergyUSDCButton.interactable = true;
-        }
-        catch (Exception e)
-        {
-            Debug.LogError($"❌ USDC refill error: {e.Message}");
-            ShowStatus($"❌ Error: {e.Message}", Color.red);
+    //         if (refillEnergyUSDCButton != null) refillEnergyUSDCButton.interactable = true;
+    //     }
+    //     catch (Exception e)
+    //     {
+    //         Debug.LogError($"❌ USDC refill error: {e.Message}");
+    //         ShowStatus($"❌ Error: {e.Message}", Color.red);
             
-            if (refillEnergyUSDCButton != null) refillEnergyUSDCButton.interactable = true;
-        }
-    }
+    //         if (refillEnergyUSDCButton != null) refillEnergyUSDCButton.interactable = true;
+    //     }
+    // }
 
     // ============ Public Getters ============
 
