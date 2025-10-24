@@ -122,8 +122,11 @@ namespace IngameDebugConsole
 		// CompareInfo used for case-insensitive command name comparison
 		internal static readonly CompareInfo caseInsensitiveComparer = new CultureInfo( "en-US" ).CompareInfo;
 
-		[RuntimeInitializeOnLoadMethod( RuntimeInitializeLoadType.SubsystemRegistration )] // Configurable Enter Play Mode: https://docs.unity3d.com/Manual/DomainReloading.html
-		private static void ResetStatics()
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+
+        [RuntimeInitializeOnLoadMethod( RuntimeInitializeLoadType.SubsystemRegistration )] // Configurable Enter Play Mode: https://docs.unity3d.com/Manual/DomainReloading.html
+#endif
+        private static void ResetStatics()
 		{
 			methods.Clear();
 			OnCommandExecuted = null;

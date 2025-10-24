@@ -1,15 +1,5 @@
 {
   "dependencies": {
-    "com.solana.unity_sdk": {
-      "version": "https://github.com/magicblock-labs/Solana.Unity-SDK.git#v1.2.8",
-      "depth": 0,
-      "source": "git",
-      "dependencies": {
-        "com.unity.nuget.newtonsoft-json": "3.0.2",
-        "com.unity.textmeshpro": "3.0.6"
-      },
-      "hash": "1c81f0ba8f9ca47718ce044fef3b27da0a901980"
-    },
     "com.unity.2d.sprite": {
       "version": "1.0.0",
       "depth": 0,
@@ -115,13 +105,6 @@
     "com.unity.nuget.mono-cecil": {
       "version": "1.11.4",
       "depth": 2,
-      "source": "registry",
-      "dependencies": {},
-      "url": "https://packages.unity.com"
-    },
-    "com.unity.nuget.newtonsoft-json": {
-      "version": "3.2.1",
-      "depth": 1,
       "source": "registry",
       "dependencies": {},
       "url": "https://packages.unity.com"
@@ -249,14 +232,6 @@
         "com.unity.modules.jsonserialize": "1.0.0"
       },
       "url": "https://packages.unity.com"
-    },
-    "com.unity.textmeshpro": {
-      "version": "5.0.0",
-      "depth": 1,
-      "source": "builtin",
-      "dependencies": {
-        "com.unity.ugui": "2.0.0"
-      }
     },
     "com.unity.timeline": {
       "version": "1.8.9",

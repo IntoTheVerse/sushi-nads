@@ -1,10 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.Intotheverse.SushiBonks">
+	<!-- match your Unity package name -->
+
 	<application>
 		<activity
 			android:name="com.unity3d.player.UnityPlayerActivity"
 			android:theme="@style/UnityThemeSelector"
-			android:exported="true">
+			android:exported="true"
+			android:launchMode="singleTask">
 
 			<!-- App launcher -->
 			<intent-filter>
@@ -12,34 +16,15 @@
 				<category android:name="android.intent.category.LAUNCHER" />
 			</intent-filter>
 
-			<!-- Web3Auth deep link -->
-			<intent-filter>
+			<!-- Privy OAuth callback: scheme ONLY -->
+			<intent-filter android:label="Privy OAuth Callback">
 				<action android:name="android.intent.action.VIEW" />
 				<category android:name="android.intent.category.DEFAULT" />
 				<category android:name="android.intent.category.BROWSABLE" />
-				<!-- Must match Web3Auth.redirectUri -->
-				<data
-					android:scheme="torusapp"
-					android:host="com.torus.web3authunity"/>
-				<!-- If you plan to include a path in redirectUri, add: android:pathPrefix="/" -->
+				<data android:scheme="sushibonks" />
 			</intent-filter>
 
 			<meta-data android:name="unityplayer.UnityActivity" android:value="true" />
 		</activity>
-
-		<!-- Remove this entire block if you're not using GameActivity -->
-		<!--
-    <activity
-        android:name="com.unity3d.player.UnityPlayerGameActivity"
-        android:theme="@style/BaseUnityGameActivityTheme"
-        android:exported="true">
-      <intent-filter>
-        <action android:name="android.intent.action.MAIN" />
-        <category android:name="android.intent.category.LAUNCHER" />
-      </intent-filter>
-      <meta-data android:name="unityplayer.UnityActivity" android:value="true" />
-      <meta-data android:name="android.app.lib_name" android:value="game" />
-    </activity>
-    -->
 	</application>
 </manifest>
