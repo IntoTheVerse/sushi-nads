@@ -113,6 +113,14 @@ contract GameCore is Ownable, ReentrancyGuard {
         _;
     }
     
+    modifier onlyBackendOrSessionOwner(uint256 sessionId) {
+        // Allow backend signer OR the session owner's wallet
+        if (msg.sender != backendSigner && msg.sender != sessions[sessionId].player) {
+            revert UnauthorizedCaller();
+        }
+        _;
+    }
+    
     modifier hasChef(address player) {
         if (!chefNFT.playerHasChef(player)) revert NoChefNFT();
         _;
@@ -222,7 +230,7 @@ contract GameCore is Ownable, ReentrancyGuard {
      */
     function recordMove(uint256 sessionId) 
         external 
-        onlyBackend 
+        onlyBackendOrSessionOwner(sessionId) 
         sessionActive(sessionId) 
     {
         GameSession storage session = sessions[sessionId];
@@ -246,7 +254,7 @@ contract GameCore is Ownable, ReentrancyGuard {
      */
     function recordRecipeSpawned(uint256 sessionId) 
         external 
-        onlyBackend 
+        onlyBackendOrSessionOwner(sessionId) 
         sessionActive(sessionId) 
     {
         GameSession storage session = sessions[sessionId];
@@ -262,7 +270,7 @@ contract GameCore is Ownable, ReentrancyGuard {
      */
     function recordRecipeDelivered(uint256 sessionId) 
         external 
-        onlyBackend 
+        onlyBackendOrSessionOwner(sessionId) 
         sessionActive(sessionId) 
     {
         GameSession storage session = sessions[sessionId];
@@ -291,7 +299,7 @@ contract GameCore is Ownable, ReentrancyGuard {
      */
     function recordRecipeDiscarded(uint256 sessionId) 
         external 
-        onlyBackend 
+        onlyBackendOrSessionOwner(sessionId) 
         sessionActive(sessionId) 
     {
         GameSession storage session = sessions[sessionId];
@@ -311,7 +319,7 @@ contract GameCore is Ownable, ReentrancyGuard {
      */
     function recordWellCooked(uint256 sessionId) 
         external 
-        onlyBackend 
+        onlyBackendOrSessionOwner(sessionId) 
         sessionActive(sessionId) 
     {
         GameSession storage session = sessions[sessionId];
@@ -327,7 +335,7 @@ contract GameCore is Ownable, ReentrancyGuard {
      */
     function recordOverCooked(uint256 sessionId) 
         external 
-        onlyBackend 
+        onlyBackendOrSessionOwner(sessionId) 
         sessionActive(sessionId) 
     {
         GameSession storage session = sessions[sessionId];
