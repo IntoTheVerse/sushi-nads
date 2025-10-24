@@ -18,6 +18,7 @@ public class ChefManager : MonoBehaviour
     [Header("UI References")]
     [SerializeField] private GameObject mintPanel; // Panel to show/hide based on chef status
     [SerializeField] private GameObject playPanel; // Panel to show/hide based on chef status
+    [SerializeField] private Button playButton; // Play/Start Game button
 
     [SerializeField] private TMP_InputField chefNameInput;
     [SerializeField] private Button mintChefButton;
@@ -51,6 +52,11 @@ public class ChefManager : MonoBehaviour
         if (refillEnergyButton != null)
         {
             refillEnergyButton.onClick.AddListener(OnRefillEnergyClicked);
+        }
+        
+        if (playButton != null)
+        {
+            playButton.onClick.AddListener(OnPlayButtonClicked);
         }
         
         // if (refillEnergyUSDCButton != null)
@@ -480,6 +486,22 @@ public class ChefManager : MonoBehaviour
     //         if (refillEnergyUSDCButton != null) refillEnergyUSDCButton.interactable = true;
     //     }
     // }
+
+    // ============ Play Button ============
+    
+    private async void OnPlayButtonClicked()
+    {
+        // Start game session - SessionManager will handle it
+        if (SessionManager.Instance != null)
+        {
+            await SessionManager.Instance.StartGameSession();
+        }
+        else
+        {
+            Debug.LogError("❌ SessionManager not found! Add SessionManager GameObject to scene.");
+            ShowStatus("❌ Session manager missing", Color.red);
+        }
+    }
 
     // ============ Public Getters ============
 
