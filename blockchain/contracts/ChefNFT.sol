@@ -150,6 +150,37 @@ contract ChefNFT is ERC721, Ownable, ReentrancyGuard {
     }
     
     /**
+     * @notice Refill energy for a specific player (backend relays)
+     * @dev Takes USDC from player's wallet, not caller
+     * @param player Address of the player to refill energy for
+     */
+    function refillEnergyFor(address player) external nonReentrant {
+        if (!hasChef[player]) revert NoChefMinted();
+        
+        // Transfer USDC from PLAYER to owner (treasury)
+        bool success = usdcToken.transferFrom(player, owner(), energyRefillCost);
+        if (!success) revert InsufficientUSDC();
+        
+        // Add energy to player
+        playerEnergy[player] += ENERGY_REFILL_AMOUNT;
+        
+        emit EnergyRefilled(player, ENERGY_REFILL_AMOUNT, playerEnergy[player]);
+    }
+    
+    /**
+     * @notice FREE energy refill for testing (hackathon mode)
+     * @param player Address of the player to refill energy for
+     */
+    function freeEnergyRefill(address player) external nonReentrant {
+        if (!hasChef[player]) revert NoChefMinted();
+        
+        // Add energy without USDC payment (testing only!)
+        playerEnergy[player] += ENERGY_REFILL_AMOUNT;
+        
+        emit EnergyRefilled(player, ENERGY_REFILL_AMOUNT, playerEnergy[player]);
+    }
+    
+    /**
      * @notice Consume energy (called by GameCore contract)
      * @param player The player whose energy to consume
      * @param amount Amount of energy to consume
