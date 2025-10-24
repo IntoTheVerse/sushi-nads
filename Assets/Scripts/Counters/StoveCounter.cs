@@ -57,6 +57,12 @@ public class StoveCounter : BaseCounter, IHasProgress
                         OnProgressChanged?.Invoke(this, new IHasProgress.OnProgressChangedEventArgs {
                             progressNormalized = fryingTimer / fryingRecipeSO.fryingTimerMax
                         });
+                        
+                        // Record well-cooked to blockchain for scoring
+                        if (GameplayEventTracker.Instance != null)
+                        {
+                            GameplayEventTracker.Instance.RecordWellCooked();
+                        }
                     }
                     break;
                 case State.Fried:
@@ -76,6 +82,12 @@ public class StoveCounter : BaseCounter, IHasProgress
                         OnProgressChanged?.Invoke(this, new IHasProgress.OnProgressChangedEventArgs {
                             progressNormalized = 0f
                         });
+                        
+                        // Record overcooked to blockchain for scoring
+                        if (GameplayEventTracker.Instance != null)
+                        {
+                            GameplayEventTracker.Instance.RecordOverCooked();
+                        }
                     }
                     break;
                 case State.Burned:
