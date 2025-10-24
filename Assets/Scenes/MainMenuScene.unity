@@ -729,8 +729,8 @@ RectTransform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 768335422}
   - {fileID: 711293458}
+  - {fileID: 768335422}
   - {fileID: 1349771385}
   m_Father: {fileID: 1833682046}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -1938,12 +1938,12 @@ GameObject:
   - component: {fileID: 711293460}
   - component: {fileID: 711293459}
   m_Layer: 5
-  m_Name: LogInPanel
+  m_Name: LoginPanel
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &711293458
 RectTransform:
   m_ObjectHideFlags: 0
@@ -2039,9 +2039,9 @@ RectTransform:
   - {fileID: 1341973105}
   m_Father: {fileID: 214211583}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 350, y: -470}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 450, y: 120}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &736587378
@@ -2270,12 +2270,12 @@ GameObject:
   - component: {fileID: 768335424}
   - component: {fileID: 768335423}
   m_Layer: 5
-  m_Name: FirstScreen
+  m_Name: MintPanel
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &768335422
 RectTransform:
   m_ObjectHideFlags: 0
@@ -2992,9 +2992,9 @@ RectTransform:
   - {fileID: 17165925}
   m_Father: {fileID: 214211583}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 350, y: -330}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 600, y: 120}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1273262851
@@ -3283,7 +3283,7 @@ GameObject:
   - component: {fileID: 1349771387}
   - component: {fileID: 1349771386}
   m_Layer: 5
-  m_Name: Play
+  m_Name: PlaygamePanel
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -5174,9 +5174,9 @@ RectTransform:
   - {fileID: 2112509057}
   m_Father: {fileID: 214211583}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 350, y: -600}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 400, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1665871251
