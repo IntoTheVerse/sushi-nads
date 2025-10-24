@@ -28,13 +28,17 @@ public class PrivyAndroidLogin : MonoBehaviour
     [SerializeField] private GameObject loginPanel;
     [SerializeField] private GameObject playPanel;
     [SerializeField] private GameObject mintPanel;
+    [SerializeField] private GameObject SessionOverlayPanel;
+
 
     private static bool _inited;
 
     private void Awake()
     {
         if (loginButton) loginButton.onClick.AddListener(ShowLoginStep);
-        if (playButton) playButton.onClick.AddListener(() => SceneManager.LoadScene(2));
+        if (playButton) playButton.onClick.AddListener(() => {
+            SceneManager.LoadScene(2);
+         });
         if (quitButton) quitButton.onClick.AddListener(Application.Quit);
         if (logoutButton) logoutButton.onClick.AddListener(Logout);
     }
