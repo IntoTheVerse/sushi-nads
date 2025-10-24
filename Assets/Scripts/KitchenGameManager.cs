@@ -23,7 +23,7 @@ public class KitchenGameManager : MonoBehaviour
     private float waitingToStartTimer = 1f;
     private float countdownToStartTimer = 3f;
     private float gamePlayingTimer;
-    private float gamePlayingTimerMax = 1000f;
+    private float gamePlayingTimerMax = 600f; // 10 minutes
     private bool isGamePaused = false;
     public Button _playPause;
     public Sprite _playSprite;
@@ -71,6 +71,12 @@ public class KitchenGameManager : MonoBehaviour
                 if (gamePlayingTimer < 0f) {
                     state = State.GameOver;
                     OnStateChanged?.Invoke(this, EventArgs.Empty);
+                    
+                    // End blockchain session when game timer hits 0
+                    if (SessionManager.Instance != null && SessionManager.Instance.IsSessionActive())
+                    {
+                        SessionManager.Instance.OnGameTimeUp();
+                    }
                 }
                 break;
             case State.GameOver:
