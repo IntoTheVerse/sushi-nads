@@ -10,16 +10,19 @@ public class PrivyAndroidLogin : MonoBehaviour
     [Header("Privy Dashboard")]
     [SerializeField] private string appId = "YOUR_APP_ID";
     [SerializeField] private string clientId = "YOUR_CLIENT_ID";
+    private const string PRIVY_REDIRECT = "sushibonks://";
 
     [Header("UI")]
     [SerializeField] private Button playButton;
     [SerializeField] private Button quitButton;
     [SerializeField] private Button loginButton;
+    [SerializeField] private Button logoutButton;
     [SerializeField] private Button googleLoginButton;
     [SerializeField] private Button xLoginButton;
     [SerializeField] private TMP_InputField emailField;
     [SerializeField] private TMP_InputField otpField;
     [SerializeField] private TMP_Text statusLabel;
+    [SerializeField] private GameObject loginPanel;
 
     private static bool _inited;
 
@@ -28,6 +31,7 @@ public class PrivyAndroidLogin : MonoBehaviour
         if (loginButton) loginButton.onClick.AddListener(ShowLoginStep);
         if (playButton) playButton.onClick.AddListener(() => SceneManager.LoadScene(2));
         if (quitButton) quitButton.onClick.AddListener(Application.Quit);
+        if (logoutButton) logoutButton.onClick.AddListener(Logout);
     }
 
     private async void Start()
@@ -39,7 +43,7 @@ public class PrivyAndroidLogin : MonoBehaviour
         googleLoginButton.onClick.AddListener(LoginWithGoogle);
         Debug.Log($"Initialising with appId {appId} clientId {clientId} Package={Application.identifier}");
         PrivyManager.Initialize(new PrivyConfig { AppId = appId, ClientId = clientId });
-
+        await ResumeSessionAsync();
         // Non-blocking warmup; ok if it times out in Editor
         var warm = PrivyManager.Instance.GetAuthState();
         await System.Threading.Tasks.Task.WhenAny(warm, System.Threading.Tasks.Task.Delay(3000));
@@ -61,9 +65,19 @@ public class PrivyAndroidLogin : MonoBehaviour
     private void RefreshButtons()
     {
         bool isLoggedIn = PrivyManager.Instance?.User != null;
+        if (isLoggedIn) { loginPanel.SetActive(!isLoggedIn); }
+        else if (!isLoggedIn)
+        {
+            otpField.text = string.Empty;
+            loginPanel.SetActive(!isLoggedIn);
+        }
         if (playButton) { playButton.gameObject.SetActive(isLoggedIn); playButton.interactable = isLoggedIn; }
         if (loginButton) { loginButton.gameObject.SetActive(!isLoggedIn); loginButton.interactable = !isLoggedIn; }
         if (quitButton) quitButton.gameObject.SetActive(true);
+        if (logoutButton)
+        {
+            logoutButton.interactable = isLoggedIn;
+        }
     }
 
     private void Log(string msg) { Debug.Log(msg); if (statusLabel) statusLabel.text = msg; }
@@ -135,12 +149,68 @@ public class PrivyAndroidLogin : MonoBehaviour
             await user.CreateWallet();
         Debug.Log("Wallet: " + (PrivyManager.Instance?.User?.EmbeddedWallets?.FirstOrDefault()?.Address ?? "(none)"));
     }
-    void OnEnable() => Application.deepLinkActivated += OnDeepLink;
-    void OnDisable() => Application.deepLinkActivated -= OnDeepLink;
-    void OnDeepLink(string url) { Debug.Log("Deep link: " + url); }
+    void OnEnable()
+    {
+        try
+        {
+            PrivyManager.Instance?.SetAuthStateChangeCallback(async state =>
+            {
+                if (PrivyManager.Instance.User != null)
+                {
+                    await EnsureWalletAsync();
+                    Log("Wallet: " + GetAddress());
+                }
+                RefreshButtons();
+            });
+        }
+        catch { }
+        Application.deepLinkActivated += OnDeepLink;
+    }
+    void OnDisable()
+    {
+        try { PrivyManager.Instance?.SetAuthStateChangeCallback(null); } catch { }
 
+        Application.deepLinkActivated -= OnDeepLink;
+    }
+    void OnDeepLink(string url) { Debug.Log("Deep link: " + url); }
+    private async System.Threading.Tasks.Task ResumeSessionAsync()
+    {
+        try
+        {
+            // Ask Privy to hydrate any existing session
+            await PrivyManager.Instance.GetAuthState();
+
+            // If a session exists, User will be populated
+            if (PrivyManager.Instance.User != null)
+            {
+                await EnsureWalletAsync();
+                Log("Wallet: " + GetAddress());
+                loginPanel.SetActive(false);
+            }
+            else
+            {
+                logoutButton.interactable = false;
+            }
+        }
+        catch { /* ignore */ }
+        RefreshButtons();
+    }
+
+    public async void Logout()
+    {
+        try
+        {
+           PrivyManager.Instance.Logout();   // if your SDK is sync: PrivyManager.Instance.Logout();
+            logoutButton.interactable=false;
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning("Logout failed: " + e.Message);
+        }
+        RefreshButtons();
+        Log("Logged out");
+    }
     // ---------- NEW: Google ----------
-    private const string PRIVY_REDIRECT = "https://auth.privy.io/api/v1/oauth/callback";
 
     public async void LoginWithGoogle()
     {
