@@ -15,7 +15,7 @@
 
 ## 🎬 Demo Video
 
-> 📹 **[Watch Demo Video →](#)** *(Coming Soon)*
+> 📹 **[Watch Demo Video →](https://youtu.be/WEU-MKhzGz4)** *(Coming Soon)*
 
 ---
 
