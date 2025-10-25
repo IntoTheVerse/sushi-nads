@@ -496,6 +496,158 @@ sushi-bonks/
 
 ---
 
+## 💰 Business Model & GTM Strategy
+
+### **Revenue Model**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      REVENUE STREAMS                             │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  PRIMARY: Energy Refills                                         │
+│  ├─ 0.1 USDC → +300 Energy (1 session = 5 energy)              │
+│  ├─ $10 → 100 refills → 6,000 sessions                         │
+│  └─ Paid on Base (low fees, instant)                            │
+│                                                                  │
+│  FUTURE: Microtransactions & Upgrades                           │
+│  ├─ 🎁 Chef Skin Packs (NFT cosmetics)                         │
+│  ├─ ⚡ Power-up Boosters (2x speed, auto-cook)                 │
+│  ├─ 🏆 Season Battle Passes                                     │
+│  ├─ 🎯 Recipe Expansion Packs                                   │
+│  └─ 💎 Premium Chef Upgrades                                    │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### **Go-To-Market Strategy**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    COMMUNITY-DRIVEN GROWTH                       │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  PHASE 1: NFT Community Factions 🎭                             │
+│  ┌──────────────────────────────────────────────────────┐      │
+│  │  Ape Faction       vs  Punks Faction  vs  Degen Faction     │
+│  │  (BAYC Chefs)         (CryptoPunk Chefs)  (Milady Chefs)    │
+│  └──────────────────────────────────────────────────────┘      │
+│  │                                                               │
+│  ├─ Each NFT community has unique Chef skins                    │
+│  ├─ Faction-based leaderboards & rivalries                      │
+│  ├─ Community tournaments with memecoin rewards                 │
+│  └─ Holders get free Chef mints from their faction              │
+│                                                                  │
+│  PHASE 2: Memecoin Rewards 🪙                                   │
+│  ┌──────────────────────────────────────────────────────┐      │
+│  │  Top Players Earn:                                            │
+│  │  ├─ $DEGEN rewards for high scores                           │
+│  │  ├─ $BONK airdrops for streaks                               │
+│  │  ├─ Partner memecoin prizes                                  │
+│  │  └─ Exclusive NFT rewards                                    │
+│  └──────────────────────────────────────────────────────┘      │
+│                                                                  │
+│  PHASE 3: Competitive Seasons 🏆                                │
+│  ├─ Monthly tournaments (entry fee in USDC)                     │
+│  ├─ Prize pools in ETH + memecoins                              │
+│  ├─ Season-exclusive power-ups & skins                          │
+│  └─ Faction wars with community prizes                          │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### **Economics Breakdown**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    PLAYER ECONOMICS                              │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  Energy System:                                                  │
+│  ├─ Free Chef Mint (300 starting energy)                        │
+│  ├─ 5 energy per session (10 min gameplay)                      │
+│  ├─ 0.1 USDC refill = 300 energy = 60 sessions                 │
+│  └─ Cost per session: ~$0.0017 USD                              │
+│                                                                  │
+│  Value Proposition:                                              │
+│  ├─ $10 investment = 100 refills = 6,000 sessions              │
+│  ├─ 6,000 sessions × 10 min = 1,000 hours of gameplay          │
+│  └─ Cost: $0.01 per hour (cheaper than any F2P game!)          │
+│                                                                  │
+│  Monetization Funnel:                                            │
+│  ┌────────────────────────────────────────────────────┐         │
+│  │  100 Players                                                  │
+│  │    ├─ 80 Free Players (use starting energy)                  │
+│  │    ├─ 15 Casual Refills ($1-10/month)                        │
+│  │    └─ 5 Power Players ($50+/month with power-ups)            │
+│  └────────────────────────────────────────────────────┘         │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### **Growth Loop**
+
+```
+                  New Player Onboarding
+                         ↓
+              ┌─────────────────────┐
+              │  Free Chef Mint     │
+              │  (300 Energy)       │
+              └─────────────────────┘
+                         ↓
+              ┌─────────────────────┐
+              │  Play 60 Sessions   │
+              │  (Learn the game)   │
+              └─────────────────────┘
+                         ↓
+                    CONVERSION
+                         ↓
+              ┌─────────────────────┐
+              │  First Refill       │
+              │  ($0.10 USDC)       │
+              └─────────────────────┘
+                         ↓
+              ┌─────────────────────┐
+              │  Join Faction       │
+              │  (NFT Community)    │
+              └─────────────────────┘
+                         ↓
+              ┌─────────────────────┐
+              │  Compete in         │
+              │  Tournaments        │
+              └─────────────────────┘
+                         ↓
+              ┌─────────────────────┐
+              │  Win Memecoin       │
+              │  Rewards            │
+              └─────────────────────┘
+                         ↓
+              ┌─────────────────────┐
+              │  Invite Friends     │
+              │  to Faction         │
+              └─────────────────────┘
+                         ↓
+                  (Loop repeats)
+```
+
+### **Competitive Edge**
+
+**Why Players Will Pay:**
+- ✅ **Fair Economics:** $0.01/hour cheaper than any mobile game
+- ✅ **Community:** NFT faction rivalries create engagement
+- ✅ **Rewards:** Earn memecoins while playing
+- ✅ **Ownership:** Your Chef & progress on-chain forever
+- ✅ **Low Friction:** Base L2 = minimal gas fees
+
+**Why Communities Will Participate:**
+- 🎭 **Faction Pride:** Represent your NFT community
+- 🏆 **Community Tournaments:** Win prizes for your faction
+- 📈 **Floor Price Impact:** Active utility drives NFT demand
+- 🤝 **Partnerships:** Memecoin integrations bring liquidity
+- 🎮 **Engagement:** Keep holders active in bear markets
+
+---
+
 ## 🤝 Contributing
 
 We welcome contributions! Whether it's:
