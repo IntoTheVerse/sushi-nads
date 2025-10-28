@@ -1,5 +1,6 @@
 import express from 'express';
 import { gameCore } from '../services/blockchain.service.js';
+import { queueTransaction } from '../services/transactionQueue.service.js';
 import { addSessionSignerToWallet, sendSponsoredTransaction } from '../services/privy.service.js';
 import { requireAuth } from '../middleware/auth.js';
 import { validateSessionId } from '../middleware/validation.js';
@@ -90,28 +91,18 @@ router.post('/recipe-spawned', requireAuth, validateSessionId, async (req, res, 
 router.post('/recipe-delivered', requireAuth, validateSessionId, async (req, res, next) => {
     try {
         const { sessionId } = req;
-        const user = req.user;
         
         console.log(`✅ Recipe delivered in session ${sessionId}`);
         
-        // Get user's wallet ID
-        const wallet = user.linked_accounts?.find(a => a.type === 'wallet');
-        if (!wallet) {
-            return res.status(400).json({ error: 'No wallet found' });
-        }
+        // Queue transaction to prevent nonce conflicts
+        const receipt = await queueTransaction(
+            () => gameCore.recordRecipeDelivered(sessionId),
+            `Recipe Delivery (Session ${sessionId})`
+        );
         
-        // Encode function call
-        const data = gameCore.interface.encodeFunctionData('recordRecipeDelivered', [sessionId]);
-        
-        // Send sponsored transaction
-        const txResponse = await sendSponsoredTransaction(wallet.wallet_id, {
-            to: process.env.GAMECORE_ADDRESS,
-            data,
-            value: '0x0'
-        });
-        
-        res.json({ success: true, txHash: txResponse.hash, gasSponsored: true });
+        res.json({ success: true, txHash: receipt.hash, gasSponsored: true });
     } catch (error) {
+        console.error(`❌ Failed to record recipe delivery:`, error.message);
         next(error);
     }
 });
@@ -124,13 +115,17 @@ router.post('/recipe-discarded', requireAuth, validateSessionId, async (req, res
     try {
         const { sessionId } = req;
         
-        console.log(`❌ Recipe discarded in session ${sessionId}`);
+        console.log(`🗑️  Recipe discarded in session ${sessionId}`);
         
-        const tx = await gameCore.recordRecipeDiscarded(sessionId);
-        await tx.wait();
+        // Queue transaction to prevent nonce conflicts
+        const receipt = await queueTransaction(
+            () => gameCore.recordRecipeDiscarded(sessionId),
+            `Recipe Discard (Session ${sessionId})`
+        );
         
-        res.json({ success: true });
+        res.json({ success: true, txHash: receipt.hash, gasSponsored: true });
     } catch (error) {
+        console.error(`❌ Failed to record discard:`, error.message);
         next(error);
     }
 });
@@ -143,11 +138,17 @@ router.post('/well-cooked', requireAuth, validateSessionId, async (req, res, nex
     try {
         const { sessionId } = req;
         
-        const tx = await gameCore.recordWellCooked(sessionId);
-        await tx.wait();
+        console.log(`🔥 Well-cooked ingredient in session ${sessionId}`);
         
-        res.json({ success: true });
+        // Queue transaction to prevent nonce conflicts
+        const receipt = await queueTransaction(
+            () => gameCore.recordWellCooked(sessionId),
+            `Well-Cooked (Session ${sessionId})`
+        );
+        
+        res.json({ success: true, txHash: receipt.hash, gasSponsored: true });
     } catch (error) {
+        console.error(`❌ Failed to record well-cooked:`, error.message);
         next(error);
     }
 });
@@ -160,11 +161,17 @@ router.post('/over-cooked', requireAuth, validateSessionId, async (req, res, nex
     try {
         const { sessionId } = req;
         
-        const tx = await gameCore.recordOverCooked(sessionId);
-        await tx.wait();
+        console.log(`💀 Overcooked ingredient in session ${sessionId}`);
         
-        res.json({ success: true });
+        // Queue transaction to prevent nonce conflicts
+        const receipt = await queueTransaction(
+            () => gameCore.recordOverCooked(sessionId),
+            `Overcooked (Session ${sessionId})`
+        );
+        
+        res.json({ success: true, txHash: receipt.hash, gasSponsored: true });
     } catch (error) {
+        console.error(`❌ Failed to record overcooked:`, error.message);
         next(error);
     }
 });
@@ -209,13 +216,15 @@ async function flushQueue(sessionId) {
         try {
             console.log(`📦 Flushing ${moves.length} moves for session ${sessionId}`);
             
-            // Submit each move (could optimize with multicall in future)
+            // Submit each move using transaction queue to prevent nonce conflicts
             for (let i = 0; i < moves.length; i++) {
-                const tx = await gameCore.recordMove(sessionId);
-                await tx.wait();
+                await queueTransaction(
+                    () => gameCore.recordMove(sessionId),
+                    `Move ${i + 1}/${moves.length} (Session ${sessionId})`
+                );
             }
             
-            console.log(`   ✅ Flushed successfully`);
+            console.log(`   ✅ Flushed ${moves.length} moves successfully`);
         } catch (error) {
             console.error('Flush queue error:', error.message);
         }

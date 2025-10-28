@@ -229,6 +229,13 @@ public class Player : MonoBehaviour, IKitchenObjectParent
                 isStepping = false;
                 isWalking = false;
                 StepCount++;
+                
+                // Record move to blockchain for scoring
+                if (GameplayEventTracker.Instance != null)
+                {
+                    GameplayEventTracker.Instance.RecordMove();
+                }
+                
                 // If we are in hold-to-repeat mode, trigger next step timing
                 if (isMoveHeld) {
                     holdTimer = holdRepeatInterval; // subsequent repeats

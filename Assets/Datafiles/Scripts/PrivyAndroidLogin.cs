@@ -28,13 +28,17 @@ public class PrivyAndroidLogin : MonoBehaviour
     [SerializeField] private GameObject loginPanel;
     [SerializeField] private GameObject playPanel;
     [SerializeField] private GameObject mintPanel;
+    [SerializeField] private GameObject SessionOverlayPanel;
+
 
     private static bool _inited;
 
     private void Awake()
     {
         if (loginButton) loginButton.onClick.AddListener(ShowLoginStep);
-        if (playButton) playButton.onClick.AddListener(() => SceneManager.LoadScene(2));
+        if (playButton) playButton.onClick.AddListener(() => {
+            SceneManager.LoadScene(2);
+         });
         if (quitButton) quitButton.onClick.AddListener(Application.Quit);
         if (logoutButton) logoutButton.onClick.AddListener(Logout);
     }
@@ -70,7 +74,9 @@ public class PrivyAndroidLogin : MonoBehaviour
     private void RefreshButtons()
     {
         bool isLoggedIn = PrivyManager.Instance?.User != null;
-        if (isLoggedIn) { loginPanel.SetActive(!isLoggedIn); }
+        if (isLoggedIn) { 
+            mintPanel.SetActive(isLoggedIn);
+            loginPanel.SetActive(!isLoggedIn); }
         else if (!isLoggedIn)
         {
             otpField.text = string.Empty;
@@ -161,9 +167,7 @@ public class PrivyAndroidLogin : MonoBehaviour
         if (user != null && !user.EmbeddedWallets.Any())
             await user.CreateWallet();
 
-        // Save Privy auth token for API calls
-        SaveAuthToken();
-
+        // No token needed - using wallet-based auth
         Log("Login complete. Wallet: " + GetAddress());
         RefreshButtons();
     }
@@ -315,7 +319,6 @@ public class PrivyAndroidLogin : MonoBehaviour
             // provider keys are typically "google" and "x" (sometimes "twitter")
             await PrivyManager.Instance.OAuth.LoginWithProvider(OAuthProvider.Google, PRIVY_REDIRECT);
             await EnsureWalletAsync();
-            SaveAuthToken(); // Save auth token for API calls
             Log("Google login complete. " + GetAddress());
             RefreshButtons();
         }
@@ -329,7 +332,6 @@ public class PrivyAndroidLogin : MonoBehaviour
         {
             await PrivyManager.Instance.OAuth.LoginWithProvider(OAuthProvider.Twitter, PRIVY_REDIRECT); // if this errors, try "twitter"
             await EnsureWalletAsync();
-            SaveAuthToken(); // Save auth token for API calls
             Log("X login complete. " + GetAddress());
             RefreshButtons();
         }

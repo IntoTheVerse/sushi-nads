@@ -41,7 +41,7 @@ public class GameAPIClient : MonoBehaviour
         return wallet?.Address ?? "";
     }
 
-    private async Task<T> SendRequestAsync<T>(string endpoint, string method, object body = null)
+    private async Task<T> SendRequestAsync<T>(string endpoint, string method, object body = null, int timeoutSeconds = 30)
     {
         string url = $"{baseUrl}{endpoint}";
         
@@ -56,6 +56,8 @@ public class GameAPIClient : MonoBehaviour
         
         using (UnityWebRequest request = new UnityWebRequest(url, method))
         {
+            // Set timeout (important for slow blockchain operations)
+            request.timeout = timeoutSeconds;
             // Setup request body
             if (body != null)
             {
@@ -128,6 +130,11 @@ public class GameAPIClient : MonoBehaviour
         return await SendRequestAsync<RefillEnergyResponse>("/api/chef/refill-energy", "POST");
     }
 
+    public async Task<RefillEnergyResponse> RefillEnergyWithUSDC()
+    {
+        return await SendRequestAsync<RefillEnergyResponse>("/api/chef/refill-energy-usdc", "POST");
+    }
+
     // ============ Session APIs ============
 
     public async Task<StartSessionResponse> StartSession()
@@ -141,7 +148,8 @@ public class GameAPIClient : MonoBehaviour
         Debug.Log($"🏁 Ending session {sessionId}...");
         
         var body = new { sessionId };
-        return await SendRequestAsync<EndSessionResponse>("/api/session/end", "POST", body);
+        // Longer timeout for session end (score computation can be slow)
+        return await SendRequestAsync<EndSessionResponse>("/api/session/end", "POST", body, timeoutSeconds: 60);
     }
 
     public async Task<CurrentSessionResponse> GetCurrentSession()
@@ -244,6 +252,8 @@ public class RefillEnergyResponse
     public bool success;
     public int newEnergy;
     public string txHash;
+    public string message;
+    public string usdcPaid; // Amount of USDC paid (e.g., "0.1")
 }
 
 [Serializable]

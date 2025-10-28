@@ -68,7 +68,13 @@ public class DeliveryManager : MonoBehaviour
                     waitingRecipeSOList.RemoveAt(i);
                     OnRecipeCompleted?.Invoke(this, EventArgs.Empty);
                     OnRecipeSuccess?.Invoke(this, EventArgs.Empty);
-                    // successfulRecipesAmount++;
+                    
+                    // Record delivery to blockchain for scoring
+                    if (GameplayEventTracker.Instance != null)
+                    {
+                        GameplayEventTracker.Instance.RecordRecipeDelivery();
+                    }
+                    
                     return;
                 }
             }
