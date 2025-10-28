@@ -103,7 +103,21 @@ async function getSessionData(sessionId) {
     }
 }
 
-// Get session ID from command line
-const sessionId = process.argv[2] || 5;
+// Get session ID from command line with validation
+let arg = process.argv[2];
+let sessionId;
+
+if (arg === undefined) {
+    sessionId = 5;
+} else {
+    // Support decimal (and guard against accidental strings like "node")
+    const parsed = Number(arg);
+    if (!Number.isFinite(parsed) || Number.isNaN(parsed) || parsed < 0) {
+        console.error(`❌ Invalid session id: ${arg}. Please provide a positive integer (e.g., 1).`);
+        process.exit(1);
+    }
+    sessionId = Math.floor(parsed);
+}
+
 getSessionData(sessionId).then(() => process.exit(0));
 

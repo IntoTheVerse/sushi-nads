@@ -36,9 +36,9 @@ public class PrivyAndroidLogin : MonoBehaviour
     private void Awake()
     {
         if (loginButton) loginButton.onClick.AddListener(ShowLoginStep);
-        if (playButton) playButton.onClick.AddListener(() => {
+/*        if (playButton) playButton.onClick.AddListener(() => {
             SceneManager.LoadScene(2);
-         });
+         });*/
         if (quitButton) quitButton.onClick.AddListener(Application.Quit);
         if (logoutButton) logoutButton.onClick.AddListener(Logout);
     }

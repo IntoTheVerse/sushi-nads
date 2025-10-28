@@ -29,6 +29,8 @@ public class ChefManager : MonoBehaviour
     [SerializeField] private TMP_Text chefTokenIdText;
     [SerializeField] private TMP_Text energyText;
 
+    private int energyVal;
+
     [Header("Chef NFT Data")]
     private string chefName;
     private int tokenId;
@@ -236,7 +238,8 @@ public class ChefManager : MonoBehaviour
                 {
                     ShowStatus($"✅ {chefName} #{tokenId} | Gas: FREE (sponsored)", Color.green);
                 }
-                
+                playPanel.SetActive(true);
+
                 Debug.Log($"✅ Chef NFT minted successfully!");
                 Debug.Log($"   Name: {chefName}");
                 Debug.Log($"   Token ID: {tokenId}");
@@ -302,6 +305,7 @@ public class ChefManager : MonoBehaviour
     private void UpdateUI(PlayerProfileResponse profile)
     {
         // Update energy display
+        energyVal = profile.player.energy;
         if (energyText != null)
         {
             energyText.text = $"⚡ Energy: {profile.player.energy}";
@@ -492,6 +496,11 @@ public class ChefManager : MonoBehaviour
     private async void OnPlayButtonClicked()
     {
         // Start game session - SessionManager will handle it
+        if (energyVal < 5)
+        {
+            ShowStatus("❌ Refill more energy", Color.red);
+            return;
+        }
         if (SessionManager.Instance != null)
         {
             await SessionManager.Instance.StartGameSession();
