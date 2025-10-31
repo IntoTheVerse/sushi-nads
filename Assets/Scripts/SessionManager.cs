@@ -12,11 +12,12 @@ using TMPro;
 public class SessionManager : MonoBehaviour
 {
     public static SessionManager Instance { get; private set; }
+    public GameOverUI _gameOverUI = null;
 
     [Header("UI References - Game Scene Only")]
-    [SerializeField] private TMP_Text sessionStatusText; // Optional: show "Session #1 Active"
-    [SerializeField] private GameObject scorePopup; // Score popup panel
-    [SerializeField] private TMP_Text finalScoreText; // Final score display
+    //[SerializeField] private TMP_Text sessionStatusText; // Optional: show "Session #1 Active"
+    //[SerializeField] private GameObject scorePopup; // Score popup panel
+    //[SerializeField] private TMP_Text finalScoreText; // Final score display
 
     [Header("Session Data")]
     private int currentSessionId = 0;
@@ -37,9 +38,12 @@ public class SessionManager : MonoBehaviour
     private void Start()
     {
         // Initially hide score popup
-        if (scorePopup != null) scorePopup.SetActive(false);
+        //if (scorePopup != null) scorePopup.SetActive(false);
     }
-
+    public void AssignGameOver(GameOverUI obj)
+    {
+        _gameOverUI = obj;
+    }
     private void Update()
     {
         // DEBUG: Press ESC to manually end session (testing only)
@@ -206,42 +210,53 @@ public class SessionManager : MonoBehaviour
 
     private void ShowScorePopup(int score, string txHash)
     {
-        if (scorePopup != null)
+        if(_gameOverUI != null)
         {
-            scorePopup.SetActive(true);
-            
-            if (finalScoreText != null)
-            {
-                if (score > 0 && !string.IsNullOrEmpty(txHash))
+            _gameOverUI.scroreTxt.text = score.ToString();
+            Debug.Log($"<- Score {score}");
+        }
+        else
+        {
+            Debug.Log($"<- gameoverUI is null");
+        }
+        Debug.Log($"-> Score {score}");
+        /*        if (scorePopup != null)
                 {
-                    // Normal case - we got the score
-                    finalScoreText.text = $"🎉 Game Over!\n\nFinal Score: {score}\n\n🔗 View on Basescan";
-                }
-                else
-                {
-                    // Timeout case - session ended but we didn't get score
-                    finalScoreText.text = $"⏰ Game Over!\n\nScore computed on-chain\n(Check your profile for final score)";
-                }
-            }
-            
-            // Open transaction on Basescan if we have it
-            if (!string.IsNullOrEmpty(txHash))
-            {
-                string basescanUrl = $"https://sepolia.basescan.org/tx/{txHash}";
-                Debug.Log($"🔗 Score transaction: {basescanUrl}");
-                Application.OpenURL(basescanUrl);
-            }
+                    scorePopup.SetActive(true);
+
+                    if (finalScoreText != null)
+                    {
+                        if (score > 0 && !string.IsNullOrEmpty(txHash))
+                        {
+                            // Normal case - we got the score
+                            finalScoreText.text = $"🎉 Game Over!\n\nFinal Score: {score}\n\n🔗 View on Basescan";
+                        }
+                        else
+                        {
+                            // Timeout case - session ended but we didn't get score
+                            finalScoreText.text = $"⏰ Game Over!\n\nScore computed on-chain\n(Check your profile for final score)";
+                        }
+                    }
+
+                    // Open transaction on Basescan if we have it
+
+                }*/
+        if (!string.IsNullOrEmpty(txHash))
+        {
+            string basescanUrl = $"https://sepolia.basescan.org/tx/{txHash}";
+            Debug.Log($"🔗 Score transaction: {basescanUrl}");
+            Application.OpenURL(basescanUrl);
         }
     }
 
     private void UpdateSessionStatus(string message, Color color)
     {
-        if (sessionStatusText != null)
+        /*if (sessionStatusText != null)
         {
             sessionStatusText.text = message;
             sessionStatusText.color = color;
         }
-        
+        */
         Debug.Log($"[SessionManager] {message}");
     }
 

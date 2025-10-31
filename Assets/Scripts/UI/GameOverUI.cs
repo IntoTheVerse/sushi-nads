@@ -6,7 +6,9 @@ using System.Collections.Generic;
 
 public class GameOverUI : MonoBehaviour
 {
+    public static GameOverUI instance;
     [SerializeField] private TextMeshProUGUI recipesDeliveredText;
+    [SerializeField] public TextMeshProUGUI scroreTxt;
 
     
     private void Start() {
@@ -16,6 +18,7 @@ public class GameOverUI : MonoBehaviour
             Debug.LogError("KitchenGameManager.Instance is null in GameStartCountdownUI.Start()");
         }
         Hide();
+        SessionManager.Instance.AssignGameOver(this);
     }
 
 
