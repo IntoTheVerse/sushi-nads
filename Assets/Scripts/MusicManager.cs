@@ -1,64 +1,76 @@
-using TMPro;
 using UnityEngine;
+using System.Collections.Generic;
 
 public class MusicManager : MonoBehaviour
 {
-    private const string PLAYER_PREFS_MUSIC_VOLUME = "MusicVolume";
     public static MusicManager Instance { get; private set; }
-    public TMP_Text _toggleText;
-    [SerializeField] private bool onMeansMuted = true; // set true if "switch ON" == mute
-    private const string PLAYER_PREFS_MUTE = "GlobalMute";
-    private bool isMuted;
-    private AudioSource audioSource;
-    private float volume = 0.3f;
 
-    private void Awake() {
+    [SerializeField] private AudioSource musicSource;     // non-spatial
+    [SerializeField] private List<AudioClip> playlist = new();
+    [SerializeField] private bool playOnStart = true;
+
+    private const string MUSIC_VOL_KEY = "MUSIC_VOLUME";
+    private const string MUSIC_IDX_KEY = "MUSIC_TRACK_INDEX";
+
+    private float musicVolume = 1f;   // 0..1
+    private int currentIndex = 0;
+
+    private void Awake()
+    {
+        if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
-        audioSource = GetComponent<AudioSource>();
-        volume = PlayerPrefs.GetFloat(PLAYER_PREFS_MUSIC_VOLUME, 0.3f);
-        audioSource.volume = volume;
 
-        isMuted = PlayerPrefs.GetInt(PLAYER_PREFS_MUTE, 0) == 1;
-        ApplyMute(isMuted);
-        UpdateToggleText();
+        if (!musicSource) musicSource = gameObject.AddComponent<AudioSource>();
+        musicSource.loop = true;
+        musicSource.playOnAwake = false;
+        musicSource.spatialBlend = 0f;
+
+        musicVolume = Mathf.Clamp01(PlayerPrefs.GetFloat(MUSIC_VOL_KEY, 1f));
+        currentIndex = Mathf.Clamp(PlayerPrefs.GetInt(MUSIC_IDX_KEY, 0), 0, Mathf.Max(0, playlist.Count - 1));
+        musicSource.volume = musicVolume;
+
+        if (playOnStart) PlayCurrent();
     }
 
-    private void Start() {
-        audioSource.volume = volume;
-    }
-    // Add these small helpers anywhere in the class
-    private void ApplyMute(bool mute)
+    public float GetVolume() => musicVolume;
+
+    public void SetVolume(float v)
     {
-        AudioListener.volume = mute ? 0f : 1f;   // mutes the whole game
-        if (audioSource) audioSource.mute = mute; // belt & suspenders for music
+        musicVolume = Mathf.Clamp01(v);
+        musicSource.volume = musicVolume;
+        PlayerPrefs.SetFloat(MUSIC_VOL_KEY, musicVolume);
     }
 
-    private void UpdateToggleText()
+    public void NextTrack()
     {
-        if (_toggleText) _toggleText.text = isMuted ? "OFF" : "ON";
+        if (playlist == null || playlist.Count == 0) return;
+        currentIndex = (currentIndex + 1) % playlist.Count;
+        PlayerPrefs.SetInt(MUSIC_IDX_KEY, currentIndex);
+        PlayCurrent();
     }
 
-    public void SoundToggle(bool val)
+    public void PrevTrack()
     {
-        isMuted = onMeansMuted ? val : !val;
-        ApplyMute(isMuted);
-        PlayerPrefs.SetInt(PLAYER_PREFS_MUTE, isMuted ? 1 : 0);
-        PlayerPrefs.Save();
-        UpdateToggleText();
-
+        if (playlist == null || playlist.Count == 0) return;
+        currentIndex = (currentIndex - 1 + playlist.Count) % playlist.Count;
+        PlayerPrefs.SetInt(MUSIC_IDX_KEY, currentIndex);
+        PlayCurrent();
     }
 
-    public void ChangeVolume() {
-        volume += 0.1f;
-        if (volume > 1f) {
-            volume = 0f;
-        }
-        audioSource.volume = volume;
-        PlayerPrefs.SetFloat(PLAYER_PREFS_MUSIC_VOLUME, volume);
-        PlayerPrefs.Save();
+    public int GetCurrentTrackIndex() => currentIndex;
+
+    public string GetCurrentTrackDisplayName()
+    {
+        if (playlist == null || playlist.Count == 0) return "No Music";
+        var clip = playlist[currentIndex];
+        return clip ? clip.name : $"Music {currentIndex + 1}";
     }
 
-    public float GetVolume() {
-        return volume;
+    private void PlayCurrent()
+    {
+        if (playlist == null || playlist.Count == 0) return;
+        var clip = playlist[currentIndex]; if (!clip) return;
+        musicSource.clip = clip;
+        musicSource.Play();
     }
 }

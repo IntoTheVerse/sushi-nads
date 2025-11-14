@@ -23,7 +23,7 @@ public class GeneralSimpleUI : MonoBehaviour {
 
 		LeanTween.value(gameObject, 1f, 0.5f, 1f ).setOnUpdate( 
 			(float volume)=>{
-				Debug.Log("volume:"+volume);
+				Debug.Log("_volume:"+volume);
 			}
 		);
 

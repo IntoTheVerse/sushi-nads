@@ -35,6 +35,8 @@ public class PrivyAndroidLogin : MonoBehaviour
 
     private void Awake()
     {
+        _loginBtnTxt.text = "Send otp";
+        loginButton.interactable = false;
         if (loginButton) loginButton.onClick.AddListener(ShowLoginStep);
 /*        if (playButton) playButton.onClick.AddListener(() => {
             SceneManager.LoadScene(2);
@@ -134,6 +136,21 @@ public class PrivyAndroidLogin : MonoBehaviour
         Log("Address copied: " + addr);
     }
 
+    //When user starts typing in email field ->
+    public void DisableOtherLoginOpt()
+    {
+        if (!string.IsNullOrEmpty(emailField.text)){
+            googleLoginButton.interactable= false;
+            xLoginButton.interactable= false;
+            loginButton.interactable= true;
+        }else if (string.IsNullOrEmpty(emailField.text))
+        {
+            googleLoginButton.interactable = true;
+            xLoginButton.interactable = true;
+            loginButton.interactable= false;
+        }
+    }
+
     // ----------------- Auth -----------------
 
     public async void SendOtp()
@@ -146,7 +163,9 @@ public class PrivyAndroidLogin : MonoBehaviour
         bool ok = await PrivyManager.Instance.Email.SendCode(email);
         if (ok)
         {
-            _loginBtnTxt.text = "Submit";
+            _loginBtnTxt.text = "Login";
+            emailField.gameObject.SetActive(false);
+            otpField.gameObject.SetActive(true);
         }
         Log(ok ? $"Code sent to {email}" : "Failed to send code");
     }
@@ -165,10 +184,19 @@ public class PrivyAndroidLogin : MonoBehaviour
         // Ensure embedded wallet exists
         var user = PrivyManager.Instance.User;
         if (user != null && !user.EmbeddedWallets.Any())
+        {
             await user.CreateWallet();
-
-        // No token needed - using wallet-based auth
-        Log("Login complete. Wallet: " + GetAddress());
+        }
+        if (user != null)
+        {
+            logoutButton.gameObject.SetActive(true);
+        }
+        else
+        {
+            Log("user is null");
+        }
+            // No token needed - using wallet-based auth
+            Log("Login complete. Wallet: " + GetAddress());
         RefreshButtons();
     }
 
@@ -284,6 +312,7 @@ public class PrivyAndroidLogin : MonoBehaviour
                 loginPanel.SetActive(false);
                 mintPanel.SetActive(true);
                 logoutButton.interactable = true;
+                logoutButton.gameObject.SetActive(true);
             }
             else
             {
@@ -302,6 +331,10 @@ public class PrivyAndroidLogin : MonoBehaviour
             loginPanel.SetActive(true);
             playPanel.SetActive(false);
            PrivyTokenHelper.ClearToken();  // Clear saved auth token
+            otpField.gameObject.SetActive(false);
+            emailField.gameObject.SetActive(true);
+            _loginBtnTxt.text = "Send otp";
+            logoutButton.gameObject.SetActive(false);
         }
         catch (System.Exception e)
         {
@@ -318,6 +351,10 @@ public class PrivyAndroidLogin : MonoBehaviour
         {
             // provider keys are typically "google" and "x" (sometimes "twitter")
             await PrivyManager.Instance.OAuth.LoginWithProvider(OAuthProvider.Google, PRIVY_REDIRECT);
+            if (PrivyManager.Instance.GetUser() != null)
+            {
+                logoutButton.gameObject.SetActive(true);
+            }
             await EnsureWalletAsync();
             Log("Google login complete. " + GetAddress());
             RefreshButtons();

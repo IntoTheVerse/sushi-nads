@@ -172,4 +172,72 @@ public class MainMenuUI : MonoBehaviour
         Invoke(nameof(RefreshButtons), 0.1f);
     }
 }
-*/
+*/using UnityEngine;
+using UnityEngine.UI;
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine.SceneManagement;
+using TMPro;
+using UnityEditor.UI;
+public class MainMenuUI : MonoBehaviour
+{
+    [Serializable]
+    public class Tab
+    {
+        public Button button;          // the clickable button
+        public GameObject panel;       // the content panel to show
+        public Image highlightImage;   // the image you want enabled for the ACTIVE tab
+    }
+
+    [SerializeField] private List<Tab> tabs = new();
+    [SerializeField] private int defaultIndex = 0;
+    [SerializeField] private bool disableSelectedButton = true; // optional UX
+
+    private int currentIndex = -1;
+
+    private void Awake()
+    {
+        // Auto-fill highlight with the button's Image if left empty
+        for (int i = 0; i < tabs.Count; i++)
+        {
+            var t = tabs[i];
+            if (t == null || t.button == null) continue;
+            if (t.highlightImage == null) t.highlightImage = t.button.GetComponent<Image>();
+
+            int captured = i; // capture loop var
+            t.button.onClick.AddListener(() => Select(captured));
+        }
+    }
+
+    private void Start()
+    {
+        Select(Mathf.Clamp(defaultIndex, 0, Mathf.Max(0, tabs.Count - 1)));
+    }
+
+    public void Select(int index)
+    {
+        if (tabs.Count == 0) return;
+        if (index < 0 || index >= tabs.Count) index = 0;
+        if (currentIndex == index) return;
+
+        currentIndex = index;
+
+        for (int i = 0; i < tabs.Count; i++)
+        {
+            bool active = (i == index);
+            var t = tabs[i];
+
+            if (t.panel) t.panel.SetActive(active);
+            if (t.highlightImage) t.highlightImage.enabled = active;
+            if (t.button && disableSelectedButton) t.button.interactable = !active;
+        }
+    }
+
+    // Optional hook if you want to call from a UnityEvent passing the button
+    public void SelectByButton(Button clicked)
+    {
+        int idx = tabs.FindIndex(t => t.button == clicked);
+        if (idx >= 0) Select(idx);
+    }
+}
