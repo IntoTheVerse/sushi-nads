@@ -10,17 +10,63 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Load ABIs
+const NETWORKS = {
+    base: {
+        name: 'Base Sepolia',
+        rpcUrl: process.env.BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org',
+        contracts: {
+            chefNFT: process.env.CHEFNFT_ADDRESS,
+            gameCore: process.env.GAMECORE_ADDRESS,
+            leaderboard: process.env.LEADERBOARD_ADDRESS,
+        },
+    },
+    monad: {
+        name: 'Monad Testnet',
+        rpcUrl: process.env.MONAD_RPC_URL || 'https://testnet-rpc.monad.xyz',
+        contracts: {
+            chefNFT: process.env.MONAD_CHEFNFT_ADDRESS,
+            gameCore: process.env.MONAD_GAMECORE_ADDRESS,
+            leaderboard: process.env.MONAD_LEADERBOARD_ADDRESS,
+        },
+    },
+};
+
+const targetNetwork =
+    (process.env.TARGET_NETWORK || 'base').toLowerCase() in NETWORKS
+        ? (process.env.TARGET_NETWORK || 'base').toLowerCase()
+        : 'base';
+
+// Load ABIs per network
 const loadABI = (contractName) => {
-    const abiPath = path.join(__dirname, '..', 'abis', `${contractName}.json`);
+    const abiPath = path.join(
+        __dirname,
+        '..',
+        'abis',
+        targetNetwork,
+        `${contractName}.json`
+    );
+
+    if (!fs.existsSync(abiPath)) {
+        throw new Error(
+            `[BlockchainService] Missing ABI for ${contractName} on network "${targetNetwork}".`
+        );
+    }
+
     const abiFile = fs.readFileSync(abiPath, 'utf8');
     return JSON.parse(abiFile).abi;
 };
 
+const { name: networkName, rpcUrl, contracts } = NETWORKS[targetNetwork];
+
+if (!contracts.chefNFT || !contracts.gameCore || !contracts.leaderboard) {
+    throw new Error(
+        `[BlockchainService] Missing contract addresses for ${networkName}. ` +
+            'Check your environment variables.'
+    );
+}
+
 // Initialize provider
-const provider = new ethers.JsonRpcProvider(
-    process.env.BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org'
-);
+const provider = new ethers.JsonRpcProvider(rpcUrl);
 
 // Initialize backend signer (add 0x prefix if missing)
 const privateKey = process.env.BACKEND_PRIVATE_KEY;
@@ -28,8 +74,14 @@ const formattedKey = privateKey.startsWith('0x') ? privateKey : `0x${privateKey}
 const signer = new ethers.Wallet(formattedKey, provider);
 
 console.log('🔗 Blockchain Service Initialized');
-console.log('   Network: Base Sepolia');
+console.log(`   Network: ${networkName}`);
 console.log('   Signer:', signer.address);
+
+export const activeNetwork = {
+    key: targetNetwork,
+    name: networkName,
+    contracts: { ...contracts },
+};
 
 // Load contract ABIs
 const ChefNFTABI = loadABI('ChefNFT');
@@ -38,19 +90,19 @@ const LeaderboardABI = loadABI('Leaderboard');
 
 // Initialize contract instances
 export const chefNFT = new ethers.Contract(
-    process.env.CHEFNFT_ADDRESS,
+    contracts.chefNFT,
     ChefNFTABI,
     signer
 );
 
 export const gameCore = new ethers.Contract(
-    process.env.GAMECORE_ADDRESS,
+    contracts.gameCore,
     GameCoreABI,
     signer
 );
 
 export const leaderboard = new ethers.Contract(
-    process.env.LEADERBOARD_ADDRESS,
+    contracts.leaderboard,
     LeaderboardABI,
     signer
 );
