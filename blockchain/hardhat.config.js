@@ -2,11 +2,23 @@ require("@nomicfoundation/hardhat-toolbox");
 require("@nomicfoundation/hardhat-verify");
 require("dotenv").config();
 
+const normalizePrivateKey = (key) => {
+  if (!key) return undefined;
+  return key.startsWith("0x") ? key : `0x${key}`;
+};
+
+const deployerKey = normalizePrivateKey(process.env.PRIVATE_KEY);
+const sharedAccounts = deployerKey ? [deployerKey] : [];
+
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
   solidity: {
-    version: "0.8.20",
+    version: "0.8.28",
     settings: {
+      metadata: {
+        bytecodeHash: "none",
+        useLiteralContent: true,
+      },
       optimizer: {
         enabled: true,
         runs: 200,
@@ -20,9 +32,14 @@ module.exports = {
     },
     baseSepolia: {
       url: process.env.BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org",
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      accounts: sharedAccounts,
       chainId: 84532,
       gasPrice: 1000000000, // 1 gwei
+    },
+    monadTestnet: {
+      url: process.env.MONAD_RPC_URL || "https://testnet-rpc.monad.xyz",
+      accounts: sharedAccounts,
+      chainId: 10143,
     },
     localhost: {
       url: "http://127.0.0.1:8545",
@@ -30,7 +47,9 @@ module.exports = {
     },
   },
   etherscan: {
-    apiKey: process.env.BASESCAN_API_KEY || "PLACEHOLDER",
+    apiKey: {
+      baseSepolia: process.env.BASESCAN_API_KEY || "PLACEHOLDER",
+    },
     customChains: [
       {
         network: "baseSepolia",
@@ -43,7 +62,13 @@ module.exports = {
     ],
   },
   sourcify: {
-    enabled: false
+    enabled: true,
+    apiUrl:
+      process.env.MONAD_SOURCIFY_API_URL ||
+      "https://sourcify-api-monad.blockvision.org",
+    browserUrl:
+      process.env.MONAD_SOURCIFY_BROWSER_URL ||
+      "https://testnet.monadexplorer.com",
   },
   gasReporter: {
     enabled: process.env.REPORT_GAS === "true",
