@@ -1,0 +1,16 @@
+{
+  "network": "monadTestnet",
+  "chainId": "10143",
+  "deployer": "0xaAf16AD8a1258A98ed77A5129dc6A8813924Ad3C",
+  "timestamp": "2025-11-17T12:13:06.351Z",
+  "contracts": {
+    "ChefNFT": "0x9B7d80069A0Ef82f5861097Ff1772A747c2E3039",
+    "GameCore": "0x52a376eC646D164ac4E8DfF52a5B2bd3023aEfea",
+    "Leaderboard": "0x6F5F5d117a513858BfC26F2406eF05199D41ac60"
+  },
+  "config": {
+    "usdcAddress": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+    "energyRefillCost": "100000",
+    "backendSigner": "0x8cE6f62bFf4ACeaDd4C49116214ba13BF446d527"
+  }
+}
