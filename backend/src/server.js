@@ -8,7 +8,7 @@ dotenv.config();
 
 // Import configuration
 import { initializeFirebase } from './config/firebase.js';
-import { checkNetworkConnection } from './services/blockchain.service.js';
+import { checkNetworkConnection, activeNetwork } from './services/blockchain.service.js';
 
 // Import middleware
 import { rateLimitByIP } from './middleware/rateLimit.js';
@@ -98,13 +98,13 @@ app.listen(PORT, () => {
     console.log('   🚀 Server running');
     console.log(`   📡 Port: ${PORT}`);
     console.log(`   🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`   ⛓️  Network: Base Sepolia`);
+    console.log(`   ⛓️  Network: ${activeNetwork.name}`);
     console.log(`   🔐 Privy App ID: ${process.env.PRIVY_APP_ID}`);
     console.log('');
     console.log('   📋 Contract Addresses:');
-    console.log(`   ChefNFT:     ${process.env.CHEFNFT_ADDRESS}`);
-    console.log(`   GameCore:    ${process.env.GAMECORE_ADDRESS}`);
-    console.log(`   Leaderboard: ${process.env.LEADERBOARD_ADDRESS}`);
+    console.log(`   ChefNFT:     ${activeNetwork.contracts.chefNFT}`);
+    console.log(`   GameCore:    ${activeNetwork.contracts.gameCore}`);
+    console.log(`   Leaderboard: ${activeNetwork.contracts.leaderboard}`);
     console.log('');
     console.log('   📚 API Endpoints:');
     console.log('   POST   /api/chef/mint');
