@@ -10,12 +10,26 @@ async function main() {
   console.log("💰 Account balance:", ethers.formatEther(await ethers.provider.getBalance(deployer.address)), "ETH\n");
 
   // Configuration
-  const USDC_ADDRESS = process.env.USDC_ADDRESS || "0x036CbD53842c5426634e7929541eC2318f3dCF7e"; // Base Sepolia USDC
+  const networkName = hre.network.name;
+  const networkDefaults = {
+    baseSepolia: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+    monadTestnet: process.env.MONAD_USDC_ADDRESS,
+  };
+  const resolvedUsdc =
+    process.env.USDC_ADDRESS ||
+    networkDefaults[networkName] ||
+    (() => {
+      throw new Error(
+        `USDC address is required for ${networkName}. ` +
+          `Set USDC_ADDRESS (global) or MONAD_USDC_ADDRESS (Monad specific).`
+      );
+    })();
   const ENERGY_REFILL_COST = ethers.parseUnits("0.1", 6); // 0.1 USDC (6 decimals)
   const BACKEND_SIGNER = process.env.BACKEND_SIGNER_ADDRESS || deployer.address;
 
   console.log("⚙️  Configuration:");
-  console.log("   USDC Address:", USDC_ADDRESS);
+  console.log("   Network:", networkName);
+  console.log("   USDC Address:", resolvedUsdc);
   console.log("   Energy Refill Cost:", ethers.formatUnits(ENERGY_REFILL_COST, 6), "USDC");
   console.log("   Backend Signer:", BACKEND_SIGNER);
   console.log();
@@ -25,7 +39,7 @@ async function main() {
   // ============================================
   console.log("📝 Deploying ChefNFT...");
   const ChefNFT = await ethers.getContractFactory("ChefNFT");
-  const chefNFT = await ChefNFT.deploy(USDC_ADDRESS, ENERGY_REFILL_COST);
+  const chefNFT = await ChefNFT.deploy(resolvedUsdc, ENERGY_REFILL_COST);
   await chefNFT.waitForDeployment();
   const chefNFTAddress = await chefNFT.getAddress();
   console.log("✅ ChefNFT deployed to:", chefNFTAddress);
@@ -127,7 +141,7 @@ async function main() {
       Leaderboard: leaderboardAddress,
     },
     config: {
-      usdcAddress: USDC_ADDRESS,
+      usdcAddress: resolvedUsdc,
       energyRefillCost: ENERGY_REFILL_COST.toString(),
       backendSigner: BACKEND_SIGNER,
     },
@@ -152,9 +166,9 @@ async function main() {
   // 8. Verification Instructions
   // ============================================
   if (hre.network.name !== "hardhat" && hre.network.name !== "localhost") {
-    console.log("📝 To verify contracts on Basescan, run:");
+    console.log("📝 To verify contracts, run:");
     console.log();
-    console.log(`npx hardhat verify --network ${hre.network.name} ${chefNFTAddress} "${USDC_ADDRESS}" "${ENERGY_REFILL_COST}"`);
+    console.log(`npx hardhat verify --network ${hre.network.name} ${chefNFTAddress} "${resolvedUsdc}" "${ENERGY_REFILL_COST}"`);
     console.log();
     console.log(`npx hardhat verify --network ${hre.network.name} ${gameCoreAddress} "${chefNFTAddress}" "${BACKEND_SIGNER}"`);
     console.log();
