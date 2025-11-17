@@ -421,6 +421,16 @@ Most "blockchain games" only use blockchain for tokens. Sushi Base puts **gamepl
 | **GameCore** | `0x04E9f92c8e4Ce69c3f73eac9bF18F3c38d905012` | [View →](https://sepolia.basescan.org/address/0x04E9f92c8e4Ce69c3f73eac9bF18F3c38d905012) |
 | **Leaderboard** | `0xD13bb48824451EAEDdB8a4cb000066F65aA7eB44` | [View →](https://sepolia.basescan.org/address/0xD13bb48824451EAEDdB8a4cb000066F65aA7eB44) |
 
+### 📱 Contract Addresses (Monad Testnet)
+
+All Monad deployments are verified via Sourcify and visible on MonVision.
+
+| Contract | Address | Explorer |
+|----------|---------|----------|
+| **ChefNFT** | `0x8ab8054b8b94A8a42719A1D62e08107115660B6A` | [MonVision](https://testnet.monadexplorer.com/address/0x8ab8054b8b94A8a42719A1D62e08107115660B6A) |
+| **GameCore** | `0xe70b0619BfC8491f87920bb161554048C1Bac9b5` | [MonVision](https://testnet.monadexplorer.com/address/0xe70b0619BfC8491f87920bb161554048C1Bac9b5) |
+| **Leaderboard** | `0xFCB5CD51AE29379790658b7A9804Bf4d1c01Ab9D` | [MonVision](https://testnet.monadexplorer.com/address/0xFCB5CD51AE29379790658b7A9804Bf4d1c01Ab9D) |
+
 ---
 
 ## 🛠️ Development
