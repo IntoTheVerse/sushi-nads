@@ -45,9 +45,12 @@
   <Project Path="Unity.Rider.Editor.csproj" />
   <Project Path="Unity.VisualScripting.State.csproj" />
   <Project Path="UnityEditor.UI.csproj" />
+  <Project Path="CFXRRuntime.csproj" />
+  <Project Path="CFXRDemo.csproj" />
   <Project Path="Unity.2D.Sprite.Editor.csproj" />
   <Project Path="8BitGoose.AsciiFBXExporter.csproj" />
   <Project Path="Unity.Recorder.csproj" />
+  <Project Path="CFXREditor.csproj" />
   <Project Path="Unity.Multiplayer.Center.Common.csproj" />
   <Project Path="Unity.InputSystem.ForUI.csproj" />
   <Project Path="Unity.Collections.CodeGen.csproj" />
@@ -59,8 +62,11 @@
   <Project Path="Unity.Toolchain.Macos-arm64-Linux-x86_64.csproj" />
   <Project Path="Unity.VisualScripting.Shared.Editor.csproj" />
   <Project Path="Unity.Recorder.Base.csproj" />
+  <Project Path="KinoBloom.Runtime.csproj" />
   <Project Path="Unity.Toolchain.Win-x86_64-Linux-x86_64.csproj" />
+  <Project Path="CFXR.WelcomeScreen.csproj" />
   <Project Path="Unity.RenderPipeline.Universal.ShaderLibrary.csproj" />
+  <Project Path="ToonyColorsPro.Demo.Editor.csproj" />
   <Project Path="Unity.Bindings.OpenImageIO.Editor.csproj" />
   <Project Path="Unity.SysrootPackage.Editor.csproj" />
   <Project Path="Unity.Rendering.LightTransport.Editor.csproj" />
