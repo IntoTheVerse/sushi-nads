@@ -1,5 +1,6 @@
 import { PrivyClient } from '@privy-io/node';
 import dotenv from 'dotenv';
+import { activeNetwork } from './blockchain.service.js';
 
 // Load environment variables first
 dotenv.config();
@@ -113,8 +114,10 @@ export async function addSessionSignerToWallet(walletId) {
 export async function sendSponsoredTransaction(walletId, txParams) {
     try {
         // Send transaction from user's wallet with gas sponsorship
+        // Chain ID is dynamically determined from TARGET_NETWORK env variable
+        const caip2 = `eip155:${activeNetwork.chainId}`;
         const response = await privy.wallets().ethereum().sendTransaction(walletId, {
-            caip2: 'eip155:84532', // Base Sepolia
+            caip2, // Dynamic chain ID based on TARGET_NETWORK (84532 for Base, 10143 for Monad)
             params: {
                 transaction: {
                     to: txParams.to,
