@@ -13,7 +13,9 @@ const __dirname = path.dirname(__filename);
 const NETWORKS = {
     base: {
         name: 'Base Sepolia',
+        chainId: 84532,
         rpcUrl: process.env.BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org',
+        explorerUrl: 'https://sepolia.basescan.org',
         contracts: {
             chefNFT: process.env.CHEFNFT_ADDRESS,
             gameCore: process.env.GAMECORE_ADDRESS,
@@ -22,7 +24,9 @@ const NETWORKS = {
     },
     monad: {
         name: 'Monad Testnet',
+        chainId: 10143,
         rpcUrl: process.env.MONAD_RPC_URL || 'https://testnet-rpc.monad.xyz',
+        explorerUrl: 'https://testnet.monadexplorer.com',
         contracts: {
             chefNFT: process.env.MONAD_CHEFNFT_ADDRESS,
             gameCore: process.env.MONAD_GAMECORE_ADDRESS,
@@ -56,7 +60,7 @@ const loadABI = (contractName) => {
     return JSON.parse(abiFile).abi;
 };
 
-const { name: networkName, rpcUrl, contracts } = NETWORKS[targetNetwork];
+const { name: networkName, chainId, rpcUrl, explorerUrl, contracts } = NETWORKS[targetNetwork];
 
 if (!contracts.chefNFT || !contracts.gameCore || !contracts.leaderboard) {
     throw new Error(
@@ -80,6 +84,8 @@ console.log('   Signer:', signer.address);
 export const activeNetwork = {
     key: targetNetwork,
     name: networkName,
+    chainId,
+    explorerUrl,
     contracts: { ...contracts },
 };
 
