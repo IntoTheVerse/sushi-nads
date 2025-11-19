@@ -48,6 +48,11 @@ public class Player : MonoBehaviour, IKitchenObjectParent
     private bool isMoveHeld;
     private Vector2 heldCardinalDir;
     private float holdTimer;
+    
+    // Move recording throttling (prevent spam)
+    private Vector2Int lastRecordedGridCell = new Vector2Int(int.MinValue, int.MinValue);
+    private float lastMoveRecordTime = 0f;
+    private const float MOVE_RECORD_COOLDOWN = 0.1f; // Minimum seconds between move recordings (very short - just prevents duplicate calls for same position)
 
     // Awake is called when the script instance is being loaded
     private void Awake()
@@ -230,10 +235,27 @@ public class Player : MonoBehaviour, IKitchenObjectParent
                 isWalking = false;
                 StepCount++;
                 
-                // Record move to blockchain for scoring
-                if (GameplayEventTracker.Instance != null)
+                // Record move to blockchain for scoring (with throttling)
+                // Only record if:
+                // 1. Grid cell actually changed
+                // 2. Cooldown has passed
+                // 3. Session is active
+                // 4. Game is playing
+                Vector2Int currentGridCell = GetGridCell(transform.position);
+                float currentTime = Time.time;
+                bool gridCellChanged = currentGridCell != lastRecordedGridCell;
+                bool cooldownPassed = (currentTime - lastMoveRecordTime) >= MOVE_RECORD_COOLDOWN;
+                bool sessionActive = SessionManager.Instance != null && SessionManager.Instance.IsSessionActive();
+                bool gamePlaying = KitchenGameManager.Instance != null && KitchenGameManager.Instance.IsGamePlaying();
+                
+                if (gridCellChanged && cooldownPassed && sessionActive && gamePlaying)
                 {
-                    GameplayEventTracker.Instance.RecordMove();
+                    if (GameplayEventTracker.Instance != null)
+                    {
+                        GameplayEventTracker.Instance.RecordMove();
+                        lastRecordedGridCell = currentGridCell;
+                        lastMoveRecordTime = currentTime;
+                    }
                 }
                 
                 // If we are in hold-to-repeat mode, trigger next step timing
@@ -320,6 +342,24 @@ public class Player : MonoBehaviour, IKitchenObjectParent
         float cellX = Mathf.Round(relative.x / tileSize) * tileSize;
         float cellZ = Mathf.Round(relative.z / tileSize) * tileSize;
         return new Vector3(cellX, worldPosition.y, cellZ) + gridOrigin;
+    }
+    
+    /// <summary>
+    /// Get the grid cell coordinates (x, z) for a world position
+    /// </summary>
+    private Vector2Int GetGridCell(Vector3 worldPosition) {
+        Vector3 relative = worldPosition - gridOrigin;
+        int cellX = Mathf.RoundToInt(relative.x / tileSize);
+        int cellZ = Mathf.RoundToInt(relative.z / tileSize);
+        return new Vector2Int(cellX, cellZ);
+    }
+    
+    /// <summary>
+    /// Reset move tracking (call when session starts/ends to prevent stale data)
+    /// </summary>
+    public void ResetMoveTracking() {
+        lastRecordedGridCell = new Vector2Int(int.MinValue, int.MinValue);
+        lastMoveRecordTime = 0f;
     }
 
     // Updates the selected counter and triggers the change event
