@@ -4,9 +4,9 @@ async function main() {
   console.log("🔍 Verifying Sushi Bonks Deployment\n");
   
   const addresses = {
-    chefNFT: "0x49889375450342FF44a56891034078Ad982Ef95E",
-    gameCore: "0x9e6C89a53E270d87AE1f50b3fe00988Db2323931",
-    leaderboard: "0xB38343DA4Ba50dDD7D6F6d7E7cE6Dc08253C5dA7"
+    chefNFT: "0xC3dDBBA92CE071D7B872D31f3870bC4672c3D05E",
+    gameCore: "0x17C43c95226250c116E904dea0a7507a74ADa99a",
+    leaderboard: "0x41ba1B1bd3A81955D476Cb909DD4eA056caaE45f"
   };
   
   // Get contract instances

@@ -4,6 +4,7 @@ import { addSessionSignerToWallet, sendSponsoredTransaction } from '../services/
 import { requireAuth } from '../middleware/auth.js';
 import { validateMintChef, validateUpdateName } from '../middleware/validation.js';
 import { getCachedProfile, setCachedProfile } from '../services/cache.service.js';
+import { GAME_CONFIG } from '../config/constants.js';
 
 const router = express.Router();
 
@@ -98,7 +99,7 @@ router.get('/profile', requireAuth, async (req, res, next) => {
                 name,
                 tokenId: Number(tokenId),
                 energy: Number(energy),
-                maxEnergy: 300
+                maxEnergy: GAME_CONFIG.MAX_ENERGY
             },
             globalStats: {
                 totalSessionsPlayed: Number(globalStats.totalSessionsPlayed),

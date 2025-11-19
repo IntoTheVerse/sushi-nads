@@ -9,6 +9,10 @@ const normalizePrivateKey = (key) => {
 
 const deployerKey = normalizePrivateKey(process.env.PRIVATE_KEY);
 const sharedAccounts = deployerKey ? [deployerKey] : [];
+const etherscanApiKey =
+  process.env.ETHERSCAN_API_KEY ||
+  process.env.BASESCAN_API_KEY ||
+  "PLACEHOLDER";
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
@@ -47,9 +51,7 @@ module.exports = {
     },
   },
   etherscan: {
-    apiKey: {
-      baseSepolia: process.env.BASESCAN_API_KEY || "PLACEHOLDER",
-    },
+    apiKey: etherscanApiKey,
     customChains: [
       {
         network: "baseSepolia",

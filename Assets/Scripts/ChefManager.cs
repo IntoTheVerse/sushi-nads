@@ -374,12 +374,20 @@ public class ChefManager : MonoBehaviour
                 
                 // Get fresh energy count from blockchain
                 var profile = await GameAPIClient.Instance.GetProfile();
-                int currentEnergy = profile?.player?.energy ?? response.newEnergy;
-                
-                // Update energy UI immediately
-                if (energyText != null)
+                if (profile != null)
                 {
-                    energyText.text = $"⚡ Energy: {currentEnergy}";
+                    // Update both energyVal and UI to keep them in sync
+                    UpdateUI(profile);
+                }
+                else
+                {
+                    // Fallback if profile fetch fails
+                    int currentEnergy = response.newEnergy;
+                    energyVal = currentEnergy;
+                    if (energyText != null)
+                    {
+                        energyText.text = $"⚡ Energy: {currentEnergy}";
+                    }
                 }
                 
                 // Show success popup with transaction link

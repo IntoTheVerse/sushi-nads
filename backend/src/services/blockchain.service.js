@@ -71,7 +71,7 @@ const provider = new ethers.JsonRpcProvider(rpcUrl);
 // Initialize backend signer (add 0x prefix if missing)
 const privateKey = process.env.BACKEND_PRIVATE_KEY;
 const formattedKey = privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`;
-const signer = new ethers.Wallet(formattedKey, provider);
+export const signer = new ethers.Wallet(formattedKey, provider);
 
 console.log('🔗 Blockchain Service Initialized');
 console.log(`   Network: ${networkName}`);
