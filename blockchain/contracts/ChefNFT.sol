@@ -22,6 +22,7 @@ contract ChefNFT is ERC721, Ownable, ReentrancyGuard {
     
     // Energy system constants
     uint256 public constant ENERGY_REFILL_AMOUNT = 300;
+    uint256 public constant MAX_ENERGY = 1000;
     uint256 public energyRefillCost; // in USDC (with 6 decimals)
     
     // GameCore contract address (authorized to consume energy)
@@ -144,9 +145,10 @@ contract ChefNFT is ERC721, Ownable, ReentrancyGuard {
         if (!success) revert InsufficientUSDC();
         
         // Add energy
-        playerEnergy[msg.sender] += ENERGY_REFILL_AMOUNT;
+        uint256 previousEnergy = playerEnergy[msg.sender];
+        uint256 newEnergy = _addEnergy(msg.sender, ENERGY_REFILL_AMOUNT);
         
-        emit EnergyRefilled(msg.sender, ENERGY_REFILL_AMOUNT, playerEnergy[msg.sender]);
+        emit EnergyRefilled(msg.sender, newEnergy - previousEnergy, newEnergy);
     }
     
     /**
@@ -162,9 +164,10 @@ contract ChefNFT is ERC721, Ownable, ReentrancyGuard {
         if (!success) revert InsufficientUSDC();
         
         // Add energy to player
-        playerEnergy[player] += ENERGY_REFILL_AMOUNT;
+        uint256 previousEnergy = playerEnergy[player];
+        uint256 newEnergy = _addEnergy(player, ENERGY_REFILL_AMOUNT);
         
-        emit EnergyRefilled(player, ENERGY_REFILL_AMOUNT, playerEnergy[player]);
+        emit EnergyRefilled(player, newEnergy - previousEnergy, newEnergy);
     }
     
     /**
@@ -175,9 +178,10 @@ contract ChefNFT is ERC721, Ownable, ReentrancyGuard {
         if (!hasChef[player]) revert NoChefMinted();
         
         // Add energy without USDC payment (testing only!)
-        playerEnergy[player] += ENERGY_REFILL_AMOUNT;
+        uint256 previousEnergy = playerEnergy[player];
+        uint256 newEnergy = _addEnergy(player, ENERGY_REFILL_AMOUNT);
         
-        emit EnergyRefilled(player, ENERGY_REFILL_AMOUNT, playerEnergy[player]);
+        emit EnergyRefilled(player, newEnergy - previousEnergy, newEnergy);
     }
     
     /**
@@ -266,8 +270,24 @@ contract ChefNFT is ERC721, Ownable, ReentrancyGuard {
      * @param amount Amount of energy to add
      */
     function emergencyAddEnergy(address player, uint256 amount) external onlyOwner {
-        playerEnergy[player] += amount;
-        emit EnergyRefilled(player, amount, playerEnergy[player]);
+        uint256 previousEnergy = playerEnergy[player];
+        uint256 newEnergy = _addEnergy(player, amount);
+        emit EnergyRefilled(player, newEnergy - previousEnergy, newEnergy);
+    }
+    
+    function _addEnergy(address player, uint256 amount) internal returns (uint256) {
+        uint256 currentEnergy = playerEnergy[player];
+        if (currentEnergy >= MAX_ENERGY) {
+            return currentEnergy;
+        }
+        
+        uint256 newEnergy = currentEnergy + amount;
+        if (newEnergy > MAX_ENERGY) {
+            newEnergy = MAX_ENERGY;
+        }
+        
+        playerEnergy[player] = newEnergy;
+        return newEnergy;
     }
     
     // ============ Override Functions ============
