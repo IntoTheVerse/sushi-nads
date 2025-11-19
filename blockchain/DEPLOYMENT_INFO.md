@@ -1,8 +1,9 @@
 # Sushi Bonks - Deployment Information
 
 **Network:** Base Sepolia  
-**Deployed:** October 23, 2025  
-**Deployer:** 0xaAf16AD8a1258A98ed77A5129dc6A8813924Ad3C
+**Deployed:** November 19, 2025  
+**Deployer:** 0xaAf16AD8a1258A98ed77A5129dc6A8813924Ad3C  
+**✅ All contracts verified on Basescan**
 
 ---
 
@@ -10,9 +11,9 @@
 
 | Contract | Address | Basescan |
 |----------|---------|----------|
-| **ChefNFT** | `0x4ef5835f754fb83364ec8bB7CC5e3976087a46ad` | [View](https://sepolia.basescan.org/address/0x4ef5835f754fb83364ec8bB7CC5e3976087a46ad) |
-| **GameCore** | `0x04E9f92c8e4Ce69c3f73eac9bF18F3c38d905012` | [View](https://sepolia.basescan.org/address/0x04E9f92c8e4Ce69c3f73eac9bF18F3c38d905012) |
-| **Leaderboard** | `0xD13bb48824451EAEDdB8a4cb000066F65aA7eB44` | [View](https://sepolia.basescan.org/address/0xD13bb48824451EAEDdB8a4cb000066F65aA7eB44) |
+| **ChefNFT** | `0xC3dDBBA92CE071D7B872D31f3870bC4672c3D05E` | [View](https://sepolia.basescan.org/address/0xC3dDBBA92CE071D7B872D31f3870bC4672c3D05E) |
+| **GameCore** | `0x17C43c95226250c116E904dea0a7507a74ADa99a` | [View](https://sepolia.basescan.org/address/0x17C43c95226250c116E904dea0a7507a74ADa99a) |
+| **Leaderboard** | `0x41ba1B1bd3A81955D476Cb909DD4eA056caaE45f` | [View](https://sepolia.basescan.org/address/0x41ba1B1bd3A81955D476Cb909DD4eA056caaE45f) |
 
 ### Monad Testnet (Base-Compatible Deployment)
 
@@ -66,9 +67,9 @@ All contracts deployed and connected:
 
 ### For Backend Server (.env)
 ```bash
-CHEFNFT_ADDRESS=0x4ef5835f754fb83364ec8bB7CC5e3976087a46ad
-GAMECORE_ADDRESS=0x04E9f92c8e4Ce69c3f73eac9bF18F3c38d905012
-LEADERBOARD_ADDRESS=0xD13bb48824451EAEDdB8a4cb000066F65aA7eB44
+CHEFNFT_ADDRESS=0xC3dDBBA92CE071D7B872D31f3870bC4672c3D05E
+GAMECORE_ADDRESS=0x17C43c95226250c116E904dea0a7507a74ADa99a
+LEADERBOARD_ADDRESS=0x41ba1B1bd3A81955D476Cb909DD4eA056caaE45f
 
 BACKEND_PRIVATE_KEY=<private_key_backend_signer> //already saved on dev wallet 
 BACKEND_SIGNER_ADDRESS=0x8cE6f62bFf4ACeaDd4C49116214ba13BF446d527
@@ -79,9 +80,9 @@ BASE_SEPOLIA_RPC_URL=https://sepolia.base.org
 ### For Unity Client
 ```csharp
 // Add these to your GameConfig
-public const string CHEFNFT_ADDRESS = "0x4ef5835f754fb83364ec8bB7CC5e3976087a46ad";
-public const string GAMECORE_ADDRESS = "0x04E9f92c8e4Ce69c3f73eac9bF18F3c38d905012";
-public const string LEADERBOARD_ADDRESS = "0xD13bb48824451EAEDdB8a4cb000066F65aA7eB44";
+public const string CHEFNFT_ADDRESS = "0xC3dDBBA92CE071D7B872D31f3870bC4672c3D05E";
+public const string GAMECORE_ADDRESS = "0x17C43c95226250c116E904dea0a7507a74ADa99a";
+public const string LEADERBOARD_ADDRESS = "0x41ba1B1bd3A81955D476Cb909DD4eA056caaE45f";
 ```
 
 ---
@@ -118,7 +119,7 @@ cp blockchain/artifacts/contracts/Leaderboard.sol/Leaderboard.json backend/src/a
 ```javascript
 const chefNFT = await ethers.getContractAt(
   "ChefNFT",
-  "0x4ef5835f754fb83364ec8bB7CC5e3976087a46ad"
+  "0xC3dDBBA92CE071D7B872D31f3870bC4672c3D05E"
 );
 
 // Mint a chef
@@ -133,7 +134,7 @@ console.log("Has chef:", hasChef);
 ```javascript
 const gameCore = await ethers.getContractAt(
   "GameCore",
-  "0x04E9f92c8e4Ce69c3f73eac9bF18F3c38d905012"
+  "0x17C43c95226250c116E904dea0a7507a74ADa99a"
 );
 
 // Only backend signer can call this
@@ -184,7 +185,7 @@ await tx.wait();
 **Deployment Successful!** 🎉
 
 View contracts on Basescan:
-- https://sepolia.basescan.org/address/0x4ef5835f754fb83364ec8bB7CC5e3976087a46ad
-- https://sepolia.basescan.org/address/0x04E9f92c8e4Ce69c3f73eac9bF18F3c38d905012
-- https://sepolia.basescan.org/address/0xD13bb48824451EAEDdB8a4cb000066F65aA7eB44
+- https://sepolia.basescan.org/address/0xC3dDBBA92CE071D7B872D31f3870bC4672c3D05E
+- https://sepolia.basescan.org/address/0x17C43c95226250c116E904dea0a7507a74ADa99a
+- https://sepolia.basescan.org/address/0x41ba1B1bd3A81955D476Cb909DD4eA056caaE45f
 
