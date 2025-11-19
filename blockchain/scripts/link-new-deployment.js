@@ -4,9 +4,9 @@ async function main() {
     console.log("🔗 Linking newly deployed contracts...");
     
     // NEW deployment addresses
-    const CHEFNFT_ADDRESS = "0x59C826BbA45C9fbae9C3e04699A1287E798fE938";
-    const GAMECORE_ADDRESS = "0x6460C256a0d3D9d2a024B821213440c1Fc2173AA";
-    const LEADERBOARD_ADDRESS = "0xF14F8C427fd0758C98005Bd4C19deb93cbDDB666";
+    const CHEFNFT_ADDRESS = "0xC3dDBBA92CE071D7B872D31f3870bC4672c3D05E";
+    const GAMECORE_ADDRESS = "0x17C43c95226250c116E904dea0a7507a74ADa99a";
+    const LEADERBOARD_ADDRESS = "0x41ba1B1bd3A81955D476Cb909DD4eA056caaE45f";
     
     // Get contract instances
     const ChefNFT = await hre.ethers.getContractAt("ChefNFT", CHEFNFT_ADDRESS);
