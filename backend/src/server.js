@@ -19,6 +19,7 @@ import chefRoutes from './routes/chef.routes.js';
 import sessionRoutes from './routes/session.routes.js';
 import gameplayRoutes from './routes/gameplay.routes.js';
 import leaderboardRoutes from './routes/leaderboard.routes.js';
+import configRoutes from './routes/config.routes.js';
 
 // Initialize Firebase
 try {
@@ -81,6 +82,7 @@ app.use('/api/chef', chefRoutes);
 app.use('/api/session', sessionRoutes);
 app.use('/api/gameplay', gameplayRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
+app.use('/api/config', configRoutes);
 
 // 404 handler
 app.use(notFoundHandler);
