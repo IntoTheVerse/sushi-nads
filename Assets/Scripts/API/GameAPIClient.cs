@@ -20,6 +20,10 @@ public class GameAPIClient : MonoBehaviour
     [SerializeField] private string baseUrl = "http://localhost:3000";
     // For production: "https://api.sushibonks.com"
 
+    // Cached network configuration
+    private NetworkConfigResponse cachedNetworkConfig;
+    private bool networkConfigFetched = false;
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -202,6 +206,81 @@ public class GameAPIClient : MonoBehaviour
     {
         return await SendRequestAsync<PlayerRankResponse>("/api/leaderboard/player-rank", "GET");
     }
+
+    // ============ Config APIs ============
+
+    /// <summary>
+    /// Get network configuration from backend (includes explorer URL)
+    /// Caches the result to avoid repeated requests
+    /// </summary>
+    public async Task<NetworkConfigResponse> GetNetworkConfig()
+    {
+        if (networkConfigFetched && cachedNetworkConfig != null)
+        {
+            return cachedNetworkConfig;
+        }
+
+        try
+        {
+            // This endpoint doesn't require authentication, so we don't need wallet address
+            string url = $"{baseUrl}/api/config/network";
+            using (UnityWebRequest request = UnityWebRequest.Get(url))
+            {
+                request.timeout = 10;
+                request.SetRequestHeader("Content-Type", "application/json");
+                
+                var operation = request.SendWebRequest();
+                while (!operation.isDone)
+                {
+                    await Task.Yield();
+                }
+                
+                if (request.result == UnityWebRequest.Result.Success)
+                {
+                    string responseText = request.downloadHandler.text;
+                    cachedNetworkConfig = JsonConvert.DeserializeObject<NetworkConfigResponse>(responseText);
+                    networkConfigFetched = true;
+                    Debug.Log($"✅ Network config loaded: {cachedNetworkConfig.network.name} ({cachedNetworkConfig.network.explorerUrl})");
+                    return cachedNetworkConfig;
+                }
+                else
+                {
+                    Debug.LogWarning($"⚠️ Failed to fetch network config, using default Basescan URL");
+                    // Return default Base Sepolia config as fallback
+                    return new NetworkConfigResponse
+                    {
+                        success = false,
+                        network = new NetworkInfo
+                        {
+                            explorerUrl = "https://sepolia.basescan.org"
+                        }
+                    };
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"⚠️ Error fetching network config: {e.Message}, using default Basescan URL");
+            // Return default Base Sepolia config as fallback
+            return new NetworkConfigResponse
+            {
+                success = false,
+                network = new NetworkInfo
+                {
+                    explorerUrl = "https://sepolia.basescan.org"
+                }
+            };
+        }
+    }
+
+    /// <summary>
+    /// Get the explorer URL for the current network
+    /// </summary>
+    public async Task<string> GetExplorerUrl()
+    {
+        var config = await GetNetworkConfig();
+        return config?.network?.explorerUrl ?? "https://sepolia.basescan.org";
+    }
 }
 
 // ============ Response Models ============
@@ -319,5 +398,30 @@ public class PlayerRankResponse
     public int score;
     public int totalPlayers;
     public int season;
+}
+
+[Serializable]
+public class NetworkConfigResponse
+{
+    public bool success;
+    public NetworkInfo network;
+}
+
+[Serializable]
+public class NetworkInfo
+{
+    public string key;
+    public string name;
+    public int chainId;
+    public string explorerUrl;
+    public ContractAddresses contracts;
+}
+
+[Serializable]
+public class ContractAddresses
+{
+    public string chefNFT;
+    public string gameCore;
+    public string leaderboard;
 }
 
