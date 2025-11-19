@@ -18,14 +18,14 @@
 ### Monad Testnet (Base-Compatible Deployment)
 
 **Network:** Monad Testnet  
-**Deployed:** November 17, 2025  
-**Contracts verified on MonVision (Sourcify)**  
+**Deployed:** November 19, 2025  
+**✅ All contracts verified on MonVision (Sourcify)**  
 
 | Contract | Address | Explorer |
 |----------|---------|----------|
-| **ChefNFT** | `0x8ab8054b8b94A8a42719A1D62e08107115660B6A` | [MonVision](https://testnet.monadexplorer.com/address/0x8ab8054b8b94A8a42719A1D62e08107115660B6A) |
-| **GameCore** | `0xe70b0619BfC8491f87920bb161554048C1Bac9b5` | [MonVision](https://testnet.monadexplorer.com/address/0xe70b0619BfC8491f87920bb161554048C1Bac9b5) |
-| **Leaderboard** | `0xFCB5CD51AE29379790658b7A9804Bf4d1c01Ab9D` | [MonVision](https://testnet.monadexplorer.com/address/0xFCB5CD51AE29379790658b7A9804Bf4d1c01Ab9D) |
+| **ChefNFT** | `0xF9DC1860df4F3b17725964E2CF9bDE4aA75Ce83a` | [MonVision](https://testnet.monadexplorer.com/address/0xF9DC1860df4F3b17725964E2CF9bDE4aA75Ce83a) |
+| **GameCore** | `0xbBeC5987BBC89e99bD36a675b4c2F097b8eB2624` | [MonVision](https://testnet.monadexplorer.com/address/0xbBeC5987BBC89e99bD36a675b4c2F097b8eB2624) |
+| **Leaderboard** | `0x9d6F6bC7AEF75Dc85ca00AC87fC2533fA606Ecf7` | [MonVision](https://testnet.monadexplorer.com/address/0x9d6F6bC7AEF75Dc85ca00AC87fC2533fA606Ecf7) |
 
 ---
 
