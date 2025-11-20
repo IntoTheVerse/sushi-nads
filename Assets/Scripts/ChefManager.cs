@@ -18,6 +18,7 @@ public class ChefManager : MonoBehaviour
     [Header("UI References")]
     [SerializeField] private GameObject mintPanel; // Panel to show/hide based on chef status
     [SerializeField] private GameObject playPanel; // Panel to show/hide based on chef status
+    [SerializeField] private GameObject GetEnergyPanel; // Panel to show/hide based on chef status
     [SerializeField] private Button playButton; // Play/Start Game button
 
     [SerializeField] private TMP_InputField chefNameInput;
@@ -28,6 +29,8 @@ public class ChefManager : MonoBehaviour
     [SerializeField] private TMP_Text walletAddressText;
     [SerializeField] private TMP_Text chefTokenIdText;
     [SerializeField] private TMP_Text energyText;
+    [SerializeField] private TMP_Text profileUsernameTxt;
+    [SerializeField] private TMP_Text profilewalletAddressTxt;
 
     private int energyVal;
 
@@ -132,10 +135,11 @@ public class ChefManager : MonoBehaviour
         {
             string address = wallet.Address;
             walletAddressText.text = $"Wallet: {address.Substring(0, 6)}...{address.Substring(address.Length - 4)}";
+            profilewalletAddressTxt.text = $"{address.Substring(0, 6)}...{address.Substring(address.Length - 4)}";
         }
     }
 
-    private async void CheckExistingChef()
+    public async void CheckExistingChef()
     {
         try
         {
@@ -149,7 +153,7 @@ public class ChefManager : MonoBehaviour
                 hasChef = true;
                 chefName = profile.player.name;
                 tokenId = profile.player.tokenId;
-                
+                profileUsernameTxt.text = profile.player.name;
                 ShowStatus($"✅ Welcome back, {chefName}! (Chef #{tokenId})", Color.green);
 
                 playPanel.SetActive(true);
@@ -308,7 +312,7 @@ public class ChefManager : MonoBehaviour
         energyVal = profile.player.energy;
         if (energyText != null)
         {
-            energyText.text = $"⚡ Energy: {profile.player.energy}";
+            energyText.text = $" {profile.player.energy}";
         }
         
         // Update chef info
@@ -379,7 +383,7 @@ public class ChefManager : MonoBehaviour
                 // Update energy UI immediately
                 if (energyText != null)
                 {
-                    energyText.text = $"⚡ Energy: {currentEnergy}";
+                    energyText.text = $"{currentEnergy}";
                 }
                 
                 // Show success popup with transaction link

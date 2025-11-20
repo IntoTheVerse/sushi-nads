@@ -18,7 +18,8 @@ public class PrivyAndroidLogin : MonoBehaviour
     [SerializeField] private Button playButton;
     [SerializeField] private Button quitButton;
     [SerializeField] private Button loginButton;
-    [SerializeField] private Button logoutButton;
+    [SerializeField] private Button playPanelLogoutButton;
+    [SerializeField] private Button mintPanelLogoutButton;
     [SerializeField] private Button googleLoginButton;
     [SerializeField] private Button xLoginButton;
     [SerializeField] private TMP_InputField emailField;
@@ -42,7 +43,8 @@ public class PrivyAndroidLogin : MonoBehaviour
             SceneManager.LoadScene(2);
          });*/
         if (quitButton) quitButton.onClick.AddListener(Application.Quit);
-        if (logoutButton) logoutButton.onClick.AddListener(Logout);
+        if (playPanelLogoutButton) playPanelLogoutButton.onClick.AddListener(Logout);
+        if (mintPanelLogoutButton) mintPanelLogoutButton.onClick.AddListener(Logout);
     }
 
     private async void Start()
@@ -76,6 +78,10 @@ public class PrivyAndroidLogin : MonoBehaviour
     private void RefreshButtons()
     {
         bool isLoggedIn = PrivyManager.Instance?.User != null;
+        if (isLoggedIn)
+        {
+            ChefManager.Instance.CheckExistingChef();
+        }
         if (isLoggedIn) { 
             mintPanel.SetActive(isLoggedIn);
             loginPanel.SetActive(!isLoggedIn); }
@@ -88,9 +94,13 @@ public class PrivyAndroidLogin : MonoBehaviour
         if (playButton) { playButton.gameObject.SetActive(isLoggedIn); playButton.interactable = isLoggedIn; }
         if (loginButton) { loginButton.gameObject.SetActive(!isLoggedIn); loginButton.interactable = !isLoggedIn; }
         if (quitButton) quitButton.gameObject.SetActive(true);
-        if (logoutButton)
+        if (playPanelLogoutButton)
         {
-            logoutButton.interactable = isLoggedIn;
+            playPanelLogoutButton.interactable = isLoggedIn;
+        }
+        if (mintPanelLogoutButton)
+        {
+            mintPanelLogoutButton.interactable = isLoggedIn;
         }
     }
 
@@ -189,7 +199,8 @@ public class PrivyAndroidLogin : MonoBehaviour
         }
         if (user != null)
         {
-            logoutButton.gameObject.SetActive(true);
+            playPanelLogoutButton.gameObject.SetActive(true);
+            mintPanelLogoutButton.gameObject.SetActive(true);
         }
         else
         {
@@ -311,12 +322,15 @@ public class PrivyAndroidLogin : MonoBehaviour
                 Log("Wallet: " + GetAddress());
                 loginPanel.SetActive(false);
                 mintPanel.SetActive(true);
-                logoutButton.interactable = true;
-                logoutButton.gameObject.SetActive(true);
+                playPanelLogoutButton.interactable = true;
+                playPanelLogoutButton.gameObject.SetActive(true);
+                mintPanelLogoutButton.interactable = true;
+                mintPanelLogoutButton.gameObject.SetActive(true);
             }
             else
             {
-                logoutButton.interactable = false;
+                playPanelLogoutButton.interactable = false;
+                mintPanelLogoutButton.interactable = false;
             }
         }
         catch { /* ignore */ }
@@ -334,7 +348,9 @@ public class PrivyAndroidLogin : MonoBehaviour
             otpField.gameObject.SetActive(false);
             emailField.gameObject.SetActive(true);
             _loginBtnTxt.text = "Send otp";
-            logoutButton.gameObject.SetActive(false);
+            playPanelLogoutButton.gameObject.SetActive(false);
+            mintPanelLogoutButton.gameObject.SetActive(false);
+           
         }
         catch (System.Exception e)
         {
@@ -353,7 +369,8 @@ public class PrivyAndroidLogin : MonoBehaviour
             await PrivyManager.Instance.OAuth.LoginWithProvider(OAuthProvider.Google, PRIVY_REDIRECT);
             if (PrivyManager.Instance.GetUser() != null)
             {
-                logoutButton.gameObject.SetActive(true);
+                playPanelLogoutButton.gameObject.SetActive(true);
+                mintPanelLogoutButton.gameObject.SetActive(true);
             }
             await EnsureWalletAsync();
             Log("Google login complete. " + GetAddress());
