@@ -31,6 +31,8 @@ public class ChefManager : MonoBehaviour
     [SerializeField] private TMP_Text energyText;
     [SerializeField] private TMP_Text profileUsernameTxt;
     [SerializeField] private TMP_Text profilewalletAddressTxt;
+    [SerializeField] private Image energyFill;
+    [SerializeField] private int maxEnergy = 1000; 
 
     private int energyVal;
 
@@ -308,12 +310,9 @@ public class ChefManager : MonoBehaviour
 
     private void UpdateUI(PlayerProfileResponse profile)
     {
+        UpdateEnergyUI(profile.player.energy);
         // Update energy display
         energyVal = profile.player.energy;
-        if (energyText != null)
-        {
-            energyText.text = $" {profile.player.energy}";
-        }
         
         // Update chef info
         if (chefTokenIdText != null)
@@ -378,21 +377,17 @@ public class ChefManager : MonoBehaviour
                 
                 // Get fresh energy count from blockchain
                 var profile = await GameAPIClient.Instance.GetProfile();
+                int currentEnergy = response.newEnergy;
                 if (profile != null)
                 {
-                    energyText.text = $"{currentEnergy}";
                     // Update both energyVal and UI to keep them in sync
                     UpdateUI(profile);
                 }
                 else
                 {
                     // Fallback if profile fetch fails
-                    int currentEnergy = response.newEnergy;
                     energyVal = currentEnergy;
-                    if (energyText != null)
-                    {
-                        energyText.text = $"⚡ Energy: {currentEnergy}";
-                    }
+                    UpdateEnergyUI(currentEnergy);
                 }
                 
                 // Get explorer URL from backend (Base Sepolia or Monad)
@@ -428,9 +423,25 @@ public class ChefManager : MonoBehaviour
             if (refillEnergyButton != null) refillEnergyButton.interactable = true;
         }
     }
+    private void UpdateEnergyUI(int currentEnergy)
+    {
+        energyVal = currentEnergy;
 
+        // Text
+        if (energyText != null)
+        {
+            energyText.text = currentEnergy.ToString();
+        }
+
+        // Fill
+        if (energyFill != null && maxEnergy > 0)
+        {
+            float normalized = Mathf.Clamp01((float)currentEnergy / maxEnergy);
+            energyFill.fillAmount = normalized;
+        }
+    }
     // ============ USDC Energy Refill ============
-    
+
     // private async void OnRefillEnergyUSDCClicked()
     // {
     //     if (PrivyManager.Instance?.User == null)
@@ -438,55 +449,55 @@ public class ChefManager : MonoBehaviour
     //         ShowStatus("❌ Please login first", Color.red);
     //         return;
     //     }
-        
+
     //     if (!hasChef)
     //     {
     //         ShowStatus("❌ Please mint a chef first", Color.red);
     //         return;
     //     }
-        
+
     //     await RefillEnergyWithUSDC();
     // }
-    
+
     // public async Task RefillEnergyWithUSDC()
     // {
     //     try
     //     {
     //         ShowStatus("💰 Processing USDC payment...", Color.yellow);
-            
+
     //         if (refillEnergyUSDCButton != null) refillEnergyUSDCButton.interactable = false;
-            
+
     //         Debug.Log("💳 Calling backend for USDC refill...");
     //         Debug.Log("   Backend will handle USDC approval if needed");
-            
+
     //         // Backend handles everything (approval + refill)
     //         var response = await GameAPIClient.Instance.RefillEnergyWithUSDC();
-            
+
     //         if (response.success)
     //         {
     //             Debug.Log($"✅ Energy refilled with USDC!");
     //             Debug.Log($"   New Energy: {response.newEnergy}");
     //             Debug.Log($"   USDC Paid: {response.usdcPaid}");
     //             Debug.Log($"   Tx Hash: {response.txHash}");
-                
+
     //             // Get fresh energy count
     //             var profile = await GameAPIClient.Instance.GetProfile();
     //             int currentEnergy = profile?.player?.energy ?? response.newEnergy;
-                
+
     //             // Update energy UI
     //             if (energyText != null)
     //             {
     //                 energyText.text = $"⚡ Energy: {currentEnergy}";
     //             }
-                
+
     //             // Show success with Basescan link
     //             string basescanUrl = $"https://sepolia.basescan.org/tx/{response.txHash}";
-                
+
     //             ShowStatus(
     //                 $"✅ +300 Energy!\n💰 Spent: 0.1 USDC\n🔗 Opening transaction...", 
     //                 Color.green
     //             );
-                
+
     //             Debug.Log($"🔗 View on Basescan: {basescanUrl}");
     //             Application.OpenURL(basescanUrl);
     //         }
@@ -494,20 +505,20 @@ public class ChefManager : MonoBehaviour
     //         {
     //             ShowStatus("❌ Refill failed", Color.red);
     //         }
-            
+
     //         if (refillEnergyUSDCButton != null) refillEnergyUSDCButton.interactable = true;
     //     }
     //     catch (Exception e)
     //     {
     //         Debug.LogError($"❌ USDC refill error: {e.Message}");
     //         ShowStatus($"❌ Error: {e.Message}", Color.red);
-            
+
     //         if (refillEnergyUSDCButton != null) refillEnergyUSDCButton.interactable = true;
     //     }
     // }
 
     // ============ Play Button ============
-    
+
     private async void OnPlayButtonClicked()
     {
         // Start game session - SessionManager will handle it
