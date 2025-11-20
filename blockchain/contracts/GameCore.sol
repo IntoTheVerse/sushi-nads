@@ -24,6 +24,7 @@ contract GameCore is Ownable, ReentrancyGuard {
     // Game constants
     uint256 public constant GAME_DURATION = 1000; // seconds
     uint256 public constant MOVE_COST = 1; // energy per move
+    uint256 public constant DISCARD_COST = 5; // energy per discard
     
     // Scoring configuration (can be adjusted by owner)
     int256 public deliveryBonus = 100;
@@ -303,6 +304,11 @@ contract GameCore is Ownable, ReentrancyGuard {
         sessionActive(sessionId) 
     {
         GameSession storage session = sessions[sessionId];
+        
+        uint256 currentEnergy = chefNFT.getPlayerEnergy(session.player);
+        if (currentEnergy < DISCARD_COST) revert InsufficientEnergy();
+        chefNFT.consumeEnergy(session.player, DISCARD_COST);
+        
         session.recipesDiscarded++;
         globalStats[session.player].totalRecipesDiscarded++;
         

@@ -378,16 +378,27 @@ public class ChefManager : MonoBehaviour
                 
                 // Get fresh energy count from blockchain
                 var profile = await GameAPIClient.Instance.GetProfile();
-                int currentEnergy = profile?.player?.energy ?? response.newEnergy;
-                
-                // Update energy UI immediately
-                if (energyText != null)
+                if (profile != null)
                 {
                     energyText.text = $"{currentEnergy}";
+                    // Update both energyVal and UI to keep them in sync
+                    UpdateUI(profile);
+                }
+                else
+                {
+                    // Fallback if profile fetch fails
+                    int currentEnergy = response.newEnergy;
+                    energyVal = currentEnergy;
+                    if (energyText != null)
+                    {
+                        energyText.text = $"⚡ Energy: {currentEnergy}";
+                    }
                 }
                 
-                // Show success popup with transaction link
-                string basescanUrl = $"https://sepolia.basescan.org/tx/{response.txHash}";
+                // Get explorer URL from backend (Base Sepolia or Monad)
+                string explorerUrl = await GameAPIClient.Instance.GetExplorerUrl();
+                string explorerName = explorerUrl.Contains("basescan") ? "Basescan" : "MonVision";
+                string txUrl = $"{explorerUrl}/tx/{response.txHash}";
                 
                 ShowStatus(
                     $"✅ +300 Energy!\n💰 Cost: 0.1 USDC (FREE)\n🔗 Click to view transaction", 
@@ -395,12 +406,12 @@ public class ChefManager : MonoBehaviour
                 );
                 
                 Debug.Log($"✅ Energy refilled!");
-                Debug.Log($"🔗 View on Basescan: {basescanUrl}");
+                Debug.Log($"🔗 View on {explorerName}: {txUrl}");
                 Debug.Log($"💡 TIP: In production, this costs 0.1 USDC per refill");
                 
-                // Open Basescan in browser
-                Debug.Log($"🌐 Opening Basescan...");
-                Application.OpenURL(basescanUrl);
+                // Open explorer in browser
+                Debug.Log($"🌐 Opening {explorerName}...");
+                Application.OpenURL(txUrl);
             }
             else
             {

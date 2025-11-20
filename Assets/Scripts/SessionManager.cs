@@ -208,7 +208,7 @@ public class SessionManager : MonoBehaviour
         }
     }
 
-    private void ShowScorePopup(int score, string txHash)
+    private async void ShowScorePopup(int score, string txHash)
     {
         if(_gameOverUI != null)
         {
@@ -229,7 +229,10 @@ public class SessionManager : MonoBehaviour
                         if (score > 0 && !string.IsNullOrEmpty(txHash))
                         {
                             // Normal case - we got the score
-                            finalScoreText.text = $"🎉 Game Over!\n\nFinal Score: {score}\n\n🔗 View on Basescan";
+                            // Get explorer URL dynamically
+                            string explorerUrl = await GameAPIClient.Instance.GetExplorerUrl();
+                            string explorerName = explorerUrl.Contains("basescan") ? "Basescan" : "MonVision";
+                            finalScoreText.text = $"🎉 Game Over!\n\nFinal Score: {score}\n\n🔗 View on {explorerName}";
                         }
                         else
                         {
@@ -238,14 +241,28 @@ public class SessionManager : MonoBehaviour
                         }
                     }
 
-                    // Open transaction on Basescan if we have it
+                    // Open transaction on explorer if we have it
 
                 }*/
         if (!string.IsNullOrEmpty(txHash))
         {
-            string basescanUrl = $"https://sepolia.basescan.org/tx/{txHash}";
-            Debug.Log($"🔗 Score transaction: {basescanUrl}");
-            Application.OpenURL(basescanUrl);
+            // Get explorer URL dynamically from backend (Base Sepolia or Monad)
+            try
+            {
+                string explorerUrl = await GameAPIClient.Instance.GetExplorerUrl();
+                string explorerName = explorerUrl.Contains("basescan") ? "Basescan" : "MonVision";
+                string txUrl = $"{explorerUrl}/tx/{txHash}";
+                Debug.Log($"🔗 Score transaction on {explorerName}: {txUrl}");
+                Application.OpenURL(txUrl);
+            }
+            catch (Exception e)
+            {
+                // Fallback to Basescan if network config fetch fails
+                Debug.LogWarning($"⚠️ Failed to get explorer URL, using default Basescan: {e.Message}");
+                string basescanUrl = $"https://sepolia.basescan.org/tx/{txHash}";
+                Debug.Log($"🔗 Score transaction: {basescanUrl}");
+                Application.OpenURL(basescanUrl);
+            }
         }
     }
 

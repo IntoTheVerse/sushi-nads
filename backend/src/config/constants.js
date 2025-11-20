@@ -3,7 +3,8 @@
 export const GAME_CONFIG = {
     DURATION: 1000, // seconds
     MOVE_COST: 1, // energy per move
-    MAX_ENERGY: 300,
+    DISCARD_COST: 5,
+    MAX_ENERGY: 1000,
     ENERGY_REFILL_AMOUNT: 300,
     ENERGY_REFILL_COST_USDC: '100000', // 0.1 USDC (6 decimals)
     MIN_ENERGY_TO_START: 5, // minimum energy required to start session
