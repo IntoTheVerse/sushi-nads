@@ -407,6 +407,7 @@ public class ChefManager : MonoBehaviour
                 // Open explorer in browser
                 Debug.Log($"🌐 Opening {explorerName}...");
                 Application.OpenURL(txUrl);
+                GetEnergyPanel.SetActive(false);
             }
             else
             {
