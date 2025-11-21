@@ -6590,7 +6590,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Chef Name
+  m_text: Chef Energy
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: aa1154702b7444b4c91ff905d396cdbf, type: 2}
   m_sharedMaterial: {fileID: 5638072462624220018, guid: aa1154702b7444b4c91ff905d396cdbf,
@@ -7089,7 +7089,7 @@ MonoBehaviour:
   walletAddressText: {fileID: 737375735}
   chefTokenIdText: {fileID: 948346655}
   energyText: {fileID: 1145925832}
-  profileUsernameTxt: {fileID: 1534368619}
+  playPanelUsernameTxt: {fileID: 1534368619}
   profilewalletAddressTxt: {fileID: 310249788}
   energyFill: {fileID: 1800219846}
   maxEnergy: 1000

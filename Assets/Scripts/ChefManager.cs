@@ -29,7 +29,7 @@ public class ChefManager : MonoBehaviour
     [SerializeField] private TMP_Text walletAddressText;
     [SerializeField] private TMP_Text chefTokenIdText;
     [SerializeField] private TMP_Text energyText;
-    [SerializeField] private TMP_Text profileUsernameTxt;
+    [SerializeField] private TMP_Text playPanelUsernameTxt;
     [SerializeField] private TMP_Text profilewalletAddressTxt;
     [SerializeField] private Image energyFill;
     [SerializeField] private int maxEnergy = 1000; 
@@ -155,7 +155,7 @@ public class ChefManager : MonoBehaviour
                 hasChef = true;
                 chefName = profile.player.name;
                 tokenId = profile.player.tokenId;
-                profileUsernameTxt.text = profile.player.name;
+                playPanelUsernameTxt.text = profile.player.name;
                 ShowStatus($"✅ Welcome back, {chefName}! (Chef #{tokenId})", Color.green);
 
                 playPanel.SetActive(true);
