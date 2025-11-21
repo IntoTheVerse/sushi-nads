@@ -6,6 +6,7 @@ using UnityEngine.UI;
 using TMPro;
 using Privy;
 using Newtonsoft.Json;
+using System.Collections;
 
 /// <summary>
 /// Manages chef NFT minting and player profile
@@ -19,6 +20,7 @@ public class ChefManager : MonoBehaviour
     [SerializeField] private GameObject mintPanel; // Panel to show/hide based on chef status
     [SerializeField] private GameObject playPanel; // Panel to show/hide based on chef status
     [SerializeField] private GameObject GetEnergyPanel; // Panel to show/hide based on chef status
+    [SerializeField] private GameObject StatusPanel; 
     [SerializeField] private Button playButton; // Play/Start Game button
 
     [SerializeField] private TMP_InputField chefNameInput;
@@ -30,8 +32,13 @@ public class ChefManager : MonoBehaviour
     [SerializeField] private TMP_Text chefTokenIdText;
     [SerializeField] private TMP_Text energyText;
     [SerializeField] private TMP_Text playPanelUsernameTxt;
-    [SerializeField] private TMP_Text profilewalletAddressTxt;
+    [SerializeField] private TMP_Text playPanelWalletAddressTxt;
+    [SerializeField] private TMP_Text playerProfileUsernameTxt;
+    [SerializeField] private TMP_Text playerProfileChefIdTxt;
+    [SerializeField] private TMP_Text playerProfilewalletAddressTxt;
+    [SerializeField] private TMP_Text playerProfileEnergyTxt;
     [SerializeField] private Image energyFill;
+    [SerializeField] private Image playerProfileenergyFill;
     [SerializeField] private int maxEnergy = 1000; 
 
     private int energyVal;
@@ -40,6 +47,8 @@ public class ChefManager : MonoBehaviour
     private string chefName;
     private int tokenId;
     private bool hasChef;
+    
+    private Coroutine currentStatusCoroutine;
 
     private void Awake()
     {
@@ -110,7 +119,7 @@ public class ChefManager : MonoBehaviour
 
         if (!privyReady)
         {
-            ShowStatus("❌ Privy not initialized. Please go to login scene first.", Color.red);
+            ShowStatusMessage("Privy not initialized. Please go to login scene first.", Color.red);
             if (mintChefButton != null) mintChefButton.interactable = false;
             yield break;
         }
@@ -118,7 +127,7 @@ public class ChefManager : MonoBehaviour
         // Check if player is logged in
         if (PrivyManager.Instance?.User == null)
         {
-            ShowStatus("⚠️ Please login first", Color.yellow);
+            ShowStatusMessage("Please login first", Color.yellow);
             if (mintChefButton != null) mintChefButton.interactable = false;
             yield break;
         }
@@ -136,8 +145,8 @@ public class ChefManager : MonoBehaviour
         if (wallet != null && walletAddressText != null)
         {
             string address = wallet.Address;
-            walletAddressText.text = $"Wallet: {address.Substring(0, 6)}...{address.Substring(address.Length - 4)}";
-            profilewalletAddressTxt.text = $"{address.Substring(0, 6)}...{address.Substring(address.Length - 4)}";
+            playerProfilewalletAddressTxt.text = $"Wallet: {address.Substring(0, 6)}...{address.Substring(address.Length - 4)}";
+            playPanelWalletAddressTxt.text = $"{address.Substring(0, 6)}...{address.Substring(address.Length - 4)}";
         }
     }
 
@@ -145,7 +154,7 @@ public class ChefManager : MonoBehaviour
     {
         try
         {
-            ShowStatus("Checking for existing chef...", Color.yellow);
+            ShowStatusMessage("Checking for existing chef...", Color.yellow);
             
             var profile = await GameAPIClient.Instance.GetProfile();
             
@@ -156,7 +165,7 @@ public class ChefManager : MonoBehaviour
                 chefName = profile.player.name;
                 tokenId = profile.player.tokenId;
                 playPanelUsernameTxt.text = profile.player.name;
-                ShowStatus($"✅ Welcome back, {chefName}! (Chef #{tokenId})", Color.green);
+                ShowStatusMessage($"Welcome back, {chefName}! (Chef #{tokenId})", Color.green);
 
                 playPanel.SetActive(true);
                 
@@ -176,7 +185,7 @@ public class ChefManager : MonoBehaviour
                 // No chef found - show mint panel
                 if (mintPanel != null) mintPanel.SetActive(true);
                 
-                ShowStatus("🎨 Create your chef to start playing!", Color.white);
+                ShowStatusMessage("Create your chef to start playing!", Color.white);
                 if (mintChefButton != null) mintChefButton.interactable = true;
             }
         }
@@ -188,7 +197,7 @@ public class ChefManager : MonoBehaviour
             // SHOW mint panel - new player needs to mint
             if (mintPanel != null) mintPanel.SetActive(true);
             
-            ShowStatus("🎨 Create your chef to start playing!", Color.white);
+            ShowStatusMessage("Create your chef to start playing!", Color.white);
             if (mintChefButton != null) mintChefButton.interactable = true;
         }
     }
@@ -200,20 +209,20 @@ public class ChefManager : MonoBehaviour
         // Validation
         if (string.IsNullOrWhiteSpace(name))
         {
-            ShowStatus("❌ Please enter a chef name", Color.red);
+            ShowStatusMessage("Please enter a chef name", Color.red);
             return;
         }
         
         if (name.Length < 3 || name.Length > 20)
         {
-            ShowStatus("❌ Name must be 3-20 characters", Color.red);
+            ShowStatusMessage("Name must be 3-20 characters", Color.red);
             return;
         }
 
         // Check if user is logged in
         if (PrivyManager.Instance?.User == null)
         {
-            ShowStatus("❌ Please login first", Color.red);
+            ShowStatusMessage("Please login first", Color.red);
             return;
         }
 
@@ -224,7 +233,7 @@ public class ChefManager : MonoBehaviour
     {
         try
         {
-            ShowStatus("🎨 Minting your chef NFT...", Color.yellow);
+            ShowStatusMessage("Minting your chef NFT...", Color.yellow);
             
             if (mintChefButton != null) mintChefButton.interactable = false;
             if (chefNameInput != null) chefNameInput.interactable = false;
@@ -238,11 +247,11 @@ public class ChefManager : MonoBehaviour
                 chefName = response.name;
                 tokenId = response.tokenId;
                 
-                ShowStatus($"✅ Chef minted! You are {chefName} (#{tokenId})", Color.green);
+                ShowStatusMessage($"Chef minted! You are {chefName} (#{tokenId})", Color.green);
                 
                 if (response.gasSponsored)
                 {
-                    ShowStatus($"✅ {chefName} #{tokenId} | Gas: FREE (sponsored)", Color.green);
+                    ShowStatusMessage($"{chefName} #{tokenId} | Gas: FREE (sponsored)", Color.green);
                 }
                 playPanel.SetActive(true);
 
@@ -269,11 +278,11 @@ public class ChefManager : MonoBehaviour
                 await LoadPlayerProfile();
                 
                 // Show next step message
-                ShowStatus($"✅ Chef ready! Refill energy to play.", Color.green);
+                ShowStatusMessage($"Chef ready! Refill energy to play.", Color.green);
             }
             else
             {
-                ShowStatus("❌ Minting failed", Color.red);
+                ShowStatusMessage("Minting failed", Color.red);
                 if (mintChefButton != null) mintChefButton.interactable = true;
                 if (chefNameInput != null) chefNameInput.interactable = true;
             }
@@ -281,7 +290,7 @@ public class ChefManager : MonoBehaviour
         catch (Exception e)
         {
             Debug.LogError($"❌ Mint chef error: {e.Message}");
-            ShowStatus($"❌ Error: {e.Message}", Color.red);
+            ShowStatusMessage($"Error: {e.Message}", Color.red);
             
             if (mintChefButton != null) mintChefButton.interactable = true;
             if (chefNameInput != null) chefNameInput.interactable = true;
@@ -318,6 +327,10 @@ public class ChefManager : MonoBehaviour
         if (chefTokenIdText != null)
         {
             chefTokenIdText.text = $"Chef #{profile.player.tokenId}: {profile.player.name}";
+            playerProfileChefIdTxt.text = $"#{profile.player.tokenId}";
+            playerProfileUsernameTxt.text = profile.player.name;
+            // playerProfileEnergyTxt.text = $"Energy: {profile.player.energy}";
+            // playerProfileenergyFill.fillAmount = Mathf.Clamp01((float)profile.player.energy / maxEnergy);
         }
         
         Debug.Log("📊 Player Stats:");
@@ -327,15 +340,32 @@ public class ChefManager : MonoBehaviour
         Debug.Log($"   Well Cooked: {profile.globalStats.totalWellCooked}");
     }
 
-    private void ShowStatus(string message, Color color)
+    private void ShowStatusMessage(string message, Color color)
     {
+        // Stop previous status coroutine if running
+        if (currentStatusCoroutine != null)
+        {
+            StopCoroutine(currentStatusCoroutine);
+            currentStatusCoroutine = null;
+        }
+        
+        // Start new status coroutine
+        currentStatusCoroutine = StartCoroutine(ShowStatus(message, color));
+    }
+    
+    private IEnumerator ShowStatus(string message, Color color)
+    {
+        ColorUtility.TryParseHtmlString("#E8914C", out color);
+        StatusPanel.SetActive(true);
         if (statusText != null)
         {
             statusText.text = message;
             statusText.color = color;
         }
-        
+        yield return new WaitForSeconds(100f);
+        StatusPanel.SetActive(false);
         Debug.Log($"[ChefManager] {message}");
+        currentStatusCoroutine = null; // Clear reference when done
     }
 
     // ============ Energy Refill ============
@@ -344,13 +374,21 @@ public class ChefManager : MonoBehaviour
     {
         if (PrivyManager.Instance?.User == null)
         {
-            ShowStatus("❌ Please login first", Color.red);
+            ShowStatusMessage("Please login first", Color.red);
             return;
         }
         
         if (!hasChef)
         {
-            ShowStatus("❌ Please mint a chef first", Color.red);
+            ShowStatusMessage("Please mint a chef first", Color.red);
+            return;
+        }
+        
+        // Check if energy is too high to refill
+        if (energyVal >= 700)
+        {
+            ShowStatusMessage($"Your energy is too high ({energyVal}/{maxEnergy}). Energy must be below 700 to refill.", Color.yellow);
+            if (GetEnergyPanel != null) GetEnergyPanel.SetActive(false);
             return;
         }
         
@@ -361,7 +399,7 @@ public class ChefManager : MonoBehaviour
     {
         try
         {
-            ShowStatus("⚡ Refilling energy...", Color.yellow);
+            ShowStatusMessage("Refilling energy...", Color.yellow);
             
             if (refillEnergyButton != null) refillEnergyButton.interactable = false;
             
@@ -395,8 +433,8 @@ public class ChefManager : MonoBehaviour
                 string explorerName = explorerUrl.Contains("basescan") ? "Basescan" : "MonVision";
                 string txUrl = $"{explorerUrl}/tx/{response.txHash}";
                 
-                ShowStatus(
-                    $"✅ +300 Energy!\n💰 Cost: 0.1 USDC (FREE)\n🔗 Click to view transaction", 
+                ShowStatusMessage(
+                    $"+300 Energy!\nCost: 0.1 USDC (FREE)\nClick to view transaction", 
                     Color.green
                 );
                 
@@ -411,7 +449,7 @@ public class ChefManager : MonoBehaviour
             }
             else
             {
-                ShowStatus("❌ Refill failed", Color.red);
+                ShowStatusMessage("Refill failed", Color.red);
             }
             
             if (refillEnergyButton != null) refillEnergyButton.interactable = true;
@@ -419,7 +457,7 @@ public class ChefManager : MonoBehaviour
         catch (Exception e)
         {
             Debug.LogError($"❌ Refill energy error: {e.Message}");
-            ShowStatus($"❌ Error: {e.Message}", Color.red);
+            ShowStatusMessage($"Error: {e.Message}", Color.red);
             
             if (refillEnergyButton != null) refillEnergyButton.interactable = true;
         }
@@ -427,7 +465,7 @@ public class ChefManager : MonoBehaviour
     private void UpdateEnergyUI(int currentEnergy)
     {
         energyVal = currentEnergy;
-
+        playerProfileEnergyTxt.text = $"{currentEnergy.ToString()}/{maxEnergy}";
         // Text
         if (energyText != null)
         {
@@ -439,6 +477,11 @@ public class ChefManager : MonoBehaviour
         {
             float normalized = Mathf.Clamp01((float)currentEnergy / maxEnergy);
             energyFill.fillAmount = normalized;
+        }// Player Profile Energy Fill
+        if (playerProfileenergyFill != null && maxEnergy > 0)
+        {
+            float normalized = Mathf.Clamp01((float)currentEnergy / maxEnergy);
+            playerProfileenergyFill.fillAmount = normalized;
         }
     }
     // ============ USDC Energy Refill ============
@@ -525,7 +568,7 @@ public class ChefManager : MonoBehaviour
         // Start game session - SessionManager will handle it
         if (energyVal < 5)
         {
-            ShowStatus("❌ Refill more energy", Color.red);
+            ShowStatusMessage("Refill more energy", Color.red);
             return;
         }
         if (SessionManager.Instance != null)
@@ -535,7 +578,7 @@ public class ChefManager : MonoBehaviour
         else
         {
             Debug.LogError("❌ SessionManager not found! Add SessionManager GameObject to scene.");
-            ShowStatus("❌ Session manager missing", Color.red);
+            ShowStatusMessage("Session manager missing", Color.red);
         }
     }
 

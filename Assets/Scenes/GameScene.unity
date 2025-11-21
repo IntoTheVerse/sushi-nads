@@ -15342,7 +15342,7 @@ GameObject:
   - component: {fileID: 1357313152}
   - component: {fileID: 1357313151}
   m_Layer: 5
-  m_Name: StreekBonus
+  m_Name: StreakBonus
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -17111,7 +17111,7 @@ GameObject:
   - component: {fileID: 1651510727}
   - component: {fileID: 1651510726}
   m_Layer: 5
-  m_Name: StreekBonust
+  m_Name: StreakBonust
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -18202,7 +18202,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Streek Bonus
+  m_text: Streak Bonus
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: aa1154702b7444b4c91ff905d396cdbf, type: 2}
   m_sharedMaterial: {fileID: 5638072462624220018, guid: aa1154702b7444b4c91ff905d396cdbf,
