@@ -258,24 +258,110 @@ export async function sendParallelTransactions(transactions, signer, batchSize =
         // Step 3: Send all signed transactions in parallel
         console.log(`   📤 Sending ${signedTxs.length} signed transactions in parallel...`);
         
-        const sendPromises = signedTxs.map(async ({ signedTx, description, index, nonce }) => {
+        // Send all transactions first (fast, no RPC rate limit issues)
+        const txResponses = [];
+        for (const { signedTx, description, index, nonce } of signedTxs) {
             try {
-                // Send the signed transaction
                 const provider = signer.provider;
                 const txResponse = await provider.broadcastTransaction(signedTx);
                 console.log(`   ✅ Tx ${index + 1}/${total} sent: ${txResponse.hash.substring(0, 10)}... (nonce: ${nonce}, ${description})`);
-                
-                // Wait for confirmation in background (don't block)
-                const receiptPromise = txResponse.wait().then(receipt => {
-                    console.log(`   ✅ Confirmed ${index + 1}/${total}: ${txResponse.hash.substring(0, 10)}... (block ${receipt.blockNumber})`);
+                txResponses.push({
+                    txResponse,
+                    description,
+                    index,
+                    nonce
+                });
+            } catch (error) {
+                console.error(`   ❌ Error sending ${index + 1}/${total}: ${description}`, error.message);
+                // Add to results immediately for send failures
+                const errorResult = {
+                    success: false,
+                    error,
+                    description,
+                    nonce
+                };
+                // We'll add this to allResults after initialization
+                txResponses.push({ error: errorResult, description, index, nonce });
+            }
+        }
+        
+        // Step 4: Wait for confirmations with RPC rate limiting
+        // Process confirmations in small batches to avoid rate limits (QuickNode: 25 req/sec)
+        const CONFIRMATION_BATCH_SIZE = 5; // Process 5 confirmations at a time
+        const CONFIRMATION_DELAY = 250; // 250ms delay between batches (50ms per tx = ~20/sec, under limit)
+        
+        const batchResults = [];
+        
+        for (let i = 0; i < txResponses.length; i += CONFIRMATION_BATCH_SIZE) {
+            const confirmationBatch = txResponses.slice(i, i + CONFIRMATION_BATCH_SIZE);
+            
+            // Handle errors from sending phase
+            const validBatch = confirmationBatch.filter(item => !item.error);
+            const errorItems = confirmationBatch.filter(item => item.error);
+            
+            // Add error results
+            errorItems.forEach(item => batchResults.push(item.error));
+            
+            if (validBatch.length === 0) {
+                // All items in batch had errors, continue to next batch
+                if (i + CONFIRMATION_BATCH_SIZE < txResponses.length) {
+                    await new Promise(resolve => setTimeout(resolve, CONFIRMATION_DELAY));
+                }
+                continue;
+            }
+            
+            // Wait for this batch of confirmations (max 5 at a time)
+            const batchPromises = validBatch.map(async ({ txResponse, description, index, nonce }) => {
+                try {
+                    // Add retry logic for rate limit errors
+                    let retries = 3;
+                    let lastError = null;
+                    
+                    while (retries > 0) {
+                        try {
+                            const receipt = await txResponse.wait();
+                            console.log(`   ✅ Confirmed ${index + 1}/${total}: ${txResponse.hash.substring(0, 10)}... (block ${receipt.blockNumber})`);
+                            return {
+                                success: true,
+                                receipt,
+                                description,
+                                txHash: txResponse.hash,
+                                nonce
+                            };
+                        } catch (error) {
+                            lastError = error;
+                            // Check if it's a rate limit error
+                            const isRateLimit = error.message && (
+                                error.message.includes('rate limit') || 
+                                error.message.includes('request limit') || 
+                                error.code === -32007 ||
+                                error.error?.code === -32007
+                            );
+                            
+                            if (isRateLimit) {
+                                retries--;
+                                if (retries > 0) {
+                                    const delay = (4 - retries) * 1000; // Exponential backoff: 1s, 2s, 3s
+                                    console.log(`   ⏳ Rate limit hit, retrying in ${delay}ms... (${retries} retries left)`);
+                                    await new Promise(resolve => setTimeout(resolve, delay));
+                                    continue;
+                                }
+                            }
+                            // Not a rate limit error or retries exhausted, throw
+                            throw error;
+                        }
+                    }
+                    
+                    // All retries exhausted
+                    console.error(`   ❌ Confirmation failed after retries ${index + 1}/${total}: ${description}`, lastError?.message);
                     return {
-                        success: true,
-                        receipt,
+                        success: false,
+                        error: lastError,
                         description,
                         txHash: txResponse.hash,
                         nonce
                     };
-                }).catch(error => {
+                } catch (error) {
                     console.error(`   ❌ Confirmation failed ${index + 1}/${total}: ${description}`, error.message);
                     return {
                         success: false,
@@ -284,38 +370,35 @@ export async function sendParallelTransactions(transactions, signer, batchSize =
                         txHash: txResponse.hash,
                         nonce
                     };
-                });
-                
-                return receiptPromise;
-                
-            } catch (error) {
-                console.error(`   ❌ Error sending ${index + 1}/${total}: ${description}`, error.message);
-                return {
-                    success: false,
-                    error,
-                    description,
-                    nonce
-                };
+                }
+            });
+            
+            // Wait for this batch (max 5 confirmations at once)
+            const settledResults = await Promise.allSettled(batchPromises);
+            
+            // Convert settled results
+            const formattedBatch = settledResults.map((result) => {
+                if (result.status === 'fulfilled') {
+                    return result.value;
+                } else {
+                    return {
+                        success: false,
+                        error: result.reason,
+                        description: 'Unknown'
+                    };
+                }
+            });
+            
+            batchResults.push(...formattedBatch);
+            
+            // Delay between confirmation batches to respect RPC rate limits
+            if (i + CONFIRMATION_BATCH_SIZE < txResponses.length) {
+                await new Promise(resolve => setTimeout(resolve, CONFIRMATION_DELAY));
             }
-        });
+        }
         
-        // Wait for all confirmations in this batch (they're already sent, confirmations happen in parallel)
-        const batchResults = await Promise.allSettled(sendPromises);
-        
-        // Convert settled results to our format
-        const formattedResults = batchResults.map((result) => {
-            if (result.status === 'fulfilled') {
-                return result.value;
-            } else {
-                return {
-                    success: false,
-                    error: result.reason,
-                    description: 'Unknown'
-                };
-            }
-        });
-        
-        allResults.push(...formattedResults);
+        // Add batch results to allResults
+        allResults.push(...batchResults);
         
         // Small delay between batches to avoid overwhelming the RPC
         if (i + batchSize < transactions.length) {
