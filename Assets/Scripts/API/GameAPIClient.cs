@@ -353,7 +353,23 @@ public class EndSessionResponse
     public int sessionId;
     public int finalScore;
     public string txHash;
+    public SessionStats sessionStats;
     public bool gasSponsored;
+}
+
+[Serializable]
+public class SessionStats
+{
+    public int moves;
+    public int recipesDelivered;
+    public int recipesDiscarded;
+    public int wellCooked;
+    public int overCooked;
+    public int recipesSpawned;
+    public int duration;
+    public int efficiency;
+    public int combo;
+    public int currentStreak;
 }
 
 [Serializable]

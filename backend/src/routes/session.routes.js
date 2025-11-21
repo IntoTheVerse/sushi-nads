@@ -10,6 +10,27 @@ import { clearSessionQueue, queueEndSession } from './gameplay.routes.js';
 
 const router = express.Router();
 
+function formatSessionStats(session) {
+    const recipesDelivered = Number(session.recipesDelivered);
+    const recipesDiscarded = Number(session.recipesDiscarded);
+    const totalRecipes = recipesDelivered + recipesDiscarded;
+    const startTime = Number(session.startTime);
+    const endTime = Number(session.endTime);
+    
+    return {
+        moves: Number(session.moveCount),
+        recipesDelivered,
+        recipesDiscarded,
+        wellCooked: Number(session.wellCookedCount),
+        overCooked: Number(session.overCookedCount),
+        recipesSpawned: Number(session.recipesSpawned),
+        duration: endTime > 0 ? endTime - startTime : 0,
+        efficiency: totalRecipes > 0 ? Math.round((recipesDelivered * 100) / totalRecipes) : 0,
+        combo: Number(session.maxComboAchieved),
+        currentStreak: Number(session.consecutivePerfectDeliveries)
+    };
+}
+
 /**
  * POST /api/session/start
  * Start a new game session
@@ -167,6 +188,7 @@ router.post('/end', requireAuth, validateSessionId, async (req, res, next) => {
             // Session already ended - clear queue and return final score
             console.log(`   ℹ️  Session ${sessionId} already ended (duplicate call), fetching final score...`);
             const updatedSession = await gameCore.getSession(sessionId);
+            const sessionStats = formatSessionStats(updatedSession);
             
             // Clear any pending move queues for this session
             await clearSessionQueue(sessionId);
@@ -178,7 +200,8 @@ router.post('/end', requireAuth, validateSessionId, async (req, res, next) => {
                 success: true,
                 sessionId,
                 finalScore: Number(updatedSession.finalScore),
-                message: 'Session was already ended'
+                message: 'Session was already ended',
+                sessionStats
             });
         }
         
@@ -197,6 +220,7 @@ router.post('/end', requireAuth, validateSessionId, async (req, res, next) => {
                 
                 console.log(`   ℹ️  Session ${sessionId} already ended (race condition), fetching final score...`);
                 const updatedSession = await gameCore.getSession(sessionId);
+                const sessionStats = formatSessionStats(updatedSession);
                 
                 // Delete cached session
                 await deleteCachedSession(sessionId);
@@ -205,7 +229,8 @@ router.post('/end', requireAuth, validateSessionId, async (req, res, next) => {
                     success: true,
                     sessionId,
                     finalScore: Number(updatedSession.finalScore),
-                    message: 'Session was already ended'
+                    message: 'Session was already ended',
+                    sessionStats
                 });
             }
             // Re-throw if it's a different error
@@ -215,12 +240,15 @@ router.post('/end', requireAuth, validateSessionId, async (req, res, next) => {
         // Delete cached session
         await deleteCachedSession(sessionId);
         
+        const sessionStats = result.sessionStats || formatSessionStats(await gameCore.getSession(sessionId));
+        
         res.json({
             success: true,
             sessionId,
             finalScore: result.finalScore,
             txHash: result.txHash,
-            message: result.message
+            message: result.message,
+            sessionStats
         });
     } catch (error) {
         next(error);
