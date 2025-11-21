@@ -9,7 +9,42 @@ public class GameOverUI : MonoBehaviour
     public static GameOverUI instance;
     [SerializeField] private TextMeshProUGUI recipesDeliveredText;
     [SerializeField] public TextMeshProUGUI scroreTxt;
-
+    [SerializeField] private TextMeshProUGUI recipesDiscardedText;
+    [SerializeField] private TextMeshProUGUI wellCookedText;
+    [SerializeField] private TextMeshProUGUI overCookedText;
+    [SerializeField] private TextMeshProUGUI movesText;
+    [SerializeField] private TextMeshProUGUI efficiencyText;
+    [SerializeField] private TextMeshProUGUI durationText;
+    [SerializeField] private TextMeshProUGUI comboText;
+    [SerializeField] private TextMeshProUGUI streakText;
+    
+    [Header("Loading State")]
+    [SerializeField] private GameObject loadingPanel;
+    [SerializeField] private TextMeshProUGUI loadingText;
+    [SerializeField] private GameObject scorePanel;
+    
+    [Header("Animation Settings")]
+    [SerializeField] private float scoreCountUpDuration = 1.5f;
+    [SerializeField] private float statDisplayDelay = 0.3f;
+    [SerializeField] private float statAnimationDuration = 0.5f;
+    
+    // Catchy loading phrases (Overcooked-style)
+    private readonly string[] loadingPhrases = {
+        "Calculating your culinary score...",
+        "Tallying those perfect dishes...",
+        "Counting your kitchen mastery...",
+        "Computing your chef rating...",
+        "Adding up your delicious points...",
+        "Measuring your cooking skills...",
+        "Finalizing your kitchen performance...",
+        "Crunching the numbers on-chain..."
+    };
+    
+    private int currentScore = 0;
+    private bool isAnimating = false;
+    private Coroutine loadingCoroutine;
+    private Coroutine scoreAnimationCoroutine;
+    private SessionStats latestStats;
     
     private void Start() {
         if (KitchenGameManager.Instance != null) {
@@ -21,16 +56,17 @@ public class GameOverUI : MonoBehaviour
         SessionManager.Instance.AssignGameOver(this);
     }
 
-
     private void KitchenGameManager_OnStateChanged(object sender, System.EventArgs e) {
         if (KitchenGameManager.Instance.IsGameOver()) {
             Show();
+            // Start with loading state
+            ShowLoadingState();
+            // Show recipes delivered immediately (local count)
             recipesDeliveredText.text = DeliveryManager.Instance.GetSuccessfulRecipesAmount().ToString();
         } else {
             Hide();
         }
     }
-
 
     private void Show() {
         gameObject.SetActive(true);
@@ -38,5 +74,203 @@ public class GameOverUI : MonoBehaviour
 
     private void Hide() {
         gameObject.SetActive(false);
+        // Stop any running coroutines
+        if (loadingCoroutine != null) {
+            StopCoroutine(loadingCoroutine);
+            loadingCoroutine = null;
+        }
+        if (scoreAnimationCoroutine != null) {
+            StopCoroutine(scoreAnimationCoroutine);
+            scoreAnimationCoroutine = null;
+        }
+        isAnimating = false;
+    }
+    
+    /// <summary>
+    /// Show loading state with rotating catchy phrases
+    /// Called when game ends, before score is computed
+    /// </summary>
+    public void ShowLoadingState() {
+        if (loadingPanel != null) {
+            loadingPanel.SetActive(true);
+        }
+        if (scorePanel != null) {
+            scorePanel.SetActive(false);
+        }
+        
+        // Start rotating loading phrases
+        if (loadingCoroutine != null) {
+            StopCoroutine(loadingCoroutine);
+        }
+        loadingCoroutine = StartCoroutine(RotateLoadingPhrases());
+    }
+    
+    /// <summary>
+    /// Called by SessionManager when score is received from blockchain
+    /// </summary>
+    public void DisplayScore(int finalScore, SessionStats stats) {
+        latestStats = stats ?? new SessionStats();
+        // Stop loading
+        if (loadingCoroutine != null) {
+            StopCoroutine(loadingCoroutine);
+            loadingCoroutine = null;
+        }
+        
+        if (loadingPanel != null) {
+            loadingPanel.SetActive(false);
+        }
+        if (scorePanel != null) {
+            scorePanel.SetActive(true);
+        }
+        
+        // Start score count-up animation
+        if (scoreAnimationCoroutine != null) {
+            StopCoroutine(scoreAnimationCoroutine);
+        }
+        scoreAnimationCoroutine = StartCoroutine(AnimateScoreDisplay(finalScore));
+    }
+    
+    /// <summary>
+    /// Rotate through catchy loading phrases
+    /// </summary>
+    private IEnumerator RotateLoadingPhrases() {
+        int phraseIndex = 0;
+        
+        while (true) {
+            if (loadingText != null && loadingPhrases.Length > 0) {
+                loadingText.text = loadingPhrases[phraseIndex];
+                phraseIndex = (phraseIndex + 1) % loadingPhrases.Length;
+            }
+            yield return new WaitForSeconds(1.5f); // Change phrase every 1.5 seconds
+        }
+    }
+    
+    /// <summary>
+    /// Animate score counting up and display stats sequentially
+    /// </summary>
+    private IEnumerator AnimateScoreDisplay(int finalScore) {
+        isAnimating = true;
+        
+        // Step 1: Count up the score
+        yield return StartCoroutine(CountUpScore(finalScore));
+        
+        // Step 2: Display stats one by one with animation
+        yield return new WaitForSeconds(statDisplayDelay);
+        
+        if (latestStats != null) {
+            if (recipesDeliveredText != null) {
+                yield return StartCoroutine(AnimateStatText(recipesDeliveredText, latestStats.recipesDelivered.ToString()));
+            }
+            if (recipesDiscardedText != null) {
+                yield return StartCoroutine(AnimateStatText(recipesDiscardedText, latestStats.recipesDiscarded.ToString()));
+            }
+            if (wellCookedText != null) {
+                yield return StartCoroutine(AnimateStatText(wellCookedText, latestStats.wellCooked.ToString()));
+            }
+            if (overCookedText != null) {
+                yield return StartCoroutine(AnimateStatText(overCookedText, latestStats.overCooked.ToString()));
+            }
+            if (movesText != null) {
+                yield return StartCoroutine(AnimateStatText(movesText, latestStats.moves.ToString()));
+            }
+            if (comboText != null) {
+                yield return StartCoroutine(AnimateStatText(comboText, latestStats.combo.ToString()));
+            }
+            if (streakText != null) {
+                yield return StartCoroutine(AnimateStatText(streakText, latestStats.currentStreak.ToString()));
+            }
+            if (efficiencyText != null) {
+                yield return StartCoroutine(AnimateStatText(efficiencyText, $"{latestStats.efficiency}%"));
+            }
+            if (durationText != null) {
+                yield return StartCoroutine(AnimateStatText(durationText, FormatDuration(latestStats.duration)));
+            }
+        }
+        
+        isAnimating = false;
+    }
+    
+    /// <summary>
+    /// Count up score from 0 to final value
+    /// </summary>
+    private IEnumerator CountUpScore(int targetScore) {
+        if (scroreTxt == null) yield break;
+        
+        float elapsed = 0f;
+        int startScore = 0;
+        currentScore = startScore;
+        
+        while (elapsed < scoreCountUpDuration) {
+            elapsed += Time.deltaTime;
+            float progress = elapsed / scoreCountUpDuration;
+            
+            // Ease out curve for smooth animation
+            progress = 1f - Mathf.Pow(1f - progress, 3f);
+            
+            currentScore = Mathf.RoundToInt(Mathf.Lerp(startScore, targetScore, progress));
+            scroreTxt.text = currentScore.ToString();
+            
+            yield return null;
+        }
+        
+        // Ensure final value is set
+        currentScore = targetScore;
+        scroreTxt.text = currentScore.ToString();
+    }
+    
+    /// <summary>
+    /// Animate a stat text with scale/pop effect
+    /// </summary>
+    private IEnumerator AnimateStatText(TextMeshProUGUI textComponent, string finalValue) {
+        if (textComponent == null) yield break;
+        
+        RectTransform rectTransform = textComponent.rectTransform;
+        Vector3 originalScale = rectTransform.localScale;
+        
+        // Pop animation
+        float elapsed = 0f;
+        while (elapsed < statAnimationDuration) {
+            elapsed += Time.deltaTime;
+            float progress = elapsed / statAnimationDuration;
+            
+            // Bounce effect
+            float scale = 1f + Mathf.Sin(progress * Mathf.PI) * 0.3f;
+            rectTransform.localScale = originalScale * scale;
+            
+            yield return null;
+        }
+        
+        // Reset scale
+        rectTransform.localScale = originalScale;
+        textComponent.text = finalValue;
+    }
+
+    private string FormatDuration(int seconds) {
+        if (seconds <= 0) return "00:00";
+        var timeSpan = TimeSpan.FromSeconds(seconds);
+        if (timeSpan.TotalHours >= 1f) {
+            return $"{(int)timeSpan.TotalHours:D2}:{timeSpan.Minutes:D2}:{timeSpan.Seconds:D2}";
+        }
+        return $"{timeSpan.Minutes:D2}:{timeSpan.Seconds:D2}";
+    }
+    
+    /// <summary>
+    /// Legacy method for backward compatibility
+    /// Called directly by SessionManager when score is received
+    /// </summary>
+    public void SetScore(int score) {
+        if (isAnimating) {
+            // If already animating, just update the target
+            if (scoreAnimationCoroutine != null) {
+                StopCoroutine(scoreAnimationCoroutine);
+            }
+            scoreAnimationCoroutine = StartCoroutine(CountUpScore(score));
+        } else {
+            // Set immediately if not animating
+            currentScore = score;
+            if (scroreTxt != null) {
+                scroreTxt.text = score.ToString();
+            }
+        }
     }
 }

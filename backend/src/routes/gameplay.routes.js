@@ -17,6 +17,27 @@ const flushingQueues = new Set(); // Track which queues are currently being flus
 const FAILED_MOVES = new Map(); // Track failed moves for retry: sessionId -> [moves]
 const moveCounters = new Map(); // Track total moves processed per session: sessionId -> { total: number, recorded: number, lastProcessedIds: Set<string> }
 
+function buildSessionStats(session) {
+    const recipesDelivered = Number(session.recipesDelivered);
+    const recipesDiscarded = Number(session.recipesDiscarded);
+    const totalRecipes = recipesDelivered + recipesDiscarded;
+    const startTime = Number(session.startTime);
+    const endTime = Number(session.endTime);
+
+    return {
+        moves: Number(session.moveCount),
+        recipesDelivered,
+        recipesDiscarded,
+        wellCooked: Number(session.wellCookedCount),
+        overCooked: Number(session.overCookedCount),
+        recipesSpawned: Number(session.recipesSpawned),
+        duration: endTime > 0 ? endTime - startTime : 0,
+        efficiency: totalRecipes > 0 ? Math.round((recipesDelivered * 100) / totalRecipes) : 0,
+        currentStreak: Number(session.consecutivePerfectDeliveries),
+        maxCombo: Number(session.maxComboAchieved)
+    };
+}
+
 /**
  * POST /api/gameplay/move
  * Record a player move (batched for gas optimization)
@@ -414,32 +435,17 @@ async function executeEndSession(sessionId, action) {
         
         console.log('   ✅ Session ended!');
         
-        // Get final score from event
-        const event = receipt.logs.find(log => {
-            try {
-                const parsed = gameCore.interface.parseLog(log);
-                return parsed && parsed.name === 'ScoreFinalized';
-            } catch {
-                return false;
-            }
-        });
-        
-        let finalScore = 0;
-        if (event) {
-            const parsed = gameCore.interface.parseLog(event);
-            finalScore = Number(parsed.args.score);
-        } else {
-            // Fallback: query session
-            const updatedSession = await gameCore.getSession(sessionId);
-            finalScore = Number(updatedSession.finalScore);
-        }
+        const updatedSession = await gameCore.getSession(sessionId);
+        const sessionStats = buildSessionStats(updatedSession);
+        const finalScore = Number(updatedSession.finalScore);
         
         // Store result in action for later retrieval
         action.result = {
             success: true,
             sessionId,
             finalScore,
-            txHash: receipt.hash
+            txHash: receipt.hash,
+            sessionStats
         };
         
         return action.result;
@@ -453,12 +459,14 @@ async function executeEndSession(sessionId, action) {
             console.log(`   ℹ️  Session ${sessionId} already ended (duplicate call or race condition)`);
             const updatedSession = await gameCore.getSession(sessionId);
             const finalScore = Number(updatedSession.finalScore);
+            const sessionStats = buildSessionStats(updatedSession);
             
             action.result = {
                 success: true,
                 sessionId,
                 finalScore,
-                message: 'Session was already ended'
+                message: 'Session was already ended',
+                sessionStats
             };
             
             return action.result;
@@ -1065,7 +1073,8 @@ export async function queueEndSession(sessionId, reason = 'PLAYER_ENDED', player
                     success: true,
                     sessionId,
                     finalScore: Number(session.finalScore),
-                    message: 'Session ended (timeout waiting for end-session action)'
+                    message: 'Session ended (timeout waiting for end-session action)',
+                    sessionStats: buildSessionStats(session)
                 };
             }
         } catch (error) {

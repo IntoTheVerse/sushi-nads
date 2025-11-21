@@ -138,6 +138,12 @@ public class SessionManager : MonoBehaviour
             return;
         }
 
+        // Show loading state immediately when game ends
+        if (_gameOverUI != null)
+        {
+            _gameOverUI.ShowLoadingState();
+        }
+
         int maxRetries = 2;
         int retryCount = 0;
 
@@ -159,8 +165,13 @@ public class SessionManager : MonoBehaviour
                     Debug.Log($"   Final Score: {response.finalScore}");
                     Debug.Log($"   Tx Hash: {response.txHash}");
                     
-                    // Show score popup
-                    ShowScorePopup(response.finalScore, response.txHash);
+                    // Fetch detailed session stats from blockchain (optional, for accuracy)
+                    // For now, use local stats and display score
+                    ShowScorePopup(
+                        response.finalScore, 
+                        response.txHash, 
+                        response.sessionStats ?? CreateFallbackStats()
+                    );
                     
                     UpdateSessionStatus("Session complete!", Color.green);
                     return; // Success!
@@ -168,6 +179,10 @@ public class SessionManager : MonoBehaviour
                 else
                 {
                     UpdateSessionStatus("Failed to end session", Color.red);
+                    if (_gameOverUI != null)
+                    {
+                        _gameOverUI.SetScore(0);
+                    }
                     return;
                 }
             }
@@ -192,8 +207,8 @@ public class SessionManager : MonoBehaviour
                         
                         isSessionActive = false; // Mark as inactive locally
                         
-                        // Show a simpler message
-                        ShowScorePopup(0, ""); // Show popup without score (user can check later)
+                        // Show a simpler message (score will be 0, user can check later)
+                        ShowScorePopup(0, "", CreateFallbackStats());
                         return;
                     }
                 }
@@ -202,51 +217,49 @@ public class SessionManager : MonoBehaviour
                     // Non-timeout error
                     Debug.LogError($"❌ End session error: {e.Message}");
                     UpdateSessionStatus($"❌ Error: {e.Message}", Color.red);
+                    if (_gameOverUI != null)
+                    {
+                        _gameOverUI.SetScore(0);
+                    }
                     return;
                 }
             }
         }
     }
 
-    private async void ShowScorePopup(int score, string txHash)
+    private SessionStats CreateFallbackStats()
     {
-        if(_gameOverUI != null)
+        int delivered = DeliveryManager.Instance != null
+            ? DeliveryManager.Instance.GetSuccessfulRecipesAmount()
+            : 0;
+
+        return new SessionStats
         {
-            _gameOverUI.scroreTxt.text = score.ToString();
-            Debug.Log($"<- Score {score}");
+            recipesDelivered = delivered
+        };
+    }
+
+    private async void ShowScorePopup(int score, string txHash, SessionStats stats = null)
+    {
+        Debug.Log($"🎯 Displaying score: {score}");
+        
+        if (_gameOverUI != null)
+        {
+            // Use the new DisplayScore method with animation
+            var statsToUse = stats ?? CreateFallbackStats();
+            _gameOverUI.DisplayScore(score, statsToUse);
         }
         else
         {
-            Debug.Log($"<- gameoverUI is null");
+            Debug.LogWarning("⚠️ GameOverUI is null - cannot display score");
         }
-        Debug.Log($"-> Score {score}");
-        /*        if (scorePopup != null)
-                {
-                    scorePopup.SetActive(true);
-
-                    if (finalScoreText != null)
-                    {
-                        if (score > 0 && !string.IsNullOrEmpty(txHash))
-                        {
-                            // Normal case - we got the score
-                            // Get explorer URL dynamically
-                            string explorerUrl = await GameAPIClient.Instance.GetExplorerUrl();
-                            string explorerName = explorerUrl.Contains("basescan") ? "Basescan" : "MonVision";
-                            finalScoreText.text = $"🎉 Game Over!\n\nFinal Score: {score}\n\n🔗 View on {explorerName}";
-                        }
-                        else
-                        {
-                            // Timeout case - session ended but we didn't get score
-                            finalScoreText.text = $"⏰ Game Over!\n\nScore computed on-chain\n(Check your profile for final score)";
-                        }
-                    }
-
-                    // Open transaction on explorer if we have it
-
-                }*/
+        
+        // Open transaction on explorer if we have it (after a short delay to let UI update)
         if (!string.IsNullOrEmpty(txHash))
         {
-            // Get explorer URL dynamically from backend (Base Sepolia or Monad)
+            // Wait a bit before opening browser so UI can update
+            await Task.Delay(1000);
+            
             try
             {
                 string explorerUrl = await GameAPIClient.Instance.GetExplorerUrl();
