@@ -1,4 +1,6 @@
 using UnityEngine;
+using UnityEngine.UI;
+using UnityEngine.SceneManagement;
 using TMPro;
 using System;
 using System.Collections;
@@ -28,6 +30,9 @@ public class GameOverUI : MonoBehaviour
     [SerializeField] private float statDisplayDelay = 0.3f;
     [SerializeField] private float statAnimationDuration = 0.5f;
     
+    [Header("Navigation")]
+    [SerializeField] private Button closeButton;
+    
     // Catchy loading phrases (Overcooked-style)
     private readonly string[] loadingPhrases = {
         "Calculating your culinary score...",
@@ -52,6 +57,14 @@ public class GameOverUI : MonoBehaviour
         } else {
             Debug.LogError("KitchenGameManager.Instance is null in GameStartCountdownUI.Start()");
         }
+        
+        // Setup close button
+        if (closeButton != null) {
+            closeButton.onClick.AddListener(OnCloseButtonClicked);
+        } else {
+            Debug.LogWarning("GameOverUI: Close button not assigned in Inspector. Add a Button and assign it to 'closeButton' field.");
+        }
+        
         Hide();
         SessionManager.Instance.AssignGameOver(this);
     }
@@ -109,7 +122,26 @@ public class GameOverUI : MonoBehaviour
     /// Called by SessionManager when score is received from blockchain
     /// </summary>
     public void DisplayScore(int finalScore, SessionStats stats) {
-        latestStats = stats ?? new SessionStats();
+        // Preserve local recipe count if blockchain stats are missing or invalid
+        int localRecipesDelivered = DeliveryManager.Instance != null 
+            ? DeliveryManager.Instance.GetSuccessfulRecipesAmount() 
+            : 0;
+        
+        // Use blockchain stats if available, otherwise create fallback with local count
+        if (stats == null) {
+            latestStats = new SessionStats {
+                recipesDelivered = localRecipesDelivered
+            };
+        } else {
+            latestStats = stats;
+            // If blockchain stats show 0 but we have local count, use local count
+            // (this handles cases where blockchain hasn't updated yet)
+            if (latestStats.recipesDelivered == 0 && localRecipesDelivered > 0) {
+                Debug.LogWarning($"⚠️ Blockchain shows 0 recipes delivered, but local count is {localRecipesDelivered}. Using local count.");
+                latestStats.recipesDelivered = localRecipesDelivered;
+            }
+        }
+        
         // Stop loading
         if (loadingCoroutine != null) {
             StopCoroutine(loadingCoroutine);
@@ -272,5 +304,25 @@ public class GameOverUI : MonoBehaviour
                 scroreTxt.text = score.ToString();
             }
         }
+    }
+    
+    /// <summary>
+    /// Handle close button click - return to main menu
+    /// </summary>
+    private void OnCloseButtonClicked() {
+        Debug.Log("🏠 Returning to main menu...");
+        
+        // Stop any running animations
+        if (loadingCoroutine != null) {
+            StopCoroutine(loadingCoroutine);
+            loadingCoroutine = null;
+        }
+        if (scoreAnimationCoroutine != null) {
+            StopCoroutine(scoreAnimationCoroutine);
+            scoreAnimationCoroutine = null;
+        }
+        
+        // Return to main menu using Loader (consistent with GamePauseUI)
+        Loader.Load(Loader.Scene.MainMenuScene);
     }
 }
