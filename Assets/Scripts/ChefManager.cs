@@ -156,6 +156,9 @@ public class ChefManager : MonoBehaviour
         {
             ShowStatusMessage("Checking for existing chef...", Color.yellow);
             
+            // Update wallet display first (in case Privy wasn't ready earlier)
+            UpdateWalletDisplay();
+            
             var profile = await GameAPIClient.Instance.GetProfile();
             
             if (profile != null && profile.player != null)
@@ -178,6 +181,9 @@ public class ChefManager : MonoBehaviour
                 
                 UpdateUI(profile);
                 
+                // Update wallet display again after profile is loaded (ensures it's set)
+                UpdateWalletDisplay();
+                
                 Debug.Log($"✅ Existing chef found: {chefName} (#{tokenId})");
             }
             else
@@ -196,6 +202,9 @@ public class ChefManager : MonoBehaviour
             
             // SHOW mint panel - new player needs to mint
             if (mintPanel != null) mintPanel.SetActive(true);
+            
+            // Still try to update wallet display even if no chef exists
+            UpdateWalletDisplay();
             
             ShowStatusMessage("Create your chef to start playing!", Color.white);
             if (mintChefButton != null) mintChefButton.interactable = true;
@@ -277,6 +286,9 @@ public class ChefManager : MonoBehaviour
                 // Load player profile
                 await LoadPlayerProfile();
                 
+                // Update wallet display after minting (ensures it's visible)
+                UpdateWalletDisplay();
+                
                 // Show next step message
                 ShowStatusMessage($"Chef ready! Refill energy to play.", Color.green);
             }
@@ -332,6 +344,9 @@ public class ChefManager : MonoBehaviour
             // playerProfileEnergyTxt.text = $"Energy: {profile.player.energy}";
             // playerProfileenergyFill.fillAmount = Mathf.Clamp01((float)profile.player.energy / maxEnergy);
         }
+        
+        // Update wallet address display (in case it wasn't ready earlier)
+        UpdateWalletDisplay();
         
         Debug.Log("📊 Player Stats:");
         Debug.Log($"   Energy: {profile.player.energy}");
