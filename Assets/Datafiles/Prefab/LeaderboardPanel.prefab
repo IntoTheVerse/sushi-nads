@@ -5980,6 +5980,7 @@ GameObject:
   - component: {fileID: 8003198702883604226}
   - component: {fileID: 4271714387605787933}
   - component: {fileID: 4056339956794230063}
+  - component: {fileID: 3301122334455667788}
   m_Layer: 5
   m_Name: LeaderboardPanel
   m_TagString: Untagged
@@ -6049,6 +6050,28 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &3301122334455667788
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8426497384506562630}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d54769c5bcd142889c7019a5730837c9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  rowsParent: {fileID: 0}
+  rowPrefab: {fileID: 0}
+  headerText: {fileID: 0}
+  lastUpdatedText: {fileID: 0}
+  playerRankText: {fileID: 0}
+  playerScoreText: {fileID: 0}
+  emptyStateText: {fileID: 0}
+  loadingState: {fileID: 0}
+  refreshButton: {fileID: 0}
+  fetchLimit: 25
 --- !u!1 &8561458385540234910
 GameObject:
   m_ObjectHideFlags: 0
@@ -6060,6 +6083,7 @@ GameObject:
   - component: {fileID: 4741788534992092291}
   - component: {fileID: 6436919539591467853}
   - component: {fileID: 4457691947492186409}
+  - component: {fileID: 5178943216549876543}
   m_Layer: 5
   m_Name: Item
   m_TagString: Untagged
@@ -6128,6 +6152,23 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &5178943216549876543
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8561458385540234910}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3a7b1af7c4dd4c0c929efebbb2c2314a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  rankText: {fileID: 2305253435451880775}
+  nameText: {fileID: 335454790591120041}
+  scoreText: {fileID: 5965813359692298623}
+  metadataText: {fileID: 8953404602655147949}
+  highlight: {fileID: 0}
 --- !u!1 &8600125407430880848
 GameObject:
   m_ObjectHideFlags: 0
