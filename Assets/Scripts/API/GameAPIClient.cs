@@ -37,7 +37,12 @@ public class GameAPIClient : MonoBehaviour
         Instance = this;
         DontDestroyOnLoad(gameObject);
     }
-
+    public async Task<LeaderboardResponse> GetTopLeaderboardAsync(int limit = 25)
+    {
+        string endpoint = $"/api/leaderboard/top?limit={limit}";
+        // This call uses your SendRequestAsync<T> and returns a LeaderboardResponse instance
+        return await SendRequestAsync<LeaderboardResponse>(endpoint, UnityWebRequest.kHttpVerbGET);
+    }
     // ============ Helper Methods ============
 
     private string GetWalletAddress()
@@ -430,7 +435,7 @@ public class BasicResponse
     public bool gasSponsored;
 }
 
-[Serializable]
+/*[Serializable]
 public class LeaderboardResponse
 {
     public LeaderboardEntry[] rankings;
@@ -458,7 +463,7 @@ public class PlayerRankResponse
     public int season;
     public int sessionId;
     public long lastUpdated;
-}
+}*/
 
 [Serializable]
 public class NetworkConfigResponse

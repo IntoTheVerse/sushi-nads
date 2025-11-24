@@ -27,6 +27,7 @@ public class ChefManager : MonoBehaviour
     [SerializeField] private Button mintChefButton;
     [SerializeField] private Button refillEnergyButton; // Free energy refill
     [SerializeField] private Button refillEnergyUSDCButton; // USDC payment refill
+    [SerializeField] private Button copyWABtn; // USDC payment refill
     [SerializeField] private TMP_Text statusText;
     [SerializeField] private TMP_Text walletAddressText;
     [SerializeField] private TMP_Text chefTokenIdText;
@@ -74,7 +75,10 @@ public class ChefManager : MonoBehaviour
         {
             playButton.onClick.AddListener(OnPlayButtonClicked);
         }
-        
+        if (copyWABtn != null)
+        {
+            copyWABtn.onClick.AddListener(CopyWalletAddress);
+        }
         // if (refillEnergyUSDCButton != null)
         // {
         //     refillEnergyUSDCButton.onClick.AddListener(OnRefillEnergyUSDCClicked);
@@ -476,6 +480,46 @@ public class ChefManager : MonoBehaviour
             
             if (refillEnergyButton != null) refillEnergyButton.interactable = true;
         }
+    }    
+    
+    // Call this from a UI button
+    public void CopyWalletAddress()
+    {
+        var addr = PrivyAndroidLogin.Instance.GetAddress();
+        if (string.IsNullOrEmpty(addr))
+        {
+            Debug.Log("No wallet address yet.");
+            return;
+        }
+
+        // 1) Cross-platform clipboard
+        GUIUtility.systemCopyBuffer = addr;
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+    try
+    {
+        // 2) Native Android clipboard (extra reliability)
+        using var unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer");
+        using var activity    = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity");
+        using var clipDataCls = new AndroidJavaClass("android.content.ClipData");
+        using var clip        = clipDataCls.CallStatic<AndroidJavaObject>("newPlainText", "Wallet", addr);
+        using var clipboard   = activity.Call<AndroidJavaObject>("getSystemService", "clipboard");
+        clipboard.Call("setPrimaryClip", clip);
+
+        // 3) Tiny Toast so user sees feedback
+        using var toastCls = new AndroidJavaClass("android.widget.Toast");
+        activity.Call("runOnUiThread", new AndroidJavaRunnable(() =>
+        {
+            using var appCtx = activity.Call<AndroidJavaObject>("getApplicationContext");
+            using var toast  = toastCls.CallStatic<AndroidJavaObject>("makeText",
+                                 appCtx, "Address copied", toastCls.GetStatic<int>("LENGTH_SHORT"));
+            toast.Call("show");
+        }));
+    }
+    catch { /* ignore: clipboard/Toast not critical */ }
+#endif
+
+        Debug.Log("Address copied: " + addr);
     }
     private void UpdateEnergyUI(int currentEnergy)
     {

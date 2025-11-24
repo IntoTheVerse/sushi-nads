@@ -8,6 +8,7 @@ public class LeaderboardRowUI : MonoBehaviour
     [SerializeField] private TMP_Text nameText;
     [SerializeField] private TMP_Text scoreText;
     [SerializeField] private TMP_Text metadataText;
+    [SerializeField] private TMP_Text walletAddress;
     [SerializeField] private GameObject highlight;
 
     public void Bind(LeaderboardEntry entry, string localPlayerAddress, bool emphasizeRow)
@@ -37,7 +38,11 @@ public class LeaderboardRowUI : MonoBehaviour
         {
             metadataText.text = FormatTimestamp(entry.lastUpdated);
         }
-
+        // ✅ truncated wallet in its own text
+        if (walletAddress != null)
+        {
+            walletAddress.text = GetShortWallet(entry.player);
+        }
         if (highlight != null)
         {
             bool isLocalPlayer = !string.IsNullOrEmpty(localPlayerAddress) &&
@@ -45,6 +50,17 @@ public class LeaderboardRowUI : MonoBehaviour
                                  entry.player.Equals(localPlayerAddress, System.StringComparison.OrdinalIgnoreCase);
             highlight.SetActive(emphasizeRow && isLocalPlayer);
         }
+    }
+    private string GetShortWallet(string addr)
+    {
+        if (string.IsNullOrWhiteSpace(addr))
+            return string.Empty;
+
+        addr = addr.Trim();
+        if (addr.Length <= 10)
+            return addr;
+
+        return $"{addr.Substring(0, 6)}...{addr.Substring(addr.Length - 4)}";
     }
 
     private string FormatTimestamp(long timestampMs)

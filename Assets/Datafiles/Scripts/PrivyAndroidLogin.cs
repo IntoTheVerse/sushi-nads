@@ -9,6 +9,7 @@ using UnityEngine.SceneManagement;
 
 public class PrivyAndroidLogin : MonoBehaviour
 {
+    public static PrivyAndroidLogin Instance;
     [Header("Privy Dashboard")]
     [SerializeField] private string appId = "YOUR_APP_ID";
     [SerializeField] private string clientId = "YOUR_CLIENT_ID";
@@ -36,6 +37,7 @@ public class PrivyAndroidLogin : MonoBehaviour
 
     private void Awake()
     {
+        Instance = this;
         _loginBtnTxt.text = "Send otp";
         loginButton.interactable = false;
         if (loginButton) loginButton.onClick.AddListener(ShowLoginStep);
@@ -105,46 +107,6 @@ public class PrivyAndroidLogin : MonoBehaviour
     }
 
     private void Log(string msg) { Debug.Log(msg); if (statusLabel) statusLabel.text = msg; }
-
-    // Call this from a UI button
-    public void CopyWalletAddress()
-    {
-        var addr = GetAddress();
-        if (string.IsNullOrEmpty(addr))
-        {
-            Log("No wallet address yet.");
-            return;
-        }
-
-        // 1) Cross-platform clipboard
-        GUIUtility.systemCopyBuffer = addr;
-
-#if UNITY_ANDROID && !UNITY_EDITOR
-    try
-    {
-        // 2) Native Android clipboard (extra reliability)
-        using var unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer");
-        using var activity    = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity");
-        using var clipDataCls = new AndroidJavaClass("android.content.ClipData");
-        using var clip        = clipDataCls.CallStatic<AndroidJavaObject>("newPlainText", "Wallet", addr);
-        using var clipboard   = activity.Call<AndroidJavaObject>("getSystemService", "clipboard");
-        clipboard.Call("setPrimaryClip", clip);
-
-        // 3) Tiny Toast so user sees feedback
-        using var toastCls = new AndroidJavaClass("android.widget.Toast");
-        activity.Call("runOnUiThread", new AndroidJavaRunnable(() =>
-        {
-            using var appCtx = activity.Call<AndroidJavaObject>("getApplicationContext");
-            using var toast  = toastCls.CallStatic<AndroidJavaObject>("makeText",
-                                 appCtx, "Address copied", toastCls.GetStatic<int>("LENGTH_SHORT"));
-            toast.Call("show");
-        }));
-    }
-    catch { /* ignore: clipboard/Toast not critical */ }
-#endif
-
-        Log("Address copied: " + addr);
-    }
 
     //When user starts typing in email field ->
     public void DisableOtherLoginOpt()
