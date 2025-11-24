@@ -7,6 +7,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { validateSessionId } from '../middleware/validation.js';
 import { rateLimitGameActions } from '../middleware/rateLimit.js';
 import { BATCH_CONFIG } from '../config/constants.js';
+import { clearLeaderboardCache } from '../services/cache.service.js';
 
 const router = express.Router();
 
@@ -448,6 +449,13 @@ async function executeEndSession(sessionId, action) {
             sessionStats
         };
         
+        // Leaderboard entries get updated inside GameCore, but our cache might be stale.
+        try {
+            await clearLeaderboardCache();
+        } catch (cacheError) {
+            console.warn(`⚠️ Failed to clear leaderboard cache after session ${sessionId}:`, cacheError.message);
+        }
+        
         return action.result;
     } catch (error) {
         // Check if session was already ended (duplicate call or race condition)
@@ -468,6 +476,12 @@ async function executeEndSession(sessionId, action) {
                 message: 'Session was already ended',
                 sessionStats
             };
+            
+            try {
+                await clearLeaderboardCache();
+            } catch (cacheError) {
+                console.warn(`⚠️ Failed to clear leaderboard cache after session ${sessionId}:`, cacheError.message);
+            }
             
             return action.result;
         }
