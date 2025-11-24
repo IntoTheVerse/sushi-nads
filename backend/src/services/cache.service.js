@@ -127,6 +127,39 @@ export async function setCachedLeaderboard(season, limit, rankings) {
 }
 
 /**
+ * Clear all cached leaderboard documents.
+ * Useful after a session ends so fresh rankings are fetched next time.
+ */
+export async function clearLeaderboardCache() {
+    const db = getDb();
+    if (!db) return; // Firebase not initialized
+    
+    try {
+        const snapshot = await db.collection('cache').get();
+        if (snapshot.empty) {
+            return;
+        }
+        
+        const batch = db.batch();
+        let deleteCount = 0;
+        
+        snapshot.forEach(doc => {
+            if (doc.id.startsWith('leaderboard_')) {
+                batch.delete(doc.ref);
+                deleteCount++;
+            }
+        });
+        
+        if (deleteCount > 0) {
+            await batch.commit();
+            console.log(`🧹 Cleared ${deleteCount} cached leaderboard entr${deleteCount === 1 ? 'y' : 'ies'}.`);
+        }
+    } catch (error) {
+        console.error('Clear leaderboard cache error:', error);
+    }
+}
+
+/**
  * Cache player profile
  */
 export async function getCachedProfile(address) {
@@ -174,6 +207,7 @@ export default {
     deleteCachedSession,
     getCachedLeaderboard,
     setCachedLeaderboard,
+    clearLeaderboardCache,
     getCachedProfile,
     setCachedProfile,
 };
