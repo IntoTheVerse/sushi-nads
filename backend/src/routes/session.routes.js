@@ -86,47 +86,47 @@ router.post('/start', requireAuth, async (req, res, next) => {
                 () => gameCore.startGameSession(playerAddress),
                 `Start Session (${playerAddress})`
             );
-            console.log('   ✅ Session started!');
-            
-            // Get session ID from event
-            const event = receipt.logs.find(log => {
-                try {
-                    const parsed = gameCore.interface.parseLog(log);
-                    return parsed && parsed.name === 'SessionStarted';
-                } catch {
-                    return false;
-                }
-            });
-            
-            let sessionId = 0;
-            if (event) {
-                const parsed = gameCore.interface.parseLog(event);
-                sessionId = Number(parsed.args.sessionId);
-            } else {
-                // Fallback
-                sessionId = Number(await gameCore.getCurrentSessionId(playerAddress));
+        console.log('   ✅ Session started!');
+        
+        // Get session ID from event
+        const event = receipt.logs.find(log => {
+            try {
+                const parsed = gameCore.interface.parseLog(log);
+                return parsed && parsed.name === 'SessionStarted';
+            } catch {
+                return false;
             }
-            
-            const startTime = Date.now();
-            
-            // Cache session
-            await setCachedSession(sessionId, {
-                sessionId,
-                player: playerAddress,
-                startTime,
-                isActive: true,
-                moveCount: 0,
-                recipesDelivered: 0,
-                recipesDiscarded: 0
-            });
-            
-            res.json({
-                success: true,
-                sessionId,
-                txHash: receipt.hash,
-                startTime,
-                energyRemaining: Number(energy)
-            });
+        });
+        
+        let sessionId = 0;
+        if (event) {
+            const parsed = gameCore.interface.parseLog(event);
+            sessionId = Number(parsed.args.sessionId);
+        } else {
+            // Fallback
+            sessionId = Number(await gameCore.getCurrentSessionId(playerAddress));
+        }
+        
+        const startTime = Date.now();
+        
+        // Cache session
+        await setCachedSession(sessionId, {
+            sessionId,
+            player: playerAddress,
+            startTime,
+            isActive: true,
+            moveCount: 0,
+            recipesDelivered: 0,
+            recipesDiscarded: 0
+        });
+        
+        res.json({
+            success: true,
+            sessionId,
+            txHash: receipt.hash,
+            startTime,
+            energyRemaining: Number(energy)
+        });
         } catch (error) {
             // Handle specific contract errors
             const errorData = error.data || error.info?.error?.data || '';
