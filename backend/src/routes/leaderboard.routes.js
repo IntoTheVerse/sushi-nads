@@ -23,28 +23,45 @@ router.get('/top', optionalAuth, async (req, res, next) => {
             return res.json({ rankings: cached, cached: true, season });
         }
         
-        // Fetch from blockchain
-        const [players, scores] = await leaderboard.getTopPlayers(limit);
+        // Fetch from blockchain (prefer detailed entries if available)
+        let entries;
+        try {
+            entries = await leaderboard.getTopPlayersDetailed(limit);
+        } catch (detailedError) {
+            console.warn('⚠️  Failed to fetch detailed leaderboard entries, falling back to basic data:', detailedError.message);
+            const [players, scores] = await leaderboard.getTopPlayers(limit);
+            entries = players.map((player, index) => ({
+                player,
+                highScore: scores[index],
+                sessionId: 0,
+                timestamp: 0,
+                rank: index + 1
+            }));
+        }
         
         // Enrich with player names
         const rankings = await Promise.all(
-            players.map(async (player, index) => {
+            entries.map(async (entry, index) => {
                 let name = 'Unknown';
                 try {
-                    const hasChef = await chefNFT.playerHasChef(player);
+                    const hasChef = await chefNFT.playerHasChef(entry.player);
                     if (hasChef) {
-                        const tokenId = await chefNFT.getChefTokenId(player);
+                        const tokenId = await chefNFT.getChefTokenId(entry.player);
                         name = await chefNFT.getChefName(tokenId);
                     }
                 } catch (error) {
-                    console.warn(`Failed to get name for ${player}:`, error.message);
+                    console.warn(`Failed to get name for ${entry.player}:`, error.message);
                 }
                 
+                const computedRank = Number(entry.rank || 0);
+                
                 return {
-                    rank: index + 1,
-                    player,
+                    rank: computedRank > 0 ? computedRank : index + 1,
+                    player: entry.player,
                     playerName: name,
-                    score: Number(scores[index])
+                    score: Number(entry.highScore),
+                    sessionId: Number(entry.sessionId || 0),
+                    lastUpdated: Number(entry.timestamp || 0) * 1000
                 };
             })
         );
@@ -64,7 +81,10 @@ router.get('/top', optionalAuth, async (req, res, next) => {
  */
 router.get('/player-rank', optionalAuth, async (req, res, next) => {
     try {
-        const playerAddress = req.query.address || req.walletAddress;
+        const playerAddress =
+            req.query.address ||
+            req.query.walletAddress ||
+            req.walletAddress;
         
         if (!playerAddress) {
             return res.status(400).json({ error: 'address parameter or auth required' });
@@ -73,13 +93,24 @@ router.get('/player-rank', optionalAuth, async (req, res, next) => {
         const currentSeason = await leaderboard.currentSeason();
         const season = parseInt(req.query.season) || Number(currentSeason);
         
-        const rank = await leaderboard.getPlayerRank(playerAddress);
-        const score = await leaderboard.getPlayerHighScore(playerAddress);
+        let entry;
+        try {
+            entry = await leaderboard.getPlayerEntry(playerAddress);
+        } catch (entryError) {
+            console.warn(`⚠️  Failed to fetch detailed player entry for ${playerAddress}:`, entryError.message);
+        }
+        
+        const rank = entry ? Number(entry.rank || 0) : Number(await leaderboard.getPlayerRank(playerAddress));
+        const score = entry ? Number(entry.highScore || 0) : Number(await leaderboard.getPlayerHighScore(playerAddress));
+        const sessionId = entry ? Number(entry.sessionId || 0) : 0;
+        const lastUpdated = entry ? Number(entry.timestamp || 0) * 1000 : 0;
         const totalPlayers = await leaderboard.getTotalPlayers();
         
         res.json({
             rank: Number(rank),
             score: Number(score),
+            sessionId,
+            lastUpdated,
             totalPlayers: Number(totalPlayers),
             season
         });
