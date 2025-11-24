@@ -20,6 +20,8 @@ public class GameAPIClient : MonoBehaviour
     [SerializeField] private string baseUrl = "http://localhost:3000";
     // For production: "https://api.sushibonks.com"
 
+    private string cachedWalletAddress = string.Empty;
+
     // Cached network configuration
     private NetworkConfigResponse cachedNetworkConfig;
     private bool networkConfigFetched = false;
@@ -40,17 +42,54 @@ public class GameAPIClient : MonoBehaviour
 
     private string GetWalletAddress()
     {
-        // Get wallet address from Privy
-        var wallet = PrivyManager.Instance?.User?.EmbeddedWallets?.FirstOrDefault();
-        return wallet?.Address ?? "";
+        try
+        {
+            var wallet = PrivyManager.Instance?.User?.EmbeddedWallets?.FirstOrDefault();
+            if (wallet != null && !string.IsNullOrEmpty(wallet.Address))
+            {
+                cachedWalletAddress = wallet.Address;
+                return cachedWalletAddress;
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"⚠️ Unable to fetch wallet address yet: {e.Message}");
+        }
+
+        return string.IsNullOrEmpty(cachedWalletAddress) ? string.Empty : cachedWalletAddress;
+    }
+
+    public string GetConnectedWalletAddress()
+    {
+        return GetWalletAddress();
+    }
+
+    public Task<string> WaitForWalletAddressAsync(float timeoutSeconds = 8f)
+    {
+        return EnsureWalletReadyAsync(timeoutSeconds);
+    }
+
+    private async Task<string> EnsureWalletReadyAsync(float timeoutSeconds = 8f, int pollIntervalMs = 200)
+    {
+        var timeout = TimeSpan.FromSeconds(timeoutSeconds);
+        var startTime = DateTime.UtcNow;
+
+        string walletAddress = GetWalletAddress();
+        while (string.IsNullOrEmpty(walletAddress) && DateTime.UtcNow - startTime < timeout)
+        {
+            await Task.Delay(pollIntervalMs);
+            walletAddress = GetWalletAddress();
+        }
+
+        return walletAddress;
     }
 
     private async Task<T> SendRequestAsync<T>(string endpoint, string method, object body = null, int timeoutSeconds = 30)
     {
         string url = $"{baseUrl}{endpoint}";
         
-        // HACKATHON MODE: Add wallet address to all requests
-        string walletAddress = GetWalletAddress();
+        // HACKATHON MODE: Add wallet address to all requests (wait if Privy still initializing)
+        string walletAddress = await EnsureWalletReadyAsync();
         
         if (string.IsNullOrEmpty(walletAddress))
         {
@@ -80,7 +119,8 @@ public class GameAPIClient : MonoBehaviour
             else
             {
                 // GET request - add wallet as query param
-                url += $"?walletAddress={walletAddress}";
+                string separator = url.Contains("?") ? "&" : "?";
+                url += $"{separator}walletAddress={walletAddress}";
                 request.url = url;
             }
             
@@ -405,6 +445,8 @@ public class LeaderboardEntry
     public string player;
     public string playerName;
     public int score;
+    public int sessionId;
+    public long lastUpdated;
 }
 
 [Serializable]
@@ -414,6 +456,8 @@ public class PlayerRankResponse
     public int score;
     public int totalPlayers;
     public int season;
+    public int sessionId;
+    public long lastUpdated;
 }
 
 [Serializable]
