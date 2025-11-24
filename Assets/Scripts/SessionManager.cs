@@ -272,9 +272,9 @@ public class SessionManager : MonoBehaviour
             {
                 // Fallback to Basescan if network config fetch fails
                 Debug.LogWarning($"⚠️ Failed to get explorer URL, using default Basescan: {e.Message}");
-                string basescanUrl = $"https://sepolia.basescan.org/tx/{txHash}";
-                Debug.Log($"🔗 Score transaction: {basescanUrl}");
-                Application.OpenURL(basescanUrl);
+            string basescanUrl = $"https://sepolia.basescan.org/tx/{txHash}";
+            Debug.Log($"🔗 Score transaction: {basescanUrl}");
+            Application.OpenURL(basescanUrl);
             }
         }
     }
