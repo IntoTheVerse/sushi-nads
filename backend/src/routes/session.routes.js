@@ -4,7 +4,7 @@ import { queueTransaction } from '../services/transactionQueue.service.js';
 import { addSessionSignerToWallet, sendSponsoredTransaction } from '../services/privy.service.js';
 import { requireAuth } from '../middleware/auth.js';
 import { validateSessionId } from '../middleware/validation.js';
-import { setCachedSession, deleteCachedSession } from '../services/cache.service.js';
+import { setCachedSession, deleteCachedSession, clearLeaderboardCache } from '../services/cache.service.js';
 import { GAME_CONFIG } from '../config/constants.js';
 import { clearSessionQueue, queueEndSession } from './gameplay.routes.js';
 
@@ -195,6 +195,11 @@ router.post('/end', requireAuth, validateSessionId, async (req, res, next) => {
             
             // Delete cached session
             await deleteCachedSession(sessionId);
+            try {
+                await clearLeaderboardCache();
+            } catch (cacheError) {
+                console.warn(`⚠️ Failed to clear leaderboard cache after session ${sessionId}:`, cacheError.message);
+            }
             
             return res.json({
                 success: true,
@@ -224,6 +229,11 @@ router.post('/end', requireAuth, validateSessionId, async (req, res, next) => {
                 
                 // Delete cached session
                 await deleteCachedSession(sessionId);
+                try {
+                    await clearLeaderboardCache();
+                } catch (cacheError) {
+                    console.warn(`⚠️ Failed to clear leaderboard cache after session ${sessionId}:`, cacheError.message);
+                }
                 
                 return res.json({
                     success: true,
@@ -239,6 +249,11 @@ router.post('/end', requireAuth, validateSessionId, async (req, res, next) => {
         
         // Delete cached session
         await deleteCachedSession(sessionId);
+        try {
+            await clearLeaderboardCache();
+        } catch (cacheError) {
+            console.warn(`⚠️ Failed to clear leaderboard cache after session ${sessionId}:`, cacheError.message);
+        }
         
         const sessionStats = result.sessionStats || formatSessionStats(await gameCore.getSession(sessionId));
         
