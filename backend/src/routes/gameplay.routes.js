@@ -596,7 +596,7 @@ async function flushQueue(sessionId, force = false) {
         let moveResults = null; // Declare at function scope for tracking later
         
         // Step 1: Process moves in parallel (50-100x speedup for bulk operations)
-        if (moves.length > 0) {
+    if (moves.length > 0) {
             console.log(`🚀 Processing ${moves.length} moves in parallel with proper nonce management...`);
             
             // Create transaction functions for parallel processing
@@ -812,8 +812,8 @@ async function flushQueue(sessionId, force = false) {
                     await new Promise(resolve => setTimeout(resolve, 500));
                 }
             }
-        }
-        
+            }
+            
         console.log(`   ✅ Flushed ${successCount}/${actionsToProcess.length} actions successfully`);
         
         // Track recorded moves (only for move actions)
@@ -906,8 +906,8 @@ async function flushQueue(sessionId, force = false) {
             console.log(`   📊 Queue after flush: ${remaining.length} actions remaining (${failedActions.length} failed, ${remainingEndSessionCount} end-session, ${remaining.length - failedActions.length - remainingEndSessionCount} new)`);
         } else {
             actionQueues.delete(sessionId);
-        }
-        
+    }
+    
         // If end-session is now at the front (all prior actions processed), execute it
         // BUT: Check if there are any non-end-session actions first - they should be processed before end-session
         const nonEndSessionActions = remaining.filter(a => a.type !== 'end-session');
@@ -920,7 +920,7 @@ async function flushQueue(sessionId, force = false) {
             if (finalRemaining.length > 0) {
                 actionQueues.set(sessionId, finalRemaining);
             } else {
-                actionQueues.delete(sessionId);
+    actionQueues.delete(sessionId);
             }
             flushingQueues.delete(sessionId);
             return result;
@@ -942,9 +942,9 @@ async function flushQueue(sessionId, force = false) {
         flushingQueues.delete(sessionId);
         
         // Clear timer
-        if (queueTimers.has(sessionId)) {
-            clearTimeout(queueTimers.get(sessionId));
-            queueTimers.delete(sessionId);
+    if (queueTimers.has(sessionId)) {
+        clearTimeout(queueTimers.get(sessionId));
+        queueTimers.delete(sessionId);
         }
         
         // Check if more moves were added during flush - schedule auto-flush if needed
@@ -978,7 +978,7 @@ setInterval(() => {
     for (const [sessionId] of actionQueues) {
         // Only flush if not already flushing
         if (!flushingQueues.has(sessionId)) {
-            flushQueue(sessionId);
+        flushQueue(sessionId);
         }
     }
 }, BATCH_CONFIG.maxBatchInterval);
