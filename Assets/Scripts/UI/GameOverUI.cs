@@ -111,7 +111,15 @@ public class GameOverUI : MonoBehaviour
             scorePanel.SetActive(false);
         }
         
-        // Start rotating loading phrases
+        // Start rotating loading phrases only if this component is active/enabled
+        if (!isActiveAndEnabled) {
+            // Component is inactive (e.g., during application quit); skip coroutine to avoid warnings
+            if (loadingText != null && loadingPhrases.Length > 0) {
+                loadingText.text = loadingPhrases[0];
+            }
+            return;
+        }
+
         if (loadingCoroutine != null) {
             StopCoroutine(loadingCoroutine);
         }
