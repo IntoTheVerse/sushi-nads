@@ -109,6 +109,12 @@ public class Player : MonoBehaviour, IKitchenObjectParent
     // Update is called once per frame
     private void Update()
     {
+        if (!IsGameplayActive())
+        {
+            isWalking = false;
+            return;
+        }
+
         HandleMovement();        // Handle player movement
         HandleInteractions();    // Handle player interactions
         HandleRotation();        // Ensure eyes/forward face the target counter or interact direction
@@ -145,12 +151,16 @@ public class Player : MonoBehaviour, IKitchenObjectParent
         Vector2 v = Vector2.zero;
 
         if (playerJoystick != null)
+        {
             v = new Vector2(playerJoystick.InputDirection.x, playerJoystick.InputDirection.y);
 
-        if (v.magnitude < playerJoystick.deadZone)                 // stick idle fall back
-            v = gameInput.GetMovementVectorNormalized();    // keeps keyboard/gamepad alive
+            if (v.magnitude >= playerJoystick.deadZone)
+            {
+                return v.normalized;
+            }
+        }
 
-        return v.normalized;
+        return GetKeyboardFallback();
     }
 
 
@@ -161,7 +171,7 @@ public class Player : MonoBehaviour, IKitchenObjectParent
             Vector2 joystickinputVector = ReadMoveInput();
 
 
-            Vector2 inputVector = gameInput.GetMovementVectorNormalized();
+            Vector2 inputVector = joystickinputVector;
             Vector3 moveDir = new Vector3(inputVector.x, 0f, inputVector.y);
             float moveDistance = moveSpeed * Time.deltaTime;
 
@@ -246,7 +256,7 @@ public class Player : MonoBehaviour, IKitchenObjectParent
                 bool gridCellChanged = currentGridCell != lastRecordedGridCell;
                 bool cooldownPassed = (currentTime - lastMoveRecordTime) >= MOVE_RECORD_COOLDOWN;
                 bool sessionActive = SessionManager.Instance != null && SessionManager.Instance.IsSessionActive();
-                bool gamePlaying = KitchenGameManager.Instance != null && KitchenGameManager.Instance.IsGamePlaying();
+                bool gamePlaying = IsGameplayActive();
                 
                 if (gridCellChanged && cooldownPassed && sessionActive && gamePlaying)
                 {
@@ -294,7 +304,7 @@ public class Player : MonoBehaviour, IKitchenObjectParent
 
     private void GameInput_OnMoveStarted(object sender, GameInput.OnMoveEventArgs e) {
         if (!useGridMovement) return;
-        if (!KitchenGameManager.Instance.IsGamePlaying()) return;
+        if (!IsGameplayActive()) return;
         // Mark held and setup timers
         isMoveHeld = true;
         heldCardinalDir = e.direction;
@@ -309,6 +319,21 @@ public class Player : MonoBehaviour, IKitchenObjectParent
     private void GameInput_OnMoveCanceled(object sender, EventArgs e) {
         if (!useGridMovement) return;
         isMoveHeld = false;
+    }
+
+    private Vector2 GetKeyboardFallback()
+    {
+        if (gameInput == null)
+        {
+            return Vector2.zero;
+        }
+
+        return gameInput.GetMovementVectorNormalized();
+    }
+
+    private bool IsGameplayActive()
+    {
+        return KitchenGameManager.Instance != null && KitchenGameManager.Instance.IsGamePlaying();
     }
 
     private void TryStartStep(Vector2 dir) {
