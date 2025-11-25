@@ -20,30 +20,34 @@ public class GameInput : MonoBehaviour
     }
     // Reference to the PlayerInputActions asset (generated from Input Actions)
     private PlayerInputActions playerInputActions;
+    private bool actionsEnabled;
 
     // Called when the script instance is being loaded
     private void Awake() {
         Instance = this;
         // Initialize the PlayerInputActions
         playerInputActions = new PlayerInputActions();
-        // Enable the Player action map
-        playerInputActions.Player.Enable();
-        // Subscribe to the Interact action's performed event
-        playerInputActions.Player.Interact.performed += Interact_performed;
-        playerInputActions.Player.InteractAlternate.performed += InteractAlternate_performed;
-        playerInputActions.Player.Pause.performed += Pause_performed;
-        // Subscribe to Move started for step-based movement
-        playerInputActions.Player.Move.started += Move_started;
-        playerInputActions.Player.Move.canceled += Move_canceled;
+        EnablePlayerActions();
+    }
+
+    private void OnEnable()
+    {
+        EnablePlayerActions();
+    }
+
+    private void OnDisable()
+    {
+        DisablePlayerActions();
     }
 
     private void OnDestroy() {
-        playerInputActions.Player.Interact.performed -= Interact_performed;
-        playerInputActions.Player.InteractAlternate.performed -= InteractAlternate_performed;
-        playerInputActions.Player.Pause.performed -= Pause_performed;
-        playerInputActions.Player.Move.started -= Move_started;
-        playerInputActions.Player.Move.canceled -= Move_canceled;
-        playerInputActions.Dispose();
+        DisablePlayerActions();
+        playerInputActions?.Dispose();
+        playerInputActions = null;
+        if (Instance == this)
+        {
+            Instance = null;
+        }
     }
 
     // Callback method that gets triggered when the Interact action is performed
@@ -82,6 +86,11 @@ public class GameInput : MonoBehaviour
 
     // Returns the normalized movement input vector (magnitude of 1)
     public Vector2 GetMovementVectorNormalized() {
+        if (!IsActionMapReady())
+        {
+            return Vector2.zero;
+        }
+
         // Read the raw input value from the Move action
         Vector2 inputVector = playerInputActions.Player.Move.ReadValue<Vector2>();
         // Normalize the vector to ensure consistent movement speed in all directions
@@ -92,5 +101,42 @@ public class GameInput : MonoBehaviour
     private void Pause_performed(UnityEngine.InputSystem.InputAction.CallbackContext obj) {
         // Using null-conditional operator to safely invoke the event if there are subscribers
         OnPauseAction?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void EnablePlayerActions()
+    {
+        if (playerInputActions == null || actionsEnabled)
+        {
+            return;
+        }
+
+        playerInputActions.Player.Enable();
+        playerInputActions.Player.Interact.performed += Interact_performed;
+        playerInputActions.Player.InteractAlternate.performed += InteractAlternate_performed;
+        playerInputActions.Player.Pause.performed += Pause_performed;
+        playerInputActions.Player.Move.started += Move_started;
+        playerInputActions.Player.Move.canceled += Move_canceled;
+        actionsEnabled = true;
+    }
+
+    private void DisablePlayerActions()
+    {
+        if (playerInputActions == null || !actionsEnabled)
+        {
+            return;
+        }
+
+        playerInputActions.Player.Move.canceled -= Move_canceled;
+        playerInputActions.Player.Move.started -= Move_started;
+        playerInputActions.Player.Pause.performed -= Pause_performed;
+        playerInputActions.Player.InteractAlternate.performed -= InteractAlternate_performed;
+        playerInputActions.Player.Interact.performed -= Interact_performed;
+        playerInputActions.Player.Disable();
+        actionsEnabled = false;
+    }
+
+    private bool IsActionMapReady()
+    {
+        return playerInputActions != null && actionsEnabled;
     }
 }
