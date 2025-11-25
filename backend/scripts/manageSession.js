@@ -2,7 +2,7 @@
 import { gameCore } from '../src/services/blockchain.service.js';
 import { queueTransaction } from '../src/services/transactionQueue.service.js';
 
-const PLAYER_ADDRESS = '0x5c2c4baaF9b61A46880e08D408201E4b2c945f92'; // replace with your wallet address
+const PLAYER_ADDRESS = '0x1C7e0309b37e622431f18c6E4A8137beDac93564'; // replace with your wallet address
 
 // Colors for terminal output
 const colors = {
