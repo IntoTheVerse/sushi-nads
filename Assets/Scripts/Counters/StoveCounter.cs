@@ -32,17 +32,29 @@ public class StoveCounter : BaseCounter, IHasProgress
 
     private void Update() {
         if (HasKitchenObject()) {
+            var currentKitchenObject = GetKitchenObject();
+            if (currentKitchenObject == null) {
+                ResetToIdle();
+                return;
+            }
+
             switch (state) {
                 case State.Idle:
                     break;
                 case State.Frying:
+                    if (fryingRecipeSO == null) {
+                        Debug.LogWarning($"[StoveCounter] Missing frying recipe while in Frying state on {name}. Resetting.", this);
+                        ResetToIdle();
+                        break;
+                    }
+
                     fryingTimer += Time.deltaTime;
                     OnProgressChanged?.Invoke(this, new IHasProgress.OnProgressChangedEventArgs {
                         progressNormalized = fryingTimer / fryingRecipeSO.fryingTimerMax
                     });
 
                     if (fryingTimer > fryingRecipeSO.fryingTimerMax) {
-                        GetKitchenObject().DestroySelf();
+                        currentKitchenObject.DestroySelf();
                         KitchenObject.SpawnKitchenObject(fryingRecipeSO.output, this);
                         // Debug.Log("Frying complete!");
                         state = State.Fried;
@@ -51,7 +63,14 @@ public class StoveCounter : BaseCounter, IHasProgress
                             state = state
                         });
                         burningTimer = 0f;
-                        burningRecipeSO = GetBurningRecipeSOWithInput(GetKitchenObject().GetKitchenObjectSO());
+                        var cookedObject = GetKitchenObject();
+                        burningRecipeSO = cookedObject != null
+                            ? GetBurningRecipeSOWithInput(cookedObject.GetKitchenObjectSO())
+                            : null;
+                        if (burningRecipeSO == null)
+                        {
+                            Debug.LogWarning($"[StoveCounter] No burning recipe for {cookedObject?.GetKitchenObjectSO()?.name ?? "unknown"} on {name}. Will stay in Fried.", this);
+                        }
                         // Notify listeners (steam/lid/FX) that we've entered Fried
                         OnStateChanged?.Invoke(this, new OnStateChangedEventArgs { state = state });
                         OnProgressChanged?.Invoke(this, new IHasProgress.OnProgressChangedEventArgs {
@@ -66,12 +85,27 @@ public class StoveCounter : BaseCounter, IHasProgress
                     }
                     break;
                 case State.Fried:
+                    if (burningRecipeSO == null)
+                    {
+                        // Nothing left to burn, stay in Fried but keep progress at zero
+                        OnProgressChanged?.Invoke(this, new IHasProgress.OnProgressChangedEventArgs {
+                            progressNormalized = 0f
+                        });
+                        break;
+                    }
+
+                    currentKitchenObject = GetKitchenObject();
+                    if (currentKitchenObject == null) {
+                        ResetToIdle();
+                        break;
+                    }
+
                     burningTimer += Time.deltaTime;
                     OnProgressChanged?.Invoke(this, new IHasProgress.OnProgressChangedEventArgs {
                         progressNormalized = burningTimer / burningRecipeSO.burningTimerMax
                     });
                     if (burningTimer > burningRecipeSO.burningTimerMax) {
-                        GetKitchenObject().DestroySelf();
+                        currentKitchenObject.DestroySelf();
                         KitchenObject.SpawnKitchenObject(burningRecipeSO.output, this);
                         // Debug.Log("Object Burned!");
                         state = State.Burned;
@@ -95,6 +129,17 @@ public class StoveCounter : BaseCounter, IHasProgress
             }
             // Debug.Log(state);
         }
+    }
+
+    private void ResetToIdle()
+    {
+        state = State.Idle;
+        burningTimer = 0f;
+        fryingTimer = 0f;
+        fryingRecipeSO = null;
+        burningRecipeSO = null;
+        OnStateChanged?.Invoke(this, new OnStateChangedEventArgs { state = state });
+        OnProgressChanged?.Invoke(this, new IHasProgress.OnProgressChangedEventArgs { progressNormalized = 0f });
     }
 
     public override void Interact(Player player)

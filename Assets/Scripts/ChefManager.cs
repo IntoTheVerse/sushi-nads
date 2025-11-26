@@ -359,7 +359,7 @@ public class ChefManager : MonoBehaviour
         Debug.Log($"   Well Cooked: {profile.globalStats.totalWellCooked}");
     }
 
-    private void ShowStatusMessage(string message, Color color)
+    private void ShowStatusMessage(string message, Color color, float durationSeconds = 100f)
     {
         // Stop previous status coroutine if running
         if (currentStatusCoroutine != null)
@@ -369,10 +369,10 @@ public class ChefManager : MonoBehaviour
         }
         
         // Start new status coroutine
-        currentStatusCoroutine = StartCoroutine(ShowStatus(message, color));
+        currentStatusCoroutine = StartCoroutine(ShowStatus(message, color, durationSeconds));
     }
     
-    private IEnumerator ShowStatus(string message, Color color)
+    private IEnumerator ShowStatus(string message, Color color, float durationSeconds)
     {
         ColorUtility.TryParseHtmlString("#E8914C", out color);
         StatusPanel.SetActive(true);
@@ -381,7 +381,7 @@ public class ChefManager : MonoBehaviour
             statusText.text = message;
             statusText.color = color;
         }
-        yield return new WaitForSeconds(100f);
+        yield return new WaitForSeconds(durationSeconds);
         StatusPanel.SetActive(false);
         Debug.Log($"[ChefManager] {message}");
         currentStatusCoroutine = null; // Clear reference when done
@@ -418,7 +418,7 @@ public class ChefManager : MonoBehaviour
     {
         try
         {
-            ShowStatusMessage("Refilling energy...", Color.yellow);
+            ShowStatusMessage("Refilling energy...", Color.yellow, 6f);
             
             if (refillEnergyButton != null) refillEnergyButton.interactable = false;
             
@@ -454,7 +454,8 @@ public class ChefManager : MonoBehaviour
                 
                 ShowStatusMessage(
                     $"+300 Energy!\nCost: 0.1 USDC (FREE)\nClick to view transaction", 
-                    Color.green
+                    Color.green,
+                    6f
                 );
                 
                 Debug.Log($"✅ Energy refilled!");

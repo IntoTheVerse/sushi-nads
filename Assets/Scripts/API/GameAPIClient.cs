@@ -22,6 +22,13 @@ public class GameAPIClient : MonoBehaviour
 
     private string cachedWalletAddress = string.Empty;
 
+    [Header("Rate Limiting")]
+    [SerializeField] private int requestsPerMinuteBudget = 90;
+    [SerializeField] private int maxRequestAttempts = 4;
+
+    private readonly Queue<DateTime> requestTimestamps = new Queue<DateTime>();
+    private readonly object rateLimitLock = new object();
+
     // Cached network configuration
     private NetworkConfigResponse cachedNetworkConfig;
     private bool networkConfigFetched = false;
@@ -89,74 +96,195 @@ public class GameAPIClient : MonoBehaviour
         return walletAddress;
     }
 
+    public class SessionInactiveException : Exception
+    {
+        public SessionInactiveException(string message) : base(message) { }
+    }
+
     private async Task<T> SendRequestAsync<T>(string endpoint, string method, object body = null, int timeoutSeconds = 30)
     {
-        string url = $"{baseUrl}{endpoint}";
-        
         // HACKATHON MODE: Add wallet address to all requests (wait if Privy still initializing)
         string walletAddress = await EnsureWalletReadyAsync();
-        
+
         if (string.IsNullOrEmpty(walletAddress))
         {
             Debug.LogError("❌ No wallet address - user must be logged in!");
             throw new Exception("User not authenticated with Privy");
         }
-        
-        using (UnityWebRequest request = new UnityWebRequest(url, method))
+
+        int attempt = 0;
+
+        while (attempt < Mathf.Max(1, maxRequestAttempts))
         {
-            // Set timeout (important for slow blockchain operations)
-            request.timeout = timeoutSeconds;
-            // Setup request body
-            if (body != null)
+            attempt++;
+            await EnforceRateLimitAsync();
+
+            string url = $"{baseUrl}{endpoint}";
+            using (UnityWebRequest request = new UnityWebRequest(url, method))
             {
-                // Add wallet address to body
-                var bodyDict = JsonConvert.DeserializeObject<Dictionary<string, object>>(
-                    JsonConvert.SerializeObject(body)
-                );
-                bodyDict["walletAddress"] = walletAddress;
-                
-                string jsonBody = JsonConvert.SerializeObject(bodyDict);
-                byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonBody);
-                request.uploadHandler = new UploadHandlerRaw(bodyRaw);
-                
-                Debug.Log($"📤 Request body: {jsonBody}");
-            }
-            else
-            {
-                // GET request - add wallet as query param
-                string separator = url.Contains("?") ? "&" : "?";
-                url += $"{separator}walletAddress={walletAddress}";
-                request.url = url;
-            }
-            
-            request.downloadHandler = new DownloadHandlerBuffer();
-            
-            // Add headers
-            request.SetRequestHeader("Content-Type", "application/json");
-            
-            // Send request
-            var operation = request.SendWebRequest();
-            
-            while (!operation.isDone)
-            {
-                await Task.Yield();
-            }
-            
-            // Handle response
-            if (request.result == UnityWebRequest.Result.Success)
-            {
-                string responseText = request.downloadHandler.text;
-                Debug.Log($"✅ API Response ({endpoint}): {responseText}");
-                
-                return JsonConvert.DeserializeObject<T>(responseText);
-            }
-            else
-            {
+                request.timeout = timeoutSeconds;
+
+                if (body != null)
+                {
+                    var bodyDict = JsonConvert.DeserializeObject<Dictionary<string, object>>(
+                        JsonConvert.SerializeObject(body)
+                    );
+                    bodyDict["walletAddress"] = walletAddress;
+
+                    string jsonBody = JsonConvert.SerializeObject(bodyDict);
+                    byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonBody);
+                    request.uploadHandler = new UploadHandlerRaw(bodyRaw);
+
+                    Debug.Log($"📤 Request body: {jsonBody}");
+                }
+                else
+                {
+                    string separator = url.Contains("?") ? "&" : "?";
+                    url += $"{separator}walletAddress={walletAddress}";
+                    request.url = url;
+                }
+
+                request.downloadHandler = new DownloadHandlerBuffer();
+                request.SetRequestHeader("Content-Type", "application/json");
+
+                var operation = request.SendWebRequest();
+                while (!operation.isDone)
+                {
+                    await Task.Yield();
+                }
+
+                if (request.result == UnityWebRequest.Result.Success)
+                {
+                    string responseText = request.downloadHandler.text;
+                    Debug.Log($"✅ API Response ({endpoint}): {responseText}");
+                    return JsonConvert.DeserializeObject<T>(responseText);
+                }
+
                 string errorText = request.downloadHandler?.text ?? request.error;
+                int statusCode = (int)request.responseCode;
+
+                if (statusCode == 429 && attempt < maxRequestAttempts)
+                {
+                    int retrySeconds = ExtractRetryDelaySeconds(request, errorText);
+                    Debug.LogWarning($"⏳ Rate limited ({endpoint}). Retrying in {retrySeconds}s (attempt {attempt}/{maxRequestAttempts})");
+                    await Task.Delay(TimeSpan.FromSeconds(Mathf.Max(1, retrySeconds)));
+                    continue;
+                }
+
+                if ((request.result == UnityWebRequest.Result.ConnectionError ||
+                     request.result == UnityWebRequest.Result.ProtocolError) &&
+                    attempt < maxRequestAttempts)
+                {
+                    int backoffSeconds = Mathf.Clamp(attempt * 2, 1, 10);
+                    Debug.LogWarning($"⚠️ API error ({endpoint}): {errorText}. Retrying in {backoffSeconds}s (attempt {attempt}/{maxRequestAttempts})");
+                    await Task.Delay(TimeSpan.FromSeconds(backoffSeconds));
+                    continue;
+                }
+
+                if (IsSessionInactiveResponse(endpoint, statusCode, errorText))
+                {
+                    Debug.Log($"⚠️ Session not active for {endpoint}. Skipping request.");
+                    throw new SessionInactiveException(errorText ?? "Session not active");
+                }
+
                 Debug.LogError($"❌ API Error ({endpoint}): {errorText}");
                 throw new Exception($"API request failed: {errorText}");
             }
         }
+
+        throw new Exception($"API request exceeded retry budget for {endpoint}");
+    }
+
+    private async Task EnforceRateLimitAsync()
+    {
+        if (requestsPerMinuteBudget <= 0)
+        {
+            return;
+        }
+
+        while (true)
+        {
+            double waitSeconds;
+            lock (rateLimitLock)
+            {
+                var now = DateTime.UtcNow;
+                while (requestTimestamps.Count > 0 && (now - requestTimestamps.Peek()).TotalSeconds >= 60d)
+                {
+                    requestTimestamps.Dequeue();
+                }
+
+                if (requestTimestamps.Count < requestsPerMinuteBudget)
+                {
+                    requestTimestamps.Enqueue(now);
+                    return;
+                }
+
+                var oldest = requestTimestamps.Peek();
+                waitSeconds = Math.Max(0.05, 60d - (now - oldest).TotalSeconds);
+            }
+
+            await Task.Delay(TimeSpan.FromSeconds(waitSeconds));
+        }
+    }
+
+    private int ExtractRetryDelaySeconds(UnityWebRequest request, string errorText)
+    {
+        const int defaultDelay = 5;
+
+        try
+        {
+            string retryAfterHeader = request.GetResponseHeader("Retry-After");
+            if (!string.IsNullOrEmpty(retryAfterHeader) && int.TryParse(retryAfterHeader, out int headerDelay))
+            {
+                return Mathf.Max(1, headerDelay);
+            }
+
+            if (!string.IsNullOrEmpty(errorText))
+            {
+                var parsed = JsonConvert.DeserializeObject<Dictionary<string, object>>(errorText);
+                if (parsed != null && parsed.TryGetValue("retryAfter", out object retryField))
+                {
+                    if (retryField is long longVal)
+                    {
+                        return Mathf.Max(1, (int)longVal);
+                    }
+                    if (retryField is int intVal)
+                    {
+                        return Mathf.Max(1, intVal);
+                    }
+                    if (int.TryParse(retryField.ToString(), out int parsedDelay))
+                    {
+                        return Mathf.Max(1, parsedDelay);
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning($"⚠️ Failed to parse retry delay: {ex.Message}");
+        }
+
+        return defaultDelay;
+    }
+
+    private bool IsSessionInactiveResponse(string endpoint, int statusCode, string errorText)
+    {
+        if (string.IsNullOrEmpty(endpoint) || string.IsNullOrEmpty(errorText))
+        {
+            return false;
+        }
+
+        if (!endpoint.Contains("/gameplay/", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (statusCode < 400)
+        {
+            return false;
+        }
+
+        return errorText.IndexOf("session not active", StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     // ============ Chef NFT APIs ============

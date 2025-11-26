@@ -60,8 +60,35 @@ public class StoveCounterVisual : MonoBehaviour
         BaseCounter.OnAnyObjectPlacedHere += HandleAnyPlaced;
         BaseCounter.OnAnyObjectRemovedHere += HandleAnyRemoved;
 
-        if (!ps) ps = GetComponent<ParticleSystem>();
-        if (loop == null) loop = StartCoroutine(EmitLoop());
+        EnsureParticleSystem();
+
+        if (ps == null)
+        {
+            // nothing to drive, so disable ourselves to avoid spam
+            Debug.LogWarning($"[StoveCounterVisual] Missing ParticleSystem on {name}, disabling steam loop.", this);
+            enabled = false;
+            return;
+        }
+
+        if (loop == null)
+        {
+            loop = StartCoroutine(EmitLoop());
+        }
+    }
+
+    private void EnsureParticleSystem()
+    {
+        if (ps != null) return;
+
+        if (particlesGameObject != null)
+        {
+            ps = particlesGameObject.GetComponentInChildren<ParticleSystem>(true);
+        }
+
+        if (ps == null)
+        {
+            ps = GetComponentInChildren<ParticleSystem>(true);
+        }
     }
 
     private void StoveCounter_OnProgressChanged(object sender, IHasProgress.OnProgressChangedEventArgs e)
@@ -94,10 +121,14 @@ public class StoveCounterVisual : MonoBehaviour
         float offDuration = 0.6f;  // gap so total = 1s
         float ratePerSecond = 200f;
 
-        var emission = ps.emission;
-
         while (true)
         {
+            if (ps == null)
+            {
+                yield break;
+            }
+
+            var emission = ps.emission;
             // ON: continuous spawn
             emission.rateOverTime = ratePerSecond;
             ps.Play();
@@ -119,7 +150,7 @@ public class StoveCounterVisual : MonoBehaviour
 
     private void HandleAnyRemoved(object sender, EventArgs e)
     {
-        if (sender != stoveCounter) return;
+        if (!ReferenceEquals(sender, stoveCounter)) return;
         if (cookware != Cookware.Saucepan &&
             cookware != Cookware.RiceCooker &&
             cookware != Cookware.Grinder) return;
@@ -159,7 +190,6 @@ public class StoveCounterVisual : MonoBehaviour
             //showVisual is bool value true means something is getting cooked false means it cooked already
             const float openX = -45f;
             const float closedX = 0f;
-            const float degreesPerSecond = 320f; // opening/closing speed
 
             float targetX = showVisual ? closedX : openX;
             if (e.state == StoveCounter.State.Frying)

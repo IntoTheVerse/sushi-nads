@@ -22,6 +22,8 @@ public class SessionManager : MonoBehaviour
     [Header("Session Data")]
     private int currentSessionId = 0;
     private bool isSessionActive = false;
+    private bool isEndingSession = false;
+    [SerializeField] private int pendingEventsTimeoutMs = 15000;
 
     private void Awake()
     {
@@ -91,6 +93,7 @@ public class SessionManager : MonoBehaviour
             {
                 currentSessionId = response.sessionId;
                 isSessionActive = true;
+                isEndingSession = false;
                 
                 Debug.Log($"✅ Blockchain session started!");
                 Debug.Log($"   Session ID: {currentSessionId}");
@@ -138,91 +141,118 @@ public class SessionManager : MonoBehaviour
             return;
         }
 
-        // Show loading state immediately when game ends
-        if (_gameOverUI != null)
+        if (isEndingSession)
         {
-            _gameOverUI.ShowLoadingState();
+            Debug.LogWarning("Session end already in progress");
+            return;
         }
 
-        int maxRetries = 2;
-        int retryCount = 0;
+        isEndingSession = true;
 
-        while (retryCount <= maxRetries)
+        try
         {
-            try
+            // Drain any pending gameplay events before ending the blockchain session
+            if (GameplayEventTracker.Instance != null)
             {
-                Debug.Log($"🏁 Ending blockchain session {currentSessionId}... (Attempt {retryCount + 1}/{maxRetries + 1})");
-                UpdateSessionStatus("⏳ Computing score on-chain... Please wait", Color.yellow);
-                
-                // Call backend API with longer timeout
-                var response = await GameAPIClient.Instance.EndSession(currentSessionId);
-                
-                if (response.success)
-                {
-                    isSessionActive = false;
-                    
-                    Debug.Log($"✅ Session ended!");
-                    Debug.Log($"   Final Score: {response.finalScore}");
-                    Debug.Log($"   Tx Hash: {response.txHash}");
-                    
-                    // Fetch detailed session stats from blockchain (optional, for accuracy)
-                    // For now, use local stats and display score
-                    ShowScorePopup(
-                        response.finalScore, 
-                        response.txHash, 
-                        response.sessionStats ?? CreateFallbackStats()
-                    );
-                    
-                    UpdateSessionStatus("Session complete!", Color.green);
-                    return; // Success!
-                }
-                else
-                {
-                    UpdateSessionStatus("Failed to end session", Color.red);
-                    if (_gameOverUI != null)
-                    {
-                        _gameOverUI.SetScore(0);
-                    }
-                    return;
-                }
+                await GameplayEventTracker.Instance.WaitForPendingEventsAsync(pendingEventsTimeoutMs);
             }
-            catch (Exception e)
+
+            // Show loading state immediately when game ends
+            if (_gameOverUI != null)
             {
-                retryCount++;
-                
-                if (e.Message.Contains("timeout") || e.Message.Contains("TIMEOUT"))
+                _gameOverUI.ShowLoadingState();
+            }
+
+            int maxRetries = 2;
+            int retryCount = 0;
+
+            while (retryCount <= maxRetries)
+            {
+                try
                 {
-                    if (retryCount <= maxRetries)
+                    Debug.Log($"🏁 Ending blockchain session {currentSessionId}... (Attempt {retryCount + 1}/{maxRetries + 1})");
+                    UpdateSessionStatus("⏳ Computing score on-chain... Please wait", Color.yellow);
+                    
+                    // Call backend API with longer timeout
+                    var response = await GameAPIClient.Instance.EndSession(currentSessionId);
+                    
+                    if (response.success)
                     {
-                        Debug.LogWarning($"⏰ Request timed out. Retrying... ({retryCount}/{maxRetries})");
-                        UpdateSessionStatus($"⏳ Still processing... Retry {retryCount}/{maxRetries}", Color.yellow);
-                        await Task.Delay(2000); // Wait 2s before retry
-                        continue;
+                        isSessionActive = false;
+                        isEndingSession = false;
+                        
+                        Debug.Log($"✅ Session ended!");
+                        Debug.Log($"   Final Score: {response.finalScore}");
+                        Debug.Log($"   Tx Hash: {response.txHash}");
+                        
+                        // Fetch detailed session stats from blockchain (optional, for accuracy)
+                        // For now, use local stats and display score
+                        ShowScorePopup(
+                            response.finalScore, 
+                            response.txHash, 
+                            response.sessionStats ?? CreateFallbackStats()
+                        );
+                        
+                        UpdateSessionStatus("Session complete!", Color.green);
+                        return; // Success!
                     }
                     else
                     {
-                        // All retries exhausted - session likely ended on backend anyway
-                        Debug.LogWarning("⚠️ Request timed out but session may have ended successfully on backend");
-                        UpdateSessionStatus("⚠️ Session ended (blockchain slow - check profile)", Color.yellow);
-                        
-                        isSessionActive = false; // Mark as inactive locally
-                        
-                        // Show a simpler message (score will be 0, user can check later)
-                        ShowScorePopup(0, "", CreateFallbackStats());
+                        UpdateSessionStatus("Failed to end session", Color.red);
+                        if (_gameOverUI != null)
+                        {
+                            _gameOverUI.SetScore(0);
+                        }
                         return;
                     }
                 }
-                else
+                catch (Exception e)
                 {
-                    // Non-timeout error
-                    Debug.LogError($"❌ End session error: {e.Message}");
-                    UpdateSessionStatus($"❌ Error: {e.Message}", Color.red);
-                    if (_gameOverUI != null)
+                    retryCount++;
+                    
+                    if (e.Message.Contains("timeout") || e.Message.Contains("TIMEOUT"))
                     {
-                        _gameOverUI.SetScore(0);
+                        if (retryCount <= maxRetries)
+                        {
+                            Debug.LogWarning($"⏰ Request timed out. Retrying... ({retryCount}/{maxRetries})");
+                            UpdateSessionStatus($"⏳ Still processing... Retry {retryCount}/{maxRetries}", Color.yellow);
+                            await Task.Delay(2000); // Wait 2s before retry
+                            continue;
+                        }
+                        else
+                        {
+                            // All retries exhausted - session likely ended on backend anyway
+                            Debug.LogWarning("⚠️ Request timed out but session may have ended successfully on backend");
+                            UpdateSessionStatus("⚠️ Session ended (blockchain slow - check profile)", Color.yellow);
+                            
+                            isSessionActive = false; // Mark as inactive locally
+                            isEndingSession = false;
+                            
+                            // Show a simpler message (score will be 0, user can check later)
+                            ShowScorePopup(0, "", CreateFallbackStats());
+                            return;
+                        }
                     }
-                    return;
+                    else
+                    {
+                        // Non-timeout error
+                        Debug.LogError($"❌ End session error: {e.Message}");
+                        UpdateSessionStatus($"❌ Error: {e.Message}", Color.red);
+                        if (_gameOverUI != null)
+                        {
+                            _gameOverUI.SetScore(0);
+                        }
+                        return;
+                    }
                 }
+            }
+        }
+        finally
+        {
+            if (isEndingSession)
+            {
+                // Ensure we don't leave the session stuck in a "ending" state
+                isEndingSession = false;
             }
         }
     }
@@ -293,6 +323,7 @@ public class SessionManager : MonoBehaviour
     // ============ Public API ============
 
     public bool IsSessionActive() => isSessionActive;
+    public bool CanRecordGameplayEvents() => isSessionActive && !isEndingSession;
     public int GetCurrentSessionId() => currentSessionId;
     
     /// <summary>

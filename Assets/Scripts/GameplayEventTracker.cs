@@ -15,6 +15,11 @@ public class GameplayEventTracker : MonoBehaviour
     [SerializeField] private bool enableBlockchainRecording = true;
     [SerializeField] private bool verboseLogging = true;
 
+    // Tracks in-flight API calls so SessionManager can wait before ending a session
+    private readonly object pendingLock = new object();
+    private int pendingRequestCount = 0;
+    private TaskCompletionSource<bool> pendingDrainedSignal = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -34,24 +39,12 @@ public class GameplayEventTracker : MonoBehaviour
     /// </summary>
     public async void RecordRecipeDelivery()
     {
-        if (!enableBlockchainRecording) return;
-        
-        int sessionId = GetActiveSessionId();
-        if (sessionId == 0) return;
-
-        try
-        {
-            if (verboseLogging) Debug.Log($"🍱 Recording recipe delivery (Session {sessionId})...");
-            
-            await GameAPIClient.Instance.RecordRecipeDelivered(sessionId);
-            
-            if (verboseLogging) Debug.Log($"✅ Recipe delivery recorded on-chain");
-        }
-        catch (Exception e)
-        {
-            // Don't block gameplay - just log error
-            Debug.LogWarning($"⚠️ Failed to record delivery (gameplay continues): {e.Message}");
-        }
+        await TrackAndSendEventAsync(
+            "recipe delivery",
+            onStart: () => verboseLogging ? "🍱 Recording recipe delivery" : null,
+            onSuccess: () => verboseLogging ? "✅ Recipe delivery recorded on-chain" : null,
+            sendAsync: sessionId => GameAPIClient.Instance.RecordRecipeDelivered(sessionId)
+        );
     }
 
     /// <summary>
@@ -59,23 +52,13 @@ public class GameplayEventTracker : MonoBehaviour
     /// </summary>
     public async void RecordRecipeDiscard()
     {
-        if (!enableBlockchainRecording) return;
-        
-        int sessionId = GetActiveSessionId();
-        if (sessionId == 0) return;
-
-        try
-        {
-            if (verboseLogging) Debug.Log($"🗑️ Recording recipe discard (Session {sessionId})...");
-            
-            await GameAPIClient.Instance.RecordRecipeDiscarded(sessionId);
-            
-            if (verboseLogging) Debug.Log($"✅ Recipe discard recorded on-chain");
-        }
-        catch (Exception e)
-        {
-            Debug.LogWarning($"⚠️ Failed to record discard (gameplay continues): {e.Message}");
-        }
+        Debug.Log("[GameplayEventTracker] 🗑️ RecordRecipeDiscard() called");
+        await TrackAndSendEventAsync(
+            "recipe discard",
+            onStart: () => verboseLogging ? "🗑️ Recording recipe discard" : null,
+            onSuccess: () => verboseLogging ? "✅ Recipe discard recorded on-chain" : null,
+            sendAsync: sessionId => GameAPIClient.Instance.RecordRecipeDiscarded(sessionId)
+        );
     }
 
     /// <summary>
@@ -83,23 +66,12 @@ public class GameplayEventTracker : MonoBehaviour
     /// </summary>
     public async void RecordWellCooked()
     {
-        if (!enableBlockchainRecording) return;
-        
-        int sessionId = GetActiveSessionId();
-        if (sessionId == 0) return;
-
-        try
-        {
-            if (verboseLogging) Debug.Log($"🔥 Recording well-cooked ingredient (Session {sessionId})...");
-            
-            await GameAPIClient.Instance.RecordWellCooked(sessionId);
-            
-            if (verboseLogging) Debug.Log($"✅ Well-cooked recorded on-chain");
-        }
-        catch (Exception e)
-        {
-            Debug.LogWarning($"⚠️ Failed to record well-cooked (gameplay continues): {e.Message}");
-        }
+        await TrackAndSendEventAsync(
+            "well-cooked ingredient",
+            onStart: () => verboseLogging ? "🔥 Recording well-cooked ingredient" : null,
+            onSuccess: () => verboseLogging ? "✅ Well-cooked recorded on-chain" : null,
+            sendAsync: sessionId => GameAPIClient.Instance.RecordWellCooked(sessionId)
+        );
     }
 
     /// <summary>
@@ -107,23 +79,12 @@ public class GameplayEventTracker : MonoBehaviour
     /// </summary>
     public async void RecordOverCooked()
     {
-        if (!enableBlockchainRecording) return;
-        
-        int sessionId = GetActiveSessionId();
-        if (sessionId == 0) return;
-
-        try
-        {
-            if (verboseLogging) Debug.Log($"💀 Recording overcooked ingredient (Session {sessionId})...");
-            
-            await GameAPIClient.Instance.RecordOverCooked(sessionId);
-            
-            if (verboseLogging) Debug.Log($"✅ Overcooked recorded on-chain");
-        }
-        catch (Exception e)
-        {
-            Debug.LogWarning($"⚠️ Failed to record overcooked (gameplay continues): {e.Message}");
-        }
+        await TrackAndSendEventAsync(
+            "overcooked ingredient",
+            onStart: () => verboseLogging ? "💀 Recording overcooked ingredient" : null,
+            onSuccess: () => verboseLogging ? "✅ Overcooked recorded on-chain" : null,
+            sendAsync: sessionId => GameAPIClient.Instance.RecordOverCooked(sessionId)
+        );
     }
 
     /// <summary>
@@ -132,22 +93,13 @@ public class GameplayEventTracker : MonoBehaviour
     /// </summary>
     public async void RecordMove()
     {
-        if (!enableBlockchainRecording) return;
-        
-        int sessionId = GetActiveSessionId();
-        if (sessionId == 0) return;
-
-        try
-        {
-            // Moves are batched on backend to save gas (no logging to avoid spam)
-            await GameAPIClient.Instance.RecordMove(sessionId);
-        }
-        catch (Exception e)
-        {
-            // Silently fail for moves (too frequent to spam logs)
-            // Only log if verbose logging is enabled
-            if (verboseLogging) Debug.LogWarning($"⚠️ Failed to record move: {e.Message}");
-        }
+        await TrackAndSendEventAsync(
+            "player move",
+            onStart: () => null, // avoid spamming logs for frequent events
+            onSuccess: () => null,
+            sendAsync: sessionId => GameAPIClient.Instance.RecordMove(sessionId),
+            warnOnFailure: verboseLogging // only log move failures when verbose
+        );
     }
 
     // ============ Helper Methods ============
@@ -160,13 +112,148 @@ public class GameplayEventTracker : MonoBehaviour
             return 0;
         }
 
-        if (!SessionManager.Instance.IsSessionActive())
+        if (!SessionManager.Instance.CanRecordGameplayEvents())
         {
-            Debug.LogWarning("⚠️ No active session - cannot record event");
+            Debug.LogWarning("⚠️ No active session - cannot record event (CanRecordGameplayEvents returned false)");
             return 0;
         }
 
-        return SessionManager.Instance.GetCurrentSessionId();
+        int sessionId = SessionManager.Instance.GetCurrentSessionId();
+        if (sessionId == 0)
+        {
+            Debug.LogWarning("⚠️ Session ID is 0 - cannot record event");
+        }
+        return sessionId;
+    }
+
+    /// <summary>
+    /// Wait until all pending gameplay events have been sent or the timeout elapses.
+    /// SessionManager calls this before ending the session to avoid dropping events.
+    /// </summary>
+    public async Task WaitForPendingEventsAsync(int timeoutMilliseconds = 5000)
+    {
+        Task waitTask = null;
+        int pending;
+
+        lock (pendingLock)
+        {
+            pending = pendingRequestCount;
+            if (pendingRequestCount > 0)
+            {
+                waitTask = pendingDrainedSignal.Task;
+            }
+        }
+
+        if (waitTask == null)
+        {
+            if (verboseLogging) Debug.Log("🛜 No pending gameplay events to flush.");
+            return;
+        }
+
+        if (verboseLogging) Debug.Log($"🛜 Waiting for {pending} gameplay events to flush before ending session...");
+
+        Task completed = await Task.WhenAny(waitTask, Task.Delay(timeoutMilliseconds));
+        if (completed != waitTask)
+        {
+            Debug.LogWarning($"⚠️ Timeout waiting for gameplay events to finish sending. {pending} still pending after {timeoutMilliseconds} ms. Proceeding anyway.");
+        }
+        else
+        {
+            await waitTask; // ensure exceptions propagate if any
+            if (verboseLogging) Debug.Log("✅ Gameplay events flushed.");
+        }
+    }
+
+    private async Task TrackAndSendEventAsync(string eventName, Func<string> onStart, Func<string> onSuccess, Func<int, Task> sendAsync, bool warnOnFailure = true)
+    {
+        Debug.Log($"[GameplayEventTracker] TrackAndSendEventAsync called for: {eventName}");
+        
+        if (!enableBlockchainRecording)
+        {
+            Debug.LogWarning($"[GameplayEventTracker] ⚠️ Blockchain recording is DISABLED - skipping {eventName}");
+            return;
+        }
+
+        if (GameAPIClient.Instance == null)
+        {
+            Debug.LogWarning($"⚠️ GameAPIClient missing - cannot record {eventName}");
+            return;
+        }
+
+        int sessionId = GetActiveSessionId();
+        if (sessionId == 0)
+        {
+            Debug.LogWarning($"[GameplayEventTracker] ⚠️ Session ID is 0 - skipping {eventName}");
+            return;
+        }
+        
+        Debug.Log($"[GameplayEventTracker] ✅ Proceeding with {eventName} for session {sessionId}");
+
+        RegisterPendingRequest();
+
+        try
+        {
+            string startMessage = onStart?.Invoke();
+            if (!string.IsNullOrEmpty(startMessage))
+            {
+                Debug.Log($"{startMessage} (Session {sessionId})...");
+            }
+
+            await sendAsync(sessionId);
+
+            string successMessage = onSuccess?.Invoke();
+            if (!string.IsNullOrEmpty(successMessage))
+            {
+                Debug.Log(successMessage);
+            }
+        }
+        catch (GameAPIClient.SessionInactiveException)
+        {
+            if (verboseLogging)
+            {
+                Debug.Log($"⚠️ Skipped {eventName} because the blockchain session already ended.");
+            }
+        }
+        catch (Exception e)
+        {
+            if (warnOnFailure)
+            {
+                Debug.LogWarning($"⚠️ Failed to record {eventName}: {e.Message}");
+            }
+        }
+        finally
+        {
+            CompletePendingRequest();
+        }
+    }
+
+    private void RegisterPendingRequest()
+    {
+        lock (pendingLock)
+        {
+            pendingRequestCount++;
+            if (pendingRequestCount == 1)
+            {
+                // Reset signal so new waiters block until we drain back to zero
+                pendingDrainedSignal = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            }
+        }
+    }
+
+    private void CompletePendingRequest()
+    {
+        TaskCompletionSource<bool> toSignal = null;
+
+        lock (pendingLock)
+        {
+            pendingRequestCount = Mathf.Max(0, pendingRequestCount - 1);
+            if (pendingRequestCount == 0)
+            {
+                toSignal = pendingDrainedSignal;
+            }
+        }
+
+        toSignal?.TrySetResult(true);
     }
 
     // ============ Settings ============
@@ -182,4 +269,5 @@ public class GameplayEventTracker : MonoBehaviour
         verboseLogging = enabled;
     }
 }
+
 

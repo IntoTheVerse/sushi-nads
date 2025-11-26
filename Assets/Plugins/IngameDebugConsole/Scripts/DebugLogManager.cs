@@ -477,7 +477,7 @@ namespace IngameDebugConsole
 			commandSuggestionInstances = new List<TextMeshProUGUI>( 8 );
 			matchingCommandSuggestions = new List<ConsoleMethodInfo>( 8 );
 			commandCaretIndexIncrements = new List<int>( 8 );
-			queuedLogEntries = new DynamicCircularBuffer<QueuedDebugLogEntry>( Mathf.Clamp( queuedLogLimit, 16, 4096 ) );
+			EnsureLogQueuesInitialized();
 			commandHistory = new CircularBuffer<string>( commandHistorySize );
 
 			logEntriesLock = new object();
@@ -512,7 +512,8 @@ namespace IngameDebugConsole
 				collapsedLogEntriesTimestamps = new DynamicCircularBuffer<DebugLogEntryTimestamp>( 128 );
 				uncollapsedLogEntriesTimestamps = new DynamicCircularBuffer<DebugLogEntryTimestamp>( 256 );
 				timestampsOfLogEntriesToShow = new DynamicCircularBuffer<DebugLogEntryTimestamp>( 256 );
-				queuedLogEntriesTimestamps = new DynamicCircularBuffer<DebugLogEntryTimestamp>( queuedLogEntries.Capacity );
+				if( queuedLogEntriesTimestamps == null )
+					queuedLogEntriesTimestamps = new DynamicCircularBuffer<DebugLogEntryTimestamp>( queuedLogEntries.Capacity );
 			}
 
 			recycledListView.Initialize( this, logEntriesToShow, timestampsOfLogEntriesToShow, logItemPrefab.Transform.sizeDelta.y );
@@ -595,6 +596,18 @@ namespace IngameDebugConsole
 			// On new Input System, scroll sensitivity is much higher than legacy Input system
 			logItemsScrollRect.scrollSensitivity *= 0.25f;
 #endif
+		}
+
+		private void EnsureLogQueuesInitialized()
+		{
+			if( queuedLogEntries != null )
+				return;
+
+			int capacity = Mathf.Clamp( queuedLogLimit, 16, 4096 );
+			queuedLogEntries = new DynamicCircularBuffer<QueuedDebugLogEntry>( capacity );
+
+			if( captureLogTimestamps )
+				queuedLogEntriesTimestamps = new DynamicCircularBuffer<DebugLogEntryTimestamp>( capacity );
 		}
 
 		private void OnEnable()
@@ -758,8 +771,12 @@ namespace IngameDebugConsole
 			if( isQuittingApplication )
 				return;
 
-			int numberOfLogsToProcess = isLogWindowVisible ? queuedLogEntries.Count : ( queuedLogEntries.Count - queuedLogLimit );
-			ProcessQueuedLogs( numberOfLogsToProcess );
+			EnsureLogQueuesInitialized();
+
+			int queueCount = queuedLogEntries != null ? queuedLogEntries.Count : 0;
+			int numberOfLogsToProcess = isLogWindowVisible ? queueCount : Mathf.Max( 0, queueCount - queuedLogLimit );
+			if( numberOfLogsToProcess > 0 )
+				ProcessQueuedLogs( numberOfLogsToProcess );
 
 			if( uncollapsedLogEntries.Count >= maxLogCount )
 			{
@@ -1063,6 +1080,8 @@ namespace IngameDebugConsole
 		{
 			if( isQuittingApplication )
 				return;
+
+			EnsureLogQueuesInitialized();
 
 			switch( logType )
 			{
