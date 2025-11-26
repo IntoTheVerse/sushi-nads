@@ -631,14 +631,58 @@ public class ChefManager : MonoBehaviour
             ShowStatusMessage("Refill more energy", Color.red);
             return;
         }
-        if (SessionManager.Instance != null)
+        
+        // Get button text component
+        TMP_Text playButtonText = playButton?.GetComponentInChildren<TMP_Text>();
+        string originalButtonText = playButtonText != null ? playButtonText.text : "Play";
+        
+        // Disable button and change text immediately
+        if (playButton != null)
         {
-            await SessionManager.Instance.StartGameSession();
+            playButton.interactable = false;
         }
-        else
+        if (playButtonText != null)
         {
-            Debug.LogError("❌ SessionManager not found! Add SessionManager GameObject to scene.");
-            ShowStatusMessage("Session manager missing", Color.red);
+            playButtonText.text = "Starting game...";
+        }
+        
+        try
+        {
+            if (SessionManager.Instance != null)
+            {
+                await SessionManager.Instance.StartGameSession();
+                // If successful, button state is handled by game session (game starts)
+            }
+            else
+            {
+                Debug.LogError("❌ SessionManager not found! Add SessionManager GameObject to scene.");
+                ShowStatusMessage("Session manager missing", Color.red);
+                
+                // Restore button state on failure
+                if (playButton != null)
+                {
+                    playButton.interactable = true;
+                }
+                if (playButtonText != null)
+                {
+                    playButtonText.text = originalButtonText;
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"❌ Failed to start game session: {e.Message}");
+            ShowStatusMessage($"Failed to start game: {e.Message}", Color.red);
+            
+            // Restore button state on failure
+            if (playButton != null)
+            {
+                playButton.interactable = true;
+            }
+            if (playButtonText != null)
+            {
+                playButtonText.text = originalButtonText;
+            }
         }
     }
 
