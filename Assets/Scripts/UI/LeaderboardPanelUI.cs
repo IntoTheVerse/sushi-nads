@@ -501,6 +501,9 @@ public class LeaderboardPanelUI : MonoBehaviour
 
         rowInstance.Bind(entry, walletAddress, emphasizeLocalPlayer);
         spawnedRows.Add(rowInstance);
+        foreach (var row in spawnedRows){
+            row.gameObject.SetActive(true);
+        }
     }
 
     private void EnsureLocalPlayerRow(LeaderboardResponse response, PlayerRankResponse playerRank, string walletAddress)
