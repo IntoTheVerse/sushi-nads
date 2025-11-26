@@ -17,13 +17,26 @@ public class LeaderboardPanelUI : MonoBehaviour
     [SerializeField] private TMP_Text playerScoreText;
     [SerializeField] private TMP_Text emptyStateText;
     [SerializeField] private GameObject loadingState;
+    [SerializeField] private GameObject leaderboardContentPanel;
+
     [SerializeField] private Button refreshButton;
     [SerializeField] private int fetchLimit = 25;
+    
+    [Header("Static Player Row (Outside Scroll View)")]
+    [SerializeField] private LeaderboardRowUI staticPlayerRow; // Static row at top, always visible
 
     private readonly List<LeaderboardRowUI> spawnedRows = new();
     private bool isLoading;
     private VerticalLayoutGroup dynamicLayoutGroup;
     private ContentSizeFitter dynamicContentFitter;
+    private Coroutine loadingRotationCoroutine;
+    
+    // Medal sprites for top 3 and player highlight
+    [Header("Rank Sprites")]
+    [SerializeField] private Sprite goldBoxSprite;      // For rank 1
+    [SerializeField] private Sprite silverBoxSprite;    // For rank 2
+    [SerializeField] private Sprite bronzeBoxSprite;    // For rank 3
+    [SerializeField] private Sprite greenBoxSprite;     // For player highlight
 
     private void Awake()
     {
@@ -37,6 +50,8 @@ public class LeaderboardPanelUI : MonoBehaviour
 
     private void OnEnable()
     {
+        // Hide content panel initially until data loads
+        SetContentPanelVisible(false);
         RefreshLeaderboard();
     }
 
@@ -47,6 +62,7 @@ public class LeaderboardPanelUI : MonoBehaviour
             refreshButton.onClick.RemoveListener(RefreshLeaderboard);
         }
 
+        StopLoadingRotation(); // Stop rotation when panel is disabled
         ClearRows();
     }
 
@@ -70,6 +86,7 @@ public class LeaderboardPanelUI : MonoBehaviour
 
         isLoading = true;
         SetLoadingState(true, "Connecting wallet...");
+        SetContentPanelVisible(false); // Hide content while loading
         ClearRows();
 
         try
@@ -82,6 +99,7 @@ public class LeaderboardPanelUI : MonoBehaviour
                 {
                     SetEmptyState("Connect wallet to view the leaderboard.");
                     SetLoadingState(false);
+                    SetContentPanelVisible(false); // Keep hidden if wallet not connected
                     isLoading = false;
                     return;
                 }
@@ -93,13 +111,18 @@ public class LeaderboardPanelUI : MonoBehaviour
             var playerRankResponse = await GameAPIClient.Instance.GetPlayerRank();
 
             RenderHeader(leaderboardResponse);
+            RenderStaticPlayerRow(leaderboardResponse, playerRankResponse, walletAddress);
             RenderRows(leaderboardResponse, playerRankResponse, walletAddress);
             RenderPlayerCard(playerRankResponse);
+            
+            // Show content panel after successful render
+            SetContentPanelVisible(true);
         }
         catch (Exception ex)
         {
             Debug.LogError($"LeaderboardPanelUI: failed to refresh leaderboard - {ex.Message}");
             SetEmptyState($"Unable to load leaderboard.\n{ex.Message}");
+            // Keep content panel hidden on error
         }
         finally
         {
@@ -147,6 +170,55 @@ public class LeaderboardPanelUI : MonoBehaviour
         }
     }
 
+    private void RenderStaticPlayerRow(LeaderboardResponse response, PlayerRankResponse playerRank, string walletAddress)
+    {
+        // Update the static player row at top (outside scroll view)
+        if (staticPlayerRow == null || playerRank == null || playerRank.rank <= 0)
+        {
+            if (staticPlayerRow != null)
+            {
+                staticPlayerRow.gameObject.SetActive(false);
+            }
+            return;
+        }
+
+        // Try to find player's name from leaderboard response
+        string playerName = null;
+        if (response?.rankings != null && !string.IsNullOrEmpty(walletAddress))
+        {
+            var playerEntryInLeaderboard = response.rankings.FirstOrDefault(entry =>
+                entry != null &&
+                !string.IsNullOrEmpty(entry.player) &&
+                entry.player.Equals(walletAddress, System.StringComparison.OrdinalIgnoreCase));
+            
+            if (playerEntryInLeaderboard != null)
+            {
+                playerName = playerEntryInLeaderboard.playerName;
+            }
+        }
+
+        // Create entry for static player row
+        var playerEntry = new LeaderboardEntry
+        {
+            rank = playerRank.rank,
+            player = walletAddress,
+            playerName = GetDisplayName(playerName, walletAddress),
+            score = playerRank.score,
+            sessionId = playerRank.sessionId,
+            lastUpdated = playerRank.lastUpdated
+        };
+
+        // Bind the static row
+        staticPlayerRow.gameObject.SetActive(true);
+        staticPlayerRow.Bind(playerEntry, walletAddress, true);
+        
+        // Always use green box sprite for static player row
+        if (greenBoxSprite != null)
+        {
+            staticPlayerRow.SetRankSprite(greenBoxSprite);
+        }
+    }
+
     private void RenderRows(LeaderboardResponse response, PlayerRankResponse playerRank, string walletAddress)
     {
         if (rowPrefab == null || rowsParent == null)
@@ -162,18 +234,110 @@ public class LeaderboardPanelUI : MonoBehaviour
         }
 
         HideEmptyState();
-
-        foreach (var entry in response.rankings)
+        
+        // Find if player is in top 5
+        bool isPlayerInTop5 = false;
+        LeaderboardEntry playerEntry = null;
+        int playerRankValue = playerRank?.rank ?? 0;
+        
+        if (playerRankValue > 0 && !string.IsNullOrEmpty(walletAddress))
         {
-            if (entry == null)
+            foreach (var entry in response.rankings)
             {
-                continue;
+                if (entry != null && entry.rank == playerRankValue && 
+                    !string.IsNullOrEmpty(entry.player) &&
+                    entry.player.Equals(walletAddress, System.StringComparison.OrdinalIgnoreCase))
+                {
+                    if (entry.rank <= 5)
+                    {
+                        isPlayerInTop5 = true;
+                        playerEntry = entry;
+                    }
+                    break;
+                }
             }
-            entry.playerName = GetDisplayName(entry.playerName, entry.player);
-            AddRow(entry, walletAddress, true);
         }
-
-        EnsureLocalPlayerRow(response, playerRank, walletAddress);
+        
+        // Get top 5 entries
+        var top5Entries = new List<LeaderboardEntry>();
+        for (int i = 0; i < Mathf.Min(5, response.rankings.Length); i++)
+        {
+            if (response.rankings[i] != null)
+            {
+                top5Entries.Add(response.rankings[i]);
+            }
+        }
+        
+        // Render top 5 with special colors for top 3
+        foreach (var entry in top5Entries)
+        {
+            if (entry == null) continue;
+            
+            entry.playerName = GetDisplayName(entry.playerName, entry.player);
+            bool isPlayer = !string.IsNullOrEmpty(entry.player) &&
+                           !string.IsNullOrEmpty(walletAddress) &&
+                           entry.player.Equals(walletAddress, System.StringComparison.OrdinalIgnoreCase);
+            var row = AddRow(entry, walletAddress, true);
+            
+            // Apply medal sprites for top 3 (player in scroll view gets medal color, not green)
+            // Green box is only for the static player row at top
+            if (row != null)
+            {
+                if (entry.rank == 1 && goldBoxSprite != null)
+                {
+                    row.SetRankSprite(goldBoxSprite);
+                }
+                else if (entry.rank == 2 && silverBoxSprite != null)
+                {
+                    row.SetRankSprite(silverBoxSprite);
+                }
+                else if (entry.rank == 3 && bronzeBoxSprite != null)
+                {
+                    row.SetRankSprite(bronzeBoxSprite);
+                }
+                // Note: Player in scroll view shows their actual rank color, not green
+                // Green box is reserved for the static player row at top
+            }
+        }
+        
+        // If player is NOT in top 5, show 4 normal rankers, then player at bottom
+        if (!isPlayerInTop5 && playerRankValue > 5)
+        {
+            // Get 4 normal rankers (prefer ranks 6-9, but skip player)
+            var normalRankers = new List<LeaderboardEntry>();
+            int normalRankerCount = 0;
+            
+            foreach (var entry in response.rankings)
+            {
+                if (entry == null) continue;
+                
+                // Skip top 5 entries (already displayed)
+                if (entry.rank <= 5) continue;
+                
+                // Skip player entry (will be shown at bottom)
+                bool isPlayer = !string.IsNullOrEmpty(entry.player) &&
+                               !string.IsNullOrEmpty(walletAddress) &&
+                               entry.player.Equals(walletAddress, System.StringComparison.OrdinalIgnoreCase);
+                if (isPlayer) continue;
+                
+                // Add normal ranker
+                normalRankers.Add(entry);
+                normalRankerCount++;
+                
+                if (normalRankerCount >= 4) break;
+            }
+            
+            // Render 4 normal rankers
+            foreach (var entry in normalRankers)
+            {
+                entry.playerName = GetDisplayName(entry.playerName, entry.player);
+                AddRow(entry, walletAddress, false);
+            }
+            
+            // Render player at bottom
+            EnsureLocalPlayerRow(response, playerRank, walletAddress);
+        }
+        
         RebuildLayout();
     }
 
@@ -250,6 +414,16 @@ public class LeaderboardPanelUI : MonoBehaviour
         if (loadingState != null)
         {
             loadingState.SetActive(isVisible);
+            
+            // Start/Stop rotation animation
+            if (isVisible)
+            {
+                StartLoadingRotation();
+            }
+            else
+            {
+                StopLoadingRotation();
+            }
         }
 
         if (isVisible)
@@ -260,6 +434,46 @@ public class LeaderboardPanelUI : MonoBehaviour
         if (!string.IsNullOrEmpty(message) && emptyStateText != null)
         {
             emptyStateText.text = message;
+        }
+    }
+    
+    private void StartLoadingRotation()
+    {
+        StopLoadingRotation(); // Stop any existing rotation
+        
+        if (loadingState != null)
+        {
+            loadingRotationCoroutine = StartCoroutine(RotateLoadingIcon());
+        }
+    }
+    
+    private void StopLoadingRotation()
+    {
+        if (loadingRotationCoroutine != null)
+        {
+            StopCoroutine(loadingRotationCoroutine);
+            loadingRotationCoroutine = null;
+        }
+    }
+    
+    private System.Collections.IEnumerator RotateLoadingIcon()
+    {
+        float rotationSpeed = 180f; // Degrees per second
+        while (loadingState != null && loadingState.activeSelf)
+        {
+            if (loadingState.transform != null)
+            {
+                loadingState.transform.Rotate(0f, 0f, -rotationSpeed * Time.deltaTime);
+            }
+            yield return null;
+        }
+    }
+    
+    private void SetContentPanelVisible(bool isVisible)
+    {
+        if (leaderboardContentPanel != null)
+        {
+            leaderboardContentPanel.SetActive(isVisible);
         }
     }
 
@@ -473,11 +687,11 @@ public class LeaderboardPanelUI : MonoBehaviour
             t != null && t.name.IndexOf(fragment, StringComparison.OrdinalIgnoreCase) >= 0);
     }
 
-    private void AddRow(LeaderboardEntry entry, string walletAddress, bool emphasizeLocalPlayer)
+    private LeaderboardRowUI AddRow(LeaderboardEntry entry, string walletAddress, bool emphasizeLocalPlayer)
     {
         if (rowPrefab == null || rowsParent == null || entry == null)
         {
-            return;
+            return null;
         }
 
         var rowObject = Instantiate(rowPrefab.gameObject, rowsParent);
@@ -487,7 +701,7 @@ public class LeaderboardPanelUI : MonoBehaviour
         {
             Debug.LogError("LeaderboardPanelUI: Row prefab is missing LeaderboardRowUI component.");
             Destroy(rowObject);
-            return;
+            return null;
         }
 
         var rowTransform = rowObject.transform as RectTransform;
@@ -504,6 +718,8 @@ public class LeaderboardPanelUI : MonoBehaviour
         foreach (var row in spawnedRows){
             row.gameObject.SetActive(true);
         }
+        
+        return rowInstance;
     }
 
     private void EnsureLocalPlayerRow(LeaderboardResponse response, PlayerRankResponse playerRank, string walletAddress)
@@ -513,6 +729,7 @@ public class LeaderboardPanelUI : MonoBehaviour
             return;
         }
 
+        // Check if player is already in the displayed rankings from response
         bool alreadyListed = response?.rankings?.Any(entry =>
             entry != null &&
             !string.IsNullOrEmpty(entry.player) &&
@@ -520,9 +737,11 @@ public class LeaderboardPanelUI : MonoBehaviour
 
         if (alreadyListed)
         {
+            // Player is already in the rankings we've displayed
             return;
         }
 
+        // Create player entry for bottom display
         var fallbackEntry = new LeaderboardEntry
         {
             rank = playerRank.rank,
@@ -533,7 +752,12 @@ public class LeaderboardPanelUI : MonoBehaviour
             lastUpdated = playerRank.lastUpdated
         };
 
-        AddRow(fallbackEntry, walletAddress, true);
+        // Add player row at bottom with green highlight sprite
+        var playerRow = AddRow(fallbackEntry, walletAddress, true);
+        if (playerRow != null && greenBoxSprite != null)
+        {
+            playerRow.SetRankSprite(greenBoxSprite);
+        }
     }
 
     private string GetDisplayName(string playerName, string walletAddress)

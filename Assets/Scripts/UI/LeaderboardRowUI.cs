@@ -1,6 +1,7 @@
 using System;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class LeaderboardRowUI : MonoBehaviour
 {
@@ -10,6 +11,21 @@ public class LeaderboardRowUI : MonoBehaviour
     [SerializeField] private TMP_Text metadataText;
     [SerializeField] private TMP_Text walletAddress;
     [SerializeField] private GameObject highlight;
+    [SerializeField] private Image backgroundImage;
+    
+    private void Awake()
+    {
+        // Auto-find background Image if not assigned
+        if (backgroundImage == null)
+        {
+            backgroundImage = GetComponent<Image>();
+            if (backgroundImage == null)
+            {
+                // Try to find in children (common pattern: row has child Image component)
+                backgroundImage = GetComponentInChildren<Image>();
+            }
+        }
+    }
 
     public void Bind(LeaderboardEntry entry, string localPlayerAddress, bool emphasizeRow)
     {
@@ -51,6 +67,36 @@ public class LeaderboardRowUI : MonoBehaviour
             highlight.SetActive(emphasizeRow && isLocalPlayer);
         }
     }
+    
+    public void SetRankSprite(Sprite sprite)
+    {
+        // Ensure we have a reference to the Image component
+        if (backgroundImage == null)
+        {
+            backgroundImage = GetComponent<Image>();
+            if (backgroundImage == null)
+            {
+                backgroundImage = GetComponentInChildren<Image>();
+            }
+        }
+        
+        if (backgroundImage != null && sprite != null)
+        {
+            backgroundImage.sprite = sprite;
+        }
+        else
+        {
+            if (backgroundImage == null)
+            {
+                Debug.LogWarning($"LeaderboardRowUI: No Image component found on {gameObject.name} to set sprite!");
+            }
+            if (sprite == null)
+            {
+                Debug.LogWarning($"LeaderboardRowUI: Sprite is null for {gameObject.name}");
+            }
+        }
+    }
+    
     private string GetShortWallet(string addr)
     {
         if (string.IsNullOrWhiteSpace(addr))
