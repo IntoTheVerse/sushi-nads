@@ -3,6 +3,51 @@ import { leaderboard, chefNFT, gameCore } from '../services/blockchain.service.j
 import { optionalAuth } from '../middleware/auth.js';
 import { getCachedLeaderboard, setCachedLeaderboard } from '../services/cache.service.js';
 
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+
+async function fetchAllChefProfiles() {
+    try {
+        const totalChefs = Number(await chefNFT.totalChefs());
+        if (!totalChefs) {
+            return [];
+        }
+
+        const tokenIds = Array.from({ length: totalChefs }, (_, index) => index + 1);
+        const chefs = await Promise.all(
+            tokenIds.map(async tokenId => {
+                try {
+                    const [owner, name] = await Promise.all([
+                        chefNFT.ownerOf(tokenId),
+                        chefNFT.chefNames(tokenId)
+                    ]);
+
+                    if (!owner || owner === ZERO_ADDRESS) {
+                        return null;
+                    }
+
+                    return {
+                        tokenId,
+                        player: owner,
+                        playerName: name || null
+                    };
+                } catch (error) {
+                    console.warn(`⚠️  Failed to load chef token ${tokenId}:`, error.message);
+                    return null;
+                }
+            })
+        );
+
+        return chefs.filter(Boolean);
+    } catch (error) {
+        console.warn('⚠️  Failed to read chef roster from chain:', error.message);
+        return [];
+    }
+}
+
+function normalizeAddress(address) {
+    return typeof address === 'string' ? address.trim().toLowerCase() : '';
+}
+
 const router = express.Router();
 
 /**
@@ -40,7 +85,7 @@ router.get('/top', optionalAuth, async (req, res, next) => {
         }
         
         // Enrich with player names
-        const rankings = await Promise.all(
+        let rankings = await Promise.all(
             entries.map(async (entry, index) => {
                 let name = 'Unknown';
                 try {
@@ -65,6 +110,46 @@ router.get('/top', optionalAuth, async (req, res, next) => {
                 };
             })
         );
+
+        // Ensure every minted chef shows up even if they haven't posted a score yet.
+        const chefRoster = await fetchAllChefProfiles();
+        if (chefRoster.length) {
+            const rankedAddresses = new Set(
+                rankings
+                    .map(entry => normalizeAddress(entry.player))
+                    .filter(addr => addr.length > 0)
+            );
+
+            const missingChefs = chefRoster.filter(
+                chef => chef.player && !rankedAddresses.has(normalizeAddress(chef.player))
+            );
+
+            if (missingChefs.length) {
+                const fallbackEntries = await Promise.all(
+                    missingChefs.map(async chef => {
+                        let entry = null;
+                        try {
+                            entry = await leaderboard.getPlayerEntry(chef.player);
+                        } catch (error) {
+                            console.warn(`⚠️  Failed to load fallback entry for ${chef.player}:`, error.message);
+                        }
+
+                        return {
+                            rank: entry ? Number(entry.rank || 0) : 0,
+                            player: chef.player,
+                            playerName: chef.playerName && chef.playerName.trim().length > 0
+                                ? chef.playerName
+                                : chef.player,
+                            score: entry ? Number(entry.highScore || 0) : 0,
+                            sessionId: entry ? Number(entry.sessionId || 0) : 0,
+                            lastUpdated: entry ? Number(entry.timestamp || 0) * 1000 : 0
+                        };
+                    })
+                );
+
+                rankings = rankings.concat(fallbackEntries);
+            }
+        }
         
         // Cache result
         await setCachedLeaderboard(season, limit, rankings);

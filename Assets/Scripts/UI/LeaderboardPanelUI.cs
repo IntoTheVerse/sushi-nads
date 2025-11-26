@@ -22,6 +22,8 @@ public class LeaderboardPanelUI : MonoBehaviour
 
     private readonly List<LeaderboardRowUI> spawnedRows = new();
     private bool isLoading;
+    private VerticalLayoutGroup dynamicLayoutGroup;
+    private ContentSizeFitter dynamicContentFitter;
 
     private void Awake()
     {
@@ -172,6 +174,7 @@ public class LeaderboardPanelUI : MonoBehaviour
         }
 
         EnsureLocalPlayerRow(response, playerRank, walletAddress);
+        RebuildLayout();
     }
 
     private void RenderPlayerCard(PlayerRankResponse response)
@@ -239,6 +242,7 @@ public class LeaderboardPanelUI : MonoBehaviour
         }
 
         spawnedRows.Clear();
+        RebuildLayout();
     }
 
     private void SetLoadingState(bool isVisible, string message = null)
@@ -285,6 +289,7 @@ public class LeaderboardPanelUI : MonoBehaviour
         }
 
         ConfigureRowPrefab();
+        EnsureLayoutContainer();
 
         if (headerText == null)
         {
@@ -357,6 +362,84 @@ public class LeaderboardPanelUI : MonoBehaviour
         {
             rowPrefab.gameObject.SetActive(false);
         }
+
+        if (rowPrefab != null)
+        {
+            EnsureRowLayout(rowPrefab.transform as RectTransform);
+        }
+    }
+
+    private void EnsureLayoutContainer()
+    {
+        if (rowsParent == null)
+        {
+            return;
+        }
+
+        dynamicLayoutGroup = rowsParent.GetComponent<VerticalLayoutGroup>();
+        if (dynamicLayoutGroup == null)
+        {
+            dynamicLayoutGroup = rowsParent.gameObject.AddComponent<VerticalLayoutGroup>();
+        }
+
+        dynamicLayoutGroup.spacing = 12f;
+        dynamicLayoutGroup.childAlignment = TextAnchor.UpperCenter;
+        dynamicLayoutGroup.childControlWidth = true;
+        dynamicLayoutGroup.childControlHeight = true;
+        dynamicLayoutGroup.childForceExpandWidth = true;
+        dynamicLayoutGroup.childForceExpandHeight = false;
+
+        var layoutElement = rowsParent.GetComponent<LayoutElement>();
+        if (layoutElement == null)
+        {
+            layoutElement = rowsParent.gameObject.AddComponent<LayoutElement>();
+            layoutElement.minHeight = 0;
+            layoutElement.flexibleHeight = 0;
+        }
+
+        dynamicContentFitter = rowsParent.GetComponent<ContentSizeFitter>();
+        if (dynamicContentFitter == null)
+        {
+            dynamicContentFitter = rowsParent.gameObject.AddComponent<ContentSizeFitter>();
+        }
+
+        dynamicContentFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+        dynamicContentFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+    }
+
+    private void RebuildLayout()
+    {
+        if (rowsParent == null)
+        {
+            return;
+        }
+
+        var rect = rowsParent as RectTransform ?? rowsParent.GetComponent<RectTransform>();
+        if (rect != null)
+        {
+            Canvas.ForceUpdateCanvases();
+            LayoutRebuilder.ForceRebuildLayoutImmediate(rect);
+        }
+    }
+
+    private void EnsureRowLayout(RectTransform rowTransform)
+    {
+        if (rowTransform == null)
+        {
+            return;
+        }
+
+        var layoutElement = rowTransform.GetComponent<LayoutElement>();
+        if (layoutElement == null)
+        {
+            layoutElement = rowTransform.gameObject.AddComponent<LayoutElement>();
+        }
+
+        // Use existing size if set, otherwise fall back to default height
+        float preferredHeight = rowTransform.sizeDelta.y > 0 ? rowTransform.sizeDelta.y : 120f;
+        layoutElement.minHeight = preferredHeight;
+        layoutElement.preferredHeight = preferredHeight;
+        layoutElement.flexibleHeight = 0;
     }
 
     private TMP_Text FindTextByName(string targetName)
@@ -397,8 +480,25 @@ public class LeaderboardPanelUI : MonoBehaviour
             return;
         }
 
-        var rowInstance = Instantiate(rowPrefab, rowsParent);
-        rowInstance.gameObject.SetActive(true);
+        var rowObject = Instantiate(rowPrefab.gameObject, rowsParent);
+        rowObject.SetActive(true);
+        var rowInstance = rowObject.GetComponent<LeaderboardRowUI>();
+        if (rowInstance == null)
+        {
+            Debug.LogError("LeaderboardPanelUI: Row prefab is missing LeaderboardRowUI component.");
+            Destroy(rowObject);
+            return;
+        }
+
+        var rowTransform = rowObject.transform as RectTransform;
+        if (rowTransform != null)
+        {
+            rowTransform.localScale = Vector3.one;
+            rowTransform.localRotation = Quaternion.identity;
+            rowTransform.SetAsLastSibling();
+            EnsureRowLayout(rowTransform);
+        }
+
         rowInstance.Bind(entry, walletAddress, emphasizeLocalPlayer);
         spawnedRows.Add(rowInstance);
     }
