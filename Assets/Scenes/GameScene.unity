@@ -13637,13 +13637,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Content: {fileID: 1324932457}
-  m_Horizontal: 1
+  m_Horizontal: 0
   m_Vertical: 1
-  m_MovementType: 1
+  m_MovementType: 2
   m_Elasticity: 0.1
   m_Inertia: 1
-  m_DecelerationRate: 0.135
-  m_ScrollSensitivity: 1
+  m_DecelerationRate: 0.2
+  m_ScrollSensitivity: 30
   m_Viewport: {fileID: 655878062}
   m_HorizontalScrollbar: {fileID: 0}
   m_VerticalScrollbar: {fileID: 0}
@@ -14949,7 +14949,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 0, y: 300}
+  m_SizeDelta: {x: 0, y: 876.9567}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &1324932458
 MonoBehaviour:
@@ -17041,6 +17041,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   timerImage: {fileID: 1117603264}
+  hideWhenTimerUnavailable: 1
 --- !u!1 &1589561113
 GameObject:
   m_ObjectHideFlags: 0
@@ -21002,6 +21003,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _gameOverUI: {fileID: 0}
+  pendingEventsTimeoutMs: 15000
 --- !u!33 &2907531060556602547
 MeshFilter:
   m_ObjectHideFlags: 0
