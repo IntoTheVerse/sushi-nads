@@ -221,6 +221,12 @@ public class StoveCounter : BaseCounter, IHasProgress
         return fryingRecipeSO != null;
     }
 
+    // Public wrapper for external checks (e.g., highlight manager)
+    public bool CanProcess(KitchenObjectSO inputKitchenObjectSO)
+    {
+        return HasRecipeWithInput(inputKitchenObjectSO);
+    }
+
     private FryingRecipeSO GetFryingRecipeSOWithInput(KitchenObjectSO inputKitchenObjectSO) {
         foreach (FryingRecipeSO fryingRecipeSO in fryingRecipeSOArray) {
             if (fryingRecipeSO.input == inputKitchenObjectSO) {

@@ -102,6 +102,12 @@ public class CuttingCounter : BaseCounter, IHasProgress
         return cuttingRecipeSO != null;
     }
 
+    // Public wrapper used by external systems to check if this counter can process the given input
+    public bool CanProcess(KitchenObjectSO inputKitchenObjectSO)
+    {
+        return HasRecipeWithInput(inputKitchenObjectSO);
+    }
+
     private CuttingRecipeSO GetCuttingRecipeSOWithInput(KitchenObjectSO inputKitchenObjectSO) {
         foreach (CuttingRecipeSO cuttingRecipeSO in cuttingRecipeSOArray) {
             if (cuttingRecipeSO.input == inputKitchenObjectSO) {
