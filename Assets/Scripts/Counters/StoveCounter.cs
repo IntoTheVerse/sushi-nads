@@ -216,6 +216,26 @@ public class StoveCounter : BaseCounter, IHasProgress
         }
     }
 
+    // Public wrapper so external systems can query what this stove counter would produce for a given input
+    public KitchenObjectSO GetOutputForInputPublic(KitchenObjectSO inputKitchenObjectSO)
+    {
+        return GetOutputForInput(inputKitchenObjectSO);
+    }
+
+    // Public query: can this stove counter produce the given output (used when matching recipe requirements)?
+    public bool CanProduce(KitchenObjectSO outputKitchenObjectSO)
+    {
+        foreach (FryingRecipeSO fryingRecipeSO in fryingRecipeSOArray)
+        {
+            if (fryingRecipeSO.output == outputKitchenObjectSO) return true;
+        }
+        foreach (BurningRecipeSO burningRecipeSO in burningRecipeSOArray)
+        {
+            if (burningRecipeSO.output == outputKitchenObjectSO) return true;
+        }
+        return false;
+    }
+
     private bool HasRecipeWithInput(KitchenObjectSO inputKitchenObjectSO) {
         FryingRecipeSO fryingRecipeSO = GetFryingRecipeSOWithInput(inputKitchenObjectSO);
         return fryingRecipeSO != null;

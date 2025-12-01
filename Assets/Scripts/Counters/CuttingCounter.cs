@@ -97,6 +97,22 @@ public class CuttingCounter : BaseCounter, IHasProgress
         }
     }
 
+    // Public wrapper so external systems can query what this counter would produce for a given input
+    public KitchenObjectSO GetOutputForInputPublic(KitchenObjectSO inputKitchenObjectSO)
+    {
+        return GetOutputForInput(inputKitchenObjectSO);
+    }
+
+    // Public query: can this counter produce the given output (used when matching recipe requirements)?
+    public bool CanProduce(KitchenObjectSO outputKitchenObjectSO)
+    {
+        foreach (CuttingRecipeSO cuttingRecipeSO in cuttingRecipeSOArray)
+        {
+            if (cuttingRecipeSO.output == outputKitchenObjectSO) return true;
+        }
+        return false;
+    }
+
     private bool HasRecipeWithInput(KitchenObjectSO inputKitchenObjectSO) {
         CuttingRecipeSO cuttingRecipeSO = GetCuttingRecipeSOWithInput(inputKitchenObjectSO);
         return cuttingRecipeSO != null;

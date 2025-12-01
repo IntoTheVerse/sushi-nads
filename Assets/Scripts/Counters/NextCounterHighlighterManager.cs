@@ -101,54 +101,158 @@ public class NextCounterHighlighterManager : MonoBehaviour
             return;
         }
 
-        // Find all matching counters that can process this SO and are currently free
-        var candidates = new List<(CounterHighlighter highlighter, float dist)>();
+        // Use DeliveryManager's top-most order to prefer counters that produce the required recipe ingredient
+        var waiting = DeliveryManager.Instance != null ? DeliveryManager.Instance.GetWaitingRecipeSOList() : null;
+        RecipeSO topRecipe = null;
+        if (waiting != null && waiting.Count > 0) topRecipe = waiting[0];
 
         Vector3 playerPos = Player.Instance.transform.position;
+        var candidates = new List<(CounterHighlighter highlighter, float dist)>();
 
+        // Detect whether the held item is already a processed output from cutting
+        bool heldIsCuttingOutput = false;
+        bool heldIsStoveInput = false;
         foreach (var h in highlighters)
         {
             if (h == null) continue;
-            var counter = h.GetCounter();
-            if (counter == null) continue;
-
-            // Skip occupied counters (player should not try to put ingredient where there's already an item)
-            if (counter.HasKitchenObject()) continue;
-
-            bool match = false;
-
-            // CuttingCounter
-            if (counter is CuttingCounter cutting)
+            var ctr = h.GetCounter();
+            if (ctr == null) continue;
+            if (ctr is CuttingCounter c)
             {
-                try
+                try { if (c.CanProduce(so)) heldIsCuttingOutput = true; } catch { }
+            }
+            if (ctr is StoveCounter s)
+            {
+                try { if (s.CanProcess(so)) heldIsStoveInput = true; } catch { }
+            }
+        }
+
+        // 1) If we have a top recipe, try to match counters that will produce that recipe's ingredient from the player's held item
+        if (topRecipe != null)
+        {
+            // If held item can be transformed into any ingredient required by the top recipe, prefer those counters
+            foreach (var h in highlighters)
+            {
+                if (h == null) continue;
+                var counter = h.GetCounter();
+                if (counter == null) continue;
+                if (counter.HasKitchenObject()) continue; // skip busy counters
+
+                // CuttingCounter: will it produce a recipe ingredient from the held SO?
+                if (counter is CuttingCounter cutting)
                 {
-                    if (cutting.CanProcess(so)) match = true;
+                    try
+                    {
+                        // If the held item is already the output of a cutting recipe and it does not feed into the stove,
+                        // don't suggest cutting counters (it's already sliced/minced and doesn't need cutting).
+                        if (heldIsCuttingOutput && !heldIsStoveInput) { continue; }
+
+                        var outSO = cutting.GetOutputForInputPublic(so);
+                        if (outSO != null && topRecipe.kitchenObjectSOList.Contains(outSO))
+                        {
+                            float d = Vector3.Distance(playerPos, counter.transform.position);
+                            candidates.Add((h, d));
+                        }
+                    }
+                    catch { }
                 }
-                catch (Exception)
+
+                // StoveCounter: similar check
+                if (counter is StoveCounter stove)
                 {
-                    // ignore
+                    try
+                    {
+                        var outSO = stove.GetOutputForInputPublic(so);
+                        if (outSO != null && topRecipe.kitchenObjectSOList.Contains(outSO))
+                        {
+                            float d = Vector3.Distance(playerPos, counter.transform.position);
+                            candidates.Add((h, d));
+                        }
+                    }
+                    catch { }
                 }
             }
 
-            // StoveCounter (frying, rice cooker, grinder, etc.)
-            if (!match && counter is StoveCounter stove)
+            // 2) If none of the above matched, but the player is holding an item that already matches one of the top recipe's ingredients,
+            // then highlight counters that can produce other required ingredients (e.g., recipe requires both sliced & minced variants).
+            if (candidates.Count == 0)
             {
-                try
+                bool heldIsRecipeIngredient = topRecipe.kitchenObjectSOList.Contains(so);
+                if (heldIsRecipeIngredient)
                 {
-                    if (stove.CanProcess(so)) match = true;
-                }
-                catch (Exception)
-                {
-                    // ignore
+                    // For each other required ingredient, find counters that can produce it
+                    foreach (var required in topRecipe.kitchenObjectSOList)
+                    {
+                        if (required == so) continue; // skip the one we already have
+
+                        foreach (var h in highlighters)
+                        {
+                            if (h == null) continue;
+                            var counter = h.GetCounter();
+                            if (counter == null) continue;
+                            if (counter.HasKitchenObject()) continue;
+
+                            // CuttingCounter can produce 'required'?
+                            if (counter is CuttingCounter cutting)
+                            {
+                                try
+                                {
+                                    if (cutting.CanProduce(required))
+                                    {
+                                        float d = Vector3.Distance(playerPos, counter.transform.position);
+                                        candidates.Add((h, d));
+                                    }
+                                }
+                                catch { }
+                            }
+
+                            // StoveCounter can produce 'required'?
+                            if (counter is StoveCounter stove)
+                            {
+                                try
+                                {
+                                    if (stove.CanProduce(required))
+                                    {
+                                        float d = Vector3.Distance(playerPos, counter.transform.position);
+                                        candidates.Add((h, d));
+                                    }
+                                }
+                                catch { }
+                            }
+                        }
+                    }
                 }
             }
+        }
 
-            // ContainerCounter (e.g., spawners) are not targets for processing
-
-            if (match)
+        // 3) Fallback: if no candidates found using top recipe, fall back to generic "can process held item" behavior
+        if (candidates.Count == 0)
+        {
+            foreach (var h in highlighters)
             {
-                float d = Vector3.Distance(playerPos, counter.transform.position);
-                candidates.Add((h, d));
+                if (h == null) continue;
+                var counter = h.GetCounter();
+                if (counter == null) continue;
+                if (counter.HasKitchenObject()) continue;
+
+                bool match = false;
+
+                if (counter is CuttingCounter cutting)
+                {
+                    // Skip suggesting cutting if the held item is already a cutting output and doesn't need further stove processing
+                    if (heldIsCuttingOutput && !heldIsStoveInput) { continue; }
+                    try { if (cutting.CanProcess(so)) match = true; } catch { }
+                }
+                if (!match && counter is StoveCounter stove)
+                {
+                    try { if (stove.CanProcess(so)) match = true; } catch { }
+                }
+
+                if (match)
+                {
+                    float d = Vector3.Distance(playerPos, counter.transform.position);
+                    candidates.Add((h, d));
+                }
             }
         }
 
@@ -160,9 +264,7 @@ public class NextCounterHighlighterManager : MonoBehaviour
 
         // Sort by distance ascending and highlight nearest N
         var chosen = candidates.OrderBy(c => c.dist).Take(Math.Max(1, highlightNearestCount)).ToArray();
-
         HashSet<CounterHighlighter> toShow = new HashSet<CounterHighlighter>(chosen.Select(c => c.highlighter));
-
         foreach (var h in highlighters)
         {
             if (h == null) continue;
