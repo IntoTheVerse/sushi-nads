@@ -54,6 +54,9 @@ public class Player : MonoBehaviour, IKitchenObjectParent
     private float lastMoveRecordTime = 0f;
     private const float MOVE_RECORD_COOLDOWN = 0.1f; // Minimum seconds between move recordings (very short - just prevents duplicate calls for same position)
 
+    // Spell effects
+    private float speedMultiplier = 1f; // multiplier for movement speed (e.g., 2f for haste)
+
     // Awake is called when the script instance is being loaded
     private void Awake()
     {
@@ -173,7 +176,8 @@ public class Player : MonoBehaviour, IKitchenObjectParent
 
             Vector2 inputVector = joystickinputVector;
             Vector3 moveDir = new Vector3(inputVector.x, 0f, inputVector.y);
-            float moveDistance = moveSpeed * Time.deltaTime;
+            float effectiveSpeed = moveSpeed * speedMultiplier;
+            float moveDistance = effectiveSpeed * Time.deltaTime;
 
             float playerRadius = .7f;
             float playerHeight = 2f;
@@ -192,7 +196,8 @@ public class Player : MonoBehaviour, IKitchenObjectParent
                 }
             }
             if (canMove) {
-                transform.position += moveDir * moveSpeed * Time.deltaTime;
+                effectiveSpeed = moveSpeed * speedMultiplier;
+                transform.position += moveDir * effectiveSpeed * Time.deltaTime;
             }
             isWalking = moveDir != Vector3.zero;
             if (moveDir != Vector3.zero) {
@@ -236,7 +241,8 @@ public class Player : MonoBehaviour, IKitchenObjectParent
 
         // Grid-based step movement
         if (isStepping) {
-            Vector3 newPosition = Vector3.MoveTowards(transform.position, stepTargetPosition, stepMoveSpeed * Time.deltaTime);
+            float effectiveStepSpeed = stepMoveSpeed * speedMultiplier;
+            Vector3 newPosition = Vector3.MoveTowards(transform.position, stepTargetPosition, effectiveStepSpeed * Time.deltaTime);
             transform.position = newPosition;
             isWalking = true;
             if (Vector3.Distance(transform.position, stepTargetPosition) < 0.001f) {
@@ -423,5 +429,15 @@ public class Player : MonoBehaviour, IKitchenObjectParent
     public bool HasKitchenObject()
     {
         return kitchenObject != null;
+    }
+
+    public void SetSpeedMultiplier(float multiplier)
+    {
+        speedMultiplier = Mathf.Max(0.1f, multiplier); // clamp to at least 0.1x to avoid freezing
+    }
+
+    public float GetSpeedMultiplier()
+    {
+        return speedMultiplier;
     }
 }
