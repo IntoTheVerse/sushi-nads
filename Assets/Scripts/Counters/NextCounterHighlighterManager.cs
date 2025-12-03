@@ -109,23 +109,72 @@ public class NextCounterHighlighterManager : MonoBehaviour
         Vector3 playerPos = Player.Instance.transform.position;
         var candidates = new List<(CounterHighlighter highlighter, float dist)>();
 
-        // Detect whether the held item is already a processed output from cutting
-        bool heldIsCuttingOutput = false;
-        bool heldIsStoveInput = false;
+        // Build global sets to reason about processing stages
+        var cuttingOutputs = new HashSet<KitchenObjectSO>();
+        var cuttingInputs = new HashSet<KitchenObjectSO>();
+        var stoveInputs = new HashSet<KitchenObjectSO>();
+        var stoveOutputs = new HashSet<KitchenObjectSO>();
+
         foreach (var h in highlighters)
         {
             if (h == null) continue;
             var ctr = h.GetCounter();
             if (ctr == null) continue;
-            if (ctr is CuttingCounter c)
+
+            if (ctr is CuttingCounter cc)
             {
-                try { if (c.CanProduce(so)) heldIsCuttingOutput = true; } catch { }
+                try
+                {
+                    // collect all cutting recipes
+                    var field = typeof(CuttingCounter).GetField("cuttingRecipeSOArray", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.FlattenHierarchy);
+                    var arr = field?.GetValue(cc) as CuttingRecipeSO[];
+                    if (arr != null)
+                    {
+                        foreach (var r in arr)
+                        {
+                            if (r == null) continue;
+                            cuttingInputs.Add(r.input);
+                            cuttingOutputs.Add(r.output);
+                        }
+                    }
+                }
+                catch { }
             }
-            if (ctr is StoveCounter s)
+
+            if (ctr is StoveCounter sc)
             {
-                try { if (s.CanProcess(so)) heldIsStoveInput = true; } catch { }
+                try
+                {
+                    var fField = typeof(StoveCounter).GetField("fryingRecipeSOArray", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.FlattenHierarchy);
+                    var bField = typeof(StoveCounter).GetField("burningRecipeSOArray", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.FlattenHierarchy);
+                    var fArr = fField?.GetValue(sc) as FryingRecipeSO[];
+                    var bArr = bField?.GetValue(sc) as BurningRecipeSO[];
+                    if (fArr != null)
+                    {
+                        foreach (var r in fArr)
+                        {
+                            if (r == null) continue;
+                            stoveInputs.Add(r.input);
+                            stoveOutputs.Add(r.output);
+                        }
+                    }
+                    if (bArr != null)
+                    {
+                        foreach (var r in bArr)
+                        {
+                            if (r == null) continue;
+                            stoveInputs.Add(r.input);
+                            stoveOutputs.Add(r.output);
+                        }
+                    }
+                }
+                catch { }
             }
         }
+
+        bool heldIsCuttingOutput = cuttingOutputs.Contains(so);
+        bool heldIsStoveInput = stoveInputs.Contains(so);
+        bool heldIsStoveOutput = stoveOutputs.Contains(so);
 
         // 1) If we have a top recipe, try to match counters that will produce that recipe's ingredient from the player's held item
         if (topRecipe != null)
@@ -143,9 +192,9 @@ public class NextCounterHighlighterManager : MonoBehaviour
                 {
                     try
                     {
-                        // If the held item is already the output of a cutting recipe and it does not feed into the stove,
-                        // don't suggest cutting counters (it's already sliced/minced and doesn't need cutting).
-                        if (heldIsCuttingOutput && !heldIsStoveInput) { continue; }
+                        // If the held item is already the output of a cutting recipe or is a stove output,
+                        // don't suggest cutting counters unless it is also an input to the stove (needs further processing).
+                        if ((heldIsCuttingOutput || heldIsStoveOutput) && !heldIsStoveInput) { continue; }
 
                         var outSO = cutting.GetOutputForInputPublic(so);
                         if (outSO != null && topRecipe.kitchenObjectSOList.Contains(outSO))
@@ -239,8 +288,8 @@ public class NextCounterHighlighterManager : MonoBehaviour
 
                 if (counter is CuttingCounter cutting)
                 {
-                    // Skip suggesting cutting if the held item is already a cutting output and doesn't need further stove processing
-                    if (heldIsCuttingOutput && !heldIsStoveInput) { continue; }
+                    // Skip suggesting cutting if the held item is already processed (cut or stove-processed) and doesn't need further stove processing
+                    if ((heldIsCuttingOutput || heldIsStoveOutput) && !heldIsStoveInput) { continue; }
                     try { if (cutting.CanProcess(so)) match = true; } catch { }
                 }
                 if (!match && counter is StoveCounter stove)
