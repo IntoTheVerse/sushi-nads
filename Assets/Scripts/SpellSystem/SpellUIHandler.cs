@@ -1,6 +1,9 @@
+using System;
+using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+
 /// <summary>
 /// Handles spell input, UI interactions, and cooldown display with radial fill images.
 /// Listens for spell button presses and calls SpellManager to activate spells.
@@ -13,6 +16,15 @@ public class SpellUIHandler : MonoBehaviour
     [Tooltip("Key to cast enchantment spell")]
     [SerializeField] private KeyCode enchantmentKey = KeyCode.E;
 
+    [Tooltip("Key to call a plate into hand")]
+    [SerializeField] private KeyCode plateCallKey = KeyCode.R;
+
+    [Tooltip("Key to swap between nori roll and cone")]
+    [SerializeField] private KeyCode noriSwapKey = KeyCode.T;
+
+    [Tooltip("Key to magnet-plate prepared ingredients")]
+    [SerializeField] private KeyCode magnetPlatingKey = KeyCode.F;
+
     [Header("Haste Spell UI")]
     [SerializeField] private GameObject hasteButtonUI; // visual button for haste
     [SerializeField] private Image hasteRadialFill; // radial fill image for cooldown
@@ -23,50 +35,74 @@ public class SpellUIHandler : MonoBehaviour
     [SerializeField] private Image enchantmentRadialFill; // radial fill image for cooldown
     [SerializeField] private TMP_Text enchantmentButtonText; // optional text label
 
-    private float hasteTotalCooldown = 0f;
-    private float enchantmentTotalCooldown = 0f;
+    [Header("Plate Call Spell UI")]
+    [SerializeField] private GameObject plateCallButtonUI;
+    [SerializeField] private Image plateCallRadialFill;
+    [SerializeField] private TMP_Text plateCallButtonText;
+
+    [Header("Nori Swap Spell UI")]
+    [SerializeField] private GameObject noriSwapButtonUI;
+    [SerializeField] private Image noriSwapRadialFill;
+    [SerializeField] private TMP_Text noriSwapButtonText;
+
+    [Header("Magnet Plating Spell UI")]
+    [SerializeField] private GameObject magnetPlatingButtonUI;
+    [SerializeField] private Image magnetPlatingRadialFill;
+    [SerializeField] private TMP_Text magnetPlatingButtonText;
+
+    [Header("Spell Panel Toggle")]
+    [SerializeField] private RectTransform spellPanel;
+    [SerializeField] private GameObject spellPanelToggleButton;
+    [SerializeField] private float slideDuration = 0.25f;
+    [SerializeField] private float slideOffset = 950f;
+    [SerializeField] private bool startHidden = true;
+    [SerializeField] private bool slideFromRight = true;
+
+    private Vector2 panelShownPosition;
+    private Vector2 panelHiddenPosition;
+    private bool isPanelVisible;
+    private Coroutine slideRoutine;
 
     private void Start()
     {
-        if (SpellManager.Instance != null)
+        var spell = SpellManager.Instance;
+        if (spell != null)
         {
-            SpellManager.Instance.OnHasteActivated += OnHasteActivated;
-            SpellManager.Instance.OnEnchantmentActivated += OnEnchantmentActivated;
-            SpellManager.Instance.OnEnchantmentFailed += OnEnchantmentFailed;
-
-            // Cache cooldown durations (via reflection from SpellManager inspector values if needed)
-            // For now, we'll update them dynamically in Update()
+            spell.OnHasteActivated += OnHasteActivated;
+            spell.OnEnchantmentActivated += OnEnchantmentActivated;
+            spell.OnEnchantmentFailed += OnEnchantmentFailed;
+            spell.OnPlateCallActivated += OnPlateCallActivated;
+            spell.OnPlateCallFailed += OnPlateCallFailed;
+            spell.OnNoriSwapActivated += OnNoriSwapActivated;
+            spell.OnNoriSwapFailed += OnNoriSwapFailed;
+            spell.OnMagnetPlatingActivated += OnMagnetPlatingActivated;
+            spell.OnMagnetPlatingFailed += OnMagnetPlatingFailed;
         }
 
-        // Hook up button click listeners
-        if (hasteButtonUI != null)
-        {
-            Button hasteBtn = hasteButtonUI.GetComponent<Button>();
-            if (hasteBtn != null)
-            {
-                hasteBtn.onClick.AddListener(() => OnHasteButtonClicked());
-                Debug.Log("✅ Haste button hooked up successfully");
-            }
-        }
+        WireButton(hasteButtonUI, OnHasteButtonClicked);
+        WireButton(enchantmentButtonUI, OnEnchantmentButtonClicked);
+        WireButton(plateCallButtonUI, OnPlateCallButtonClicked);
+        WireButton(noriSwapButtonUI, OnNoriSwapButtonClicked);
+        WireButton(magnetPlatingButtonUI, OnMagnetPlatingButtonClicked);
+        WireButton(spellPanelToggleButton, ShowPanel);
 
-        if (enchantmentButtonUI != null)
-        {
-            Button enchantBtn = enchantmentButtonUI.GetComponent<Button>();
-            if (enchantBtn != null)
-            {
-                enchantBtn.onClick.AddListener(() => OnEnchantmentButtonClicked());
-                Debug.Log("✅ Enchantment button hooked up successfully");
-            }
-        }
+        SetupPanelPositions();
     }
 
     private void OnDestroy()
     {
-        if (SpellManager.Instance != null)
+        var spell = SpellManager.Instance;
+        if (spell != null)
         {
-            SpellManager.Instance.OnHasteActivated -= OnHasteActivated;
-            SpellManager.Instance.OnEnchantmentActivated -= OnEnchantmentActivated;
-            SpellManager.Instance.OnEnchantmentFailed -= OnEnchantmentFailed;
+            spell.OnHasteActivated -= OnHasteActivated;
+            spell.OnEnchantmentActivated -= OnEnchantmentActivated;
+            spell.OnEnchantmentFailed -= OnEnchantmentFailed;
+            spell.OnPlateCallActivated -= OnPlateCallActivated;
+            spell.OnPlateCallFailed -= OnPlateCallFailed;
+            spell.OnNoriSwapActivated -= OnNoriSwapActivated;
+            spell.OnNoriSwapFailed -= OnNoriSwapFailed;
+            spell.OnMagnetPlatingActivated -= OnMagnetPlatingActivated;
+            spell.OnMagnetPlatingFailed -= OnMagnetPlatingFailed;
         }
     }
 
@@ -78,113 +114,253 @@ public class SpellUIHandler : MonoBehaviour
         // Update radial fill displays
         UpdateHasteCooldownUI();
         UpdateEnchantmentCooldownUI();
+        UpdatePlateCallCooldownUI();
+        UpdateNoriSwapCooldownUI();
+        UpdateMagnetPlatingCooldownUI();
 
-        // Check for haste spell input
+        // Check for spell inputs
+        var spell = SpellManager.Instance;
+        if (spell == null) return;
+
         if (Input.GetKeyDown(hasteKey))
         {
-            if (SpellManager.Instance != null)
-            {
-                SpellManager.Instance.ActivateHaste();
-            }
+            TryCastSpell(() => spell.ActivateHaste());
         }
 
-        // Check for enchantment spell input
         if (Input.GetKeyDown(enchantmentKey))
         {
-            if (SpellManager.Instance != null)
-            {
-                SpellManager.Instance.ActivateEnchantment();
-            }
+            TryCastSpell(() => spell.ActivateEnchantment());
+        }
+
+        if (Input.GetKeyDown(plateCallKey))
+        {
+            TryCastSpell(() => spell.ActivatePlateCall());
+        }
+
+        if (Input.GetKeyDown(noriSwapKey))
+        {
+            TryCastSpell(() => spell.ActivateNoriSwap());
+        }
+
+        if (Input.GetKeyDown(magnetPlatingKey))
+        {
+            TryCastSpell(() => spell.ActivateMagnetPlating());
         }
     }
 
-    private void OnHasteButtonClicked()
+    private void WireButton(GameObject buttonUI, UnityEngine.Events.UnityAction action)
     {
-        Debug.Log("🏃 Haste button clicked!");
-        if (SpellManager.Instance != null)
+        if (buttonUI == null || action == null) return;
+        Button btn = buttonUI.GetComponent<Button>();
+        if (btn != null)
         {
-            SpellManager.Instance.ActivateHaste();
+            btn.onClick.AddListener(action);
         }
     }
 
-    private void OnEnchantmentButtonClicked()
+    private void OnHasteButtonClicked() => TryCastSpell(() => SpellManager.Instance.ActivateHaste());
+    private void OnEnchantmentButtonClicked() => TryCastSpell(() => SpellManager.Instance.ActivateEnchantment());
+    private void OnPlateCallButtonClicked() => TryCastSpell(() => SpellManager.Instance.ActivatePlateCall());
+    private void OnNoriSwapButtonClicked() => TryCastSpell(() => SpellManager.Instance.ActivateNoriSwap());
+    private void OnMagnetPlatingButtonClicked() => TryCastSpell(() => SpellManager.Instance.ActivateMagnetPlating());
+
+    private void ShowPanel()
     {
-        Debug.Log("✨ Enchantment button clicked!");
-        if (SpellManager.Instance != null)
+        if (spellPanel == null) return;
+        if (isPanelVisible) return;
+        isPanelVisible = true;
+        if (spellPanelToggleButton != null) spellPanelToggleButton.SetActive(false);
+        SlidePanel(panelShownPosition);
+    }
+
+    private void HidePanel()
+    {
+        if (spellPanel == null) return;
+        if (!isPanelVisible) return;
+        isPanelVisible = false;
+        SlidePanel(panelHiddenPosition, () =>
         {
-            SpellManager.Instance.ActivateEnchantment();
+            if (spellPanelToggleButton != null) spellPanelToggleButton.SetActive(true);
+        });
+    }
+
+    private void SlidePanel(Vector2 targetPosition, System.Action onComplete = null)
+    {
+        if (slideRoutine != null) StopCoroutine(slideRoutine);
+        slideRoutine = StartCoroutine(SlideRoutine(targetPosition, onComplete));
+    }
+
+    private IEnumerator SlideRoutine(Vector2 targetPosition, System.Action onComplete)
+    {
+        if (spellPanel == null)
+        {
+            onComplete?.Invoke();
+            yield break;
         }
+
+        Vector2 start = spellPanel.anchoredPosition;
+        if (Mathf.Approximately(slideDuration, 0f))
+        {
+            spellPanel.anchoredPosition = targetPosition;
+            onComplete?.Invoke();
+            yield break;
+        }
+
+        float elapsed = 0f;
+        while (elapsed < slideDuration)
+        {
+            elapsed += Time.deltaTime;
+            float t = Mathf.Clamp01(elapsed / slideDuration);
+            spellPanel.anchoredPosition = Vector2.Lerp(start, targetPosition, t);
+            yield return null;
+        }
+        spellPanel.anchoredPosition = targetPosition;
+        onComplete?.Invoke();
+    }
+
+    private void SetupPanelPositions()
+    {
+        if (spellPanel == null) return;
+
+        panelShownPosition = spellPanel.anchoredPosition;
+        float offset = slideOffset > 0f ? slideOffset : spellPanel.rect.width;
+        Vector2 dir = slideFromRight ? Vector2.right : Vector2.left;
+        panelHiddenPosition = panelShownPosition + dir * offset;
+
+        if (startHidden)
+        {
+            spellPanel.anchoredPosition = panelHiddenPosition;
+            isPanelVisible = false;
+            if (spellPanelToggleButton != null) spellPanelToggleButton.SetActive(true);
+        }
+        else
+        {
+            isPanelVisible = true;
+            if (spellPanelToggleButton != null) spellPanelToggleButton.SetActive(false);
+        }
+    }
+
+    private bool TryCastSpell(System.Func<bool> castSpell)
+    {
+        if (SpellManager.Instance == null) return false;
+        bool casted = castSpell();
+        if (casted)
+        {
+            HidePanel();
+        }
+        return casted;
     }
 
     private void UpdateHasteCooldownUI()
     {
-        if (SpellManager.Instance == null || hasteRadialFill == null) return;
-
-        float cooldownRemaining = SpellManager.Instance.GetHasteCooldownRemaining();
-        
-        // For simplicity, assume cooldown is 10 seconds (you can make this configurable)
-        float cooldownTotal = 10f;
-        float fillAmount = 1f - (cooldownRemaining / cooldownTotal);
-        hasteRadialFill.fillAmount = Mathf.Clamp01(fillAmount);
-
-        // Update button interactivity
-        if (hasteButtonUI != null)
-        {
-            hasteButtonUI.GetComponent<Button>().interactable = (cooldownRemaining <= 0f);
-        }
-
-        // Update text label
-        if (hasteButtonText != null)
-        {
-            if (cooldownRemaining > 0f)
-                hasteButtonText.text = $"Q\n{cooldownRemaining:F1}s";
-            else
-                hasteButtonText.text = "Q\nReady";
-        }
+        if (SpellManager.Instance == null) return;
+        UpdateCooldownUI(hasteButtonUI, hasteRadialFill, hasteButtonText,
+            SpellManager.Instance.GetHasteCooldownRemaining(),
+            SpellManager.Instance.GetHasteCooldownDuration(),
+            hasteKey.ToString());
     }
 
     private void UpdateEnchantmentCooldownUI()
     {
-        if (SpellManager.Instance == null || enchantmentRadialFill == null) return;
+        if (SpellManager.Instance == null) return;
+        UpdateCooldownUI(enchantmentButtonUI, enchantmentRadialFill, enchantmentButtonText,
+            SpellManager.Instance.GetEnchantmentCooldownRemaining(),
+            SpellManager.Instance.GetEnchantmentCooldownDuration(),
+            enchantmentKey.ToString());
+    }
 
-        float cooldownRemaining = SpellManager.Instance.GetEnchantmentCooldownRemaining();
-        
-        // For simplicity, assume cooldown is 8 seconds (you can make this configurable)
-        float cooldownTotal = 8f;
-        float fillAmount = 1f - (cooldownRemaining / cooldownTotal);
-        enchantmentRadialFill.fillAmount = Mathf.Clamp01(fillAmount);
+    private void UpdatePlateCallCooldownUI()
+    {
+        if (SpellManager.Instance == null) return;
+        UpdateCooldownUI(plateCallButtonUI, plateCallRadialFill, plateCallButtonText,
+            SpellManager.Instance.GetPlateCallCooldownRemaining(),
+            SpellManager.Instance.GetPlateCallCooldownDuration(),
+            plateCallKey.ToString());
+    }
 
-        // Update button interactivity
-        if (enchantmentButtonUI != null)
+    private void UpdateNoriSwapCooldownUI()
+    {
+        if (SpellManager.Instance == null) return;
+        UpdateCooldownUI(noriSwapButtonUI, noriSwapRadialFill, noriSwapButtonText,
+            SpellManager.Instance.GetNoriSwapCooldownRemaining(),
+            SpellManager.Instance.GetNoriSwapCooldownDuration(),
+            noriSwapKey.ToString());
+    }
+
+    private void UpdateMagnetPlatingCooldownUI()
+    {
+        if (SpellManager.Instance == null) return;
+        UpdateCooldownUI(magnetPlatingButtonUI, magnetPlatingRadialFill, magnetPlatingButtonText,
+            SpellManager.Instance.GetMagnetPlatingCooldownRemaining(),
+            SpellManager.Instance.GetMagnetPlatingCooldownDuration(),
+            magnetPlatingKey.ToString());
+    }
+
+    private void UpdateCooldownUI(GameObject buttonUI, Image radialFill, TMP_Text label, float cooldownRemaining, float cooldownTotal, string keyLabel)
+    {
+        if (radialFill != null && cooldownTotal > 0f)
         {
-            enchantmentButtonUI.GetComponent<Button>().interactable = (cooldownRemaining <= 0f);
+            float fillAmount = 1f - (cooldownRemaining / cooldownTotal);
+            radialFill.fillAmount = Mathf.Clamp01(fillAmount);
         }
 
-        // Update text label
-        if (enchantmentButtonText != null)
+        if (buttonUI != null)
+        {
+            var btn = buttonUI.GetComponent<Button>();
+            if (btn != null) btn.interactable = (cooldownRemaining <= 0f);
+        }
+
+        if (label != null)
         {
             if (cooldownRemaining > 0f)
-                enchantmentButtonText.text = $"E\n{cooldownRemaining:F1}s";
+                label.text = $"{keyLabel}\n{cooldownRemaining:F1}s";
             else
-                enchantmentButtonText.text = "E\nReady";
+                label.text = $"{keyLabel}\nReady";
         }
     }
 
     private void OnHasteActivated(object sender, System.EventArgs e)
     {
-        Debug.Log("🏃 Haste activated!");
-        // Optional: trigger visual/audio feedback
+        Debug.Log("Haste activated.");
     }
 
     private void OnEnchantmentActivated(object sender, System.EventArgs e)
     {
-        Debug.Log("✨ Enchantment activated!");
-        // Optional: trigger visual/audio feedback
+        Debug.Log("Enchantment activated.");
     }
 
     private void OnEnchantmentFailed(object sender, System.EventArgs e)
     {
-        Debug.Log("❌ Enchantment failed or on cooldown");
-        // Optional: trigger failure feedback
+        Debug.Log("Enchantment failed or on cooldown.");
+    }
+
+    private void OnPlateCallActivated(object sender, System.EventArgs e)
+    {
+        Debug.Log("Plate Call activated.");
+    }
+
+    private void OnPlateCallFailed(object sender, System.EventArgs e)
+    {
+        Debug.Log("Plate Call failed or on cooldown.");
+    }
+
+    private void OnNoriSwapActivated(object sender, System.EventArgs e)
+    {
+        Debug.Log("Nori Swap activated.");
+    }
+
+    private void OnNoriSwapFailed(object sender, System.EventArgs e)
+    {
+        Debug.Log("Nori Swap failed or on cooldown.");
+    }
+
+    private void OnMagnetPlatingActivated(object sender, System.EventArgs e)
+    {
+        Debug.Log("Magnet Plating activated.");
+    }
+
+    private void OnMagnetPlatingFailed(object sender, System.EventArgs e)
+    {
+        Debug.Log("Magnet Plating failed or on cooldown.");
     }
 }

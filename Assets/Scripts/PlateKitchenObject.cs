@@ -48,6 +48,16 @@ public class PlateKitchenObject : KitchenObject
         baseSO = null; return false;
     }
 
+    public bool HasBaseIngredient()
+    {
+        return TryGetCurrentBase(out _);
+    }
+
+    public bool IsBaseIngredient(KitchenObjectSO kitchenObjectSO)
+    {
+        return IsBase(kitchenObjectSO);
+    }
+
     private KitchenObjectSO ResolveVariantForBase(KitchenObjectSO input)
     {
         if (TryGetCurrentBase(out var b))

@@ -20,15 +20,37 @@ public class SpellManager : MonoBehaviour
     [SerializeField] private float enchantmentCooldown = 8f; // cooldown before can cast again
     [SerializeField] private bool showPopupWhenFull = true; // show popup if ingredient already prepared
 
+    [Header("Plate Call Spell")]
+    [SerializeField] private float plateCallCooldown = 6f;
+    [SerializeField] private KitchenObjectSO plateKitchenObjectSO;
+
+    [Header("Nori Swap Spell")]
+    [SerializeField] private float noriSwapCooldown = 4f;
+    [SerializeField] private KitchenObjectSO noriRollSO;
+    [SerializeField] private KitchenObjectSO noriConeSO;
+
+    [Header("Magnet Plating Spell")]
+    [SerializeField] private float magnetPlatingCooldown = 10f;
+    [SerializeField] private float magnetPlatingRadius = 6f;
+
     // Spell state tracking
     private float hasteEndTime = 0f;
     private float hasteCooldownEndTime = 0f;
     private float enchantmentCooldownEndTime = 0f;
+    private float plateCallCooldownEndTime = 0f;
+    private float noriSwapCooldownEndTime = 0f;
+    private float magnetPlatingCooldownEndTime = 0f;
 
     public event EventHandler OnHasteActivated;
     public event EventHandler OnHasteEnded;
     public event EventHandler OnEnchantmentActivated;
     public event EventHandler OnEnchantmentFailed;
+    public event EventHandler OnPlateCallActivated;
+    public event EventHandler OnPlateCallFailed;
+    public event EventHandler OnNoriSwapActivated;
+    public event EventHandler OnNoriSwapFailed;
+    public event EventHandler OnMagnetPlatingActivated;
+    public event EventHandler OnMagnetPlatingFailed;
 
     private void Awake()
     {
@@ -58,7 +80,7 @@ public class SpellManager : MonoBehaviour
         // Check cooldown
         if (Time.time < hasteCooldownEndTime)
         {
-            Debug.Log($"🏃 Haste on cooldown. Ready in {(hasteCooldownEndTime - Time.time):F1}s");
+            Debug.Log($"Haste on cooldown. Ready in {(hasteCooldownEndTime - Time.time):F1}s");
             return false;
         }
 
@@ -68,7 +90,7 @@ public class SpellManager : MonoBehaviour
         if (hasteEndTime > Time.time)
         {
             hasteEndTime = Time.time + hasteDuration;
-            Debug.Log($"🏃 Haste extended! Will end at {hasteEndTime}");
+            Debug.Log($"Haste extended. Will end at {hasteEndTime}");
             return true;
         }
 
@@ -76,7 +98,7 @@ public class SpellManager : MonoBehaviour
         hasteCooldownEndTime = Time.time + hasteCooldown;
         Player.Instance.SetSpeedMultiplier(hasteSpeedMultiplier);
         OnHasteActivated?.Invoke(this, EventArgs.Empty);
-        Debug.Log($"🏃 Haste spell activated! Speed x{hasteSpeedMultiplier} for {hasteDuration}s, cooldown {hasteCooldown}s");
+        Debug.Log($"Haste spell activated. Speed x{hasteSpeedMultiplier} for {hasteDuration}s, cooldown {hasteCooldown}s");
         return true;
     }
 
@@ -86,7 +108,7 @@ public class SpellManager : MonoBehaviour
         hasteEndTime = 0f;
         Player.Instance.SetSpeedMultiplier(1f); // reset to normal speed
         OnHasteEnded?.Invoke(this, EventArgs.Empty);
-        Debug.Log("🏃 Haste spell ended. Speed returned to normal.");
+        Debug.Log("Haste spell ended. Speed returned to normal.");
     }
 
     public bool IsHasteActive()
@@ -115,7 +137,7 @@ public class SpellManager : MonoBehaviour
         // Check cooldown
         if (Time.time < enchantmentCooldownEndTime)
         {
-            Debug.Log($"✨ Enchantment on cooldown. Ready in {(enchantmentCooldownEndTime - Time.time):F1}s");
+            Debug.Log($"Enchantment on cooldown. Ready in {(enchantmentCooldownEndTime - Time.time):F1}s");
             OnEnchantmentFailed?.Invoke(this, EventArgs.Empty);
             return false;
         }
@@ -163,8 +185,8 @@ public class SpellManager : MonoBehaviour
         KitchenObject.SpawnKitchenObject(finalSO, Player.Instance);
         enchantmentCooldownEndTime = Time.time + enchantmentCooldown;
         OnEnchantmentActivated?.Invoke(this, EventArgs.Empty);
-        Debug.Log($"✨ Enchanted {heldSO.objectName} → {finalSO.objectName}");
-        ShowPopup($"Enchanted: {heldSO.objectName} → {finalSO.objectName}");
+        Debug.Log($"Enchanted {heldSO.objectName} into {finalSO.objectName}");
+        ShowPopup($"Enchanted: {heldSO.objectName} -> {finalSO.objectName}");
         return true;
     }
 
@@ -172,6 +194,166 @@ public class SpellManager : MonoBehaviour
     {
         if (Time.time >= enchantmentCooldownEndTime) return 0f;
         return Mathf.Max(0f, enchantmentCooldownEndTime - Time.time);
+    }
+
+    /// <summary>
+    /// Summon a plate directly into the player's hand if free.
+    /// </summary>
+    public bool ActivatePlateCall()
+    {
+        if (Time.time < plateCallCooldownEndTime)
+        {
+            Debug.Log($"Plate Call on cooldown. Ready in {(plateCallCooldownEndTime - Time.time):F1}s");
+            OnPlateCallFailed?.Invoke(this, EventArgs.Empty);
+            return false;
+        }
+
+        if (plateKitchenObjectSO == null)
+        {
+            Debug.LogWarning("Plate Call failed: no plate KitchenObjectSO assigned.");
+            OnPlateCallFailed?.Invoke(this, EventArgs.Empty);
+            return false;
+        }
+
+        if (Player.Instance == null)
+        {
+            OnPlateCallFailed?.Invoke(this, EventArgs.Empty);
+            return false;
+        }
+
+        if (Player.Instance.HasKitchenObject())
+        {
+            ShowPopup("Hand must be empty to summon a plate.");
+            OnPlateCallFailed?.Invoke(this, EventArgs.Empty);
+            return false;
+        }
+
+        KitchenObject.SpawnKitchenObject(plateKitchenObjectSO, Player.Instance);
+        plateCallCooldownEndTime = Time.time + plateCallCooldown;
+        OnPlateCallActivated?.Invoke(this, EventArgs.Empty);
+        Debug.Log("Plate Call succeeded: plate summoned to player.");
+        return true;
+    }
+
+    /// <summary>
+    /// Swap the held nori base between roll and cone variants.
+    /// </summary>
+    public bool ActivateNoriSwap()
+    {
+        if (Time.time < noriSwapCooldownEndTime)
+        {
+            Debug.Log($"Nori Swap on cooldown. Ready in {(noriSwapCooldownEndTime - Time.time):F1}s");
+            OnNoriSwapFailed?.Invoke(this, EventArgs.Empty);
+            return false;
+        }
+
+        if (Player.Instance == null || !Player.Instance.HasKitchenObject())
+        {
+            ShowPopup("Hold a nori base to swap it.");
+            OnNoriSwapFailed?.Invoke(this, EventArgs.Empty);
+            return false;
+        }
+
+        if (noriRollSO == null || noriConeSO == null)
+        {
+            Debug.LogWarning("Nori Swap failed: nori references are not assigned.");
+            OnNoriSwapFailed?.Invoke(this, EventArgs.Empty);
+            return false;
+        }
+
+        KitchenObject held = Player.Instance.GetKitchenObject();
+        KitchenObjectSO heldSO = held.GetKitchenObjectSO();
+        KitchenObjectSO target = null;
+
+        if (heldSO == noriRollSO)
+        {
+            target = noriConeSO;
+        }
+        else if (heldSO == noriConeSO)
+        {
+            target = noriRollSO;
+        }
+        else
+        {
+            ShowPopup("Hold a Nori Roll or Nori Cone to swap.");
+            OnNoriSwapFailed?.Invoke(this, EventArgs.Empty);
+            return false;
+        }
+
+        held.DestroySelf();
+        KitchenObject.SpawnKitchenObject(target, Player.Instance);
+        noriSwapCooldownEndTime = Time.time + noriSwapCooldown;
+        OnNoriSwapActivated?.Invoke(this, EventArgs.Empty);
+        Debug.Log($"Nori Swap succeeded: {heldSO.objectName} -> {target.objectName}");
+        return true;
+    }
+
+    /// <summary>
+    /// Pull nearby prepared ingredients from counters onto the held plate.
+    /// </summary>
+    public bool ActivateMagnetPlating()
+    {
+        if (Time.time < magnetPlatingCooldownEndTime)
+        {
+            Debug.Log($"Magnet Plating on cooldown. Ready in {(magnetPlatingCooldownEndTime - Time.time):F1}s");
+            OnMagnetPlatingFailed?.Invoke(this, EventArgs.Empty);
+            return false;
+        }
+
+        if (Player.Instance == null || !Player.Instance.HasKitchenObject() || !Player.Instance.GetKitchenObject().TryGetPlate(out PlateKitchenObject plate))
+        {
+            ShowPopup("Hold a plate to pull ingredients onto it.");
+            OnMagnetPlatingFailed?.Invoke(this, EventArgs.Empty);
+            return false;
+        }
+
+        List<BaseCounter> countersInRange = GetCountersInRange();
+        bool addedAny = false;
+
+        // Pass 1: make sure a base is pulled first if missing
+        if (!plate.HasBaseIngredient())
+        {
+            addedAny |= PullIngredientsToPlate(countersInRange, plate, onlyBase: true);
+        }
+
+        // Pass 2: pull any other valid prepared ingredients
+        addedAny |= PullIngredientsToPlate(countersInRange, plate, onlyBase: false);
+
+        if (!addedAny)
+        {
+            ShowPopup("No prepared ingredients found for magnet plating.");
+            OnMagnetPlatingFailed?.Invoke(this, EventArgs.Empty);
+            return false;
+        }
+
+        magnetPlatingCooldownEndTime = Time.time + magnetPlatingCooldown;
+        OnMagnetPlatingActivated?.Invoke(this, EventArgs.Empty);
+        Debug.Log("Magnet Plating pulled prepared ingredients to the plate.");
+        return true;
+    }
+
+    public float GetHasteCooldownDuration() => hasteCooldown;
+    public float GetEnchantmentCooldownDuration() => enchantmentCooldown;
+    public float GetPlateCallCooldownDuration() => plateCallCooldown;
+    public float GetNoriSwapCooldownDuration() => noriSwapCooldown;
+    public float GetMagnetPlatingCooldownDuration() => magnetPlatingCooldown;
+
+    public float GetPlateCallCooldownRemaining()
+    {
+        if (Time.time >= plateCallCooldownEndTime) return 0f;
+        return Mathf.Max(0f, plateCallCooldownEndTime - Time.time);
+    }
+
+    public float GetNoriSwapCooldownRemaining()
+    {
+        if (Time.time >= noriSwapCooldownEndTime) return 0f;
+        return Mathf.Max(0f, noriSwapCooldownEndTime - Time.time);
+    }
+
+    public float GetMagnetPlatingCooldownRemaining()
+    {
+        if (Time.time >= magnetPlatingCooldownEndTime) return 0f;
+        return Mathf.Max(0f, magnetPlatingCooldownEndTime - Time.time);
     }
 
     private KitchenObjectSO FindFinalFormByCutting(KitchenObjectSO input)
@@ -213,5 +395,56 @@ public class SpellManager : MonoBehaviour
         if (!showPopupWhenFull) return;
         Debug.Log($"[Spell Popup] {message}");
         // TODO: integrate with UI system to show visual popup
+    }
+
+    private List<BaseCounter> GetCountersInRange()
+    {
+        var counters = new List<BaseCounter>(FindObjectsOfType<BaseCounter>(true));
+        if (magnetPlatingRadius <= 0f || Player.Instance == null) return counters;
+
+        float radiusSqr = magnetPlatingRadius * magnetPlatingRadius;
+        Vector3 origin = Player.Instance.transform.position;
+        for (int i = counters.Count - 1; i >= 0; i--)
+        {
+            if ((counters[i].transform.position - origin).sqrMagnitude > radiusSqr)
+            {
+                counters.RemoveAt(i);
+            }
+        }
+        return counters;
+    }
+
+    private bool PullIngredientsToPlate(IEnumerable<BaseCounter> counters, PlateKitchenObject plate, bool onlyBase)
+    {
+        bool added = false;
+        foreach (var counter in counters)
+        {
+            KitchenObject source = counter.GetKitchenObject();
+            if (source == null) continue;
+            if (source == (KitchenObject)plate) continue; // never pull the held plate
+
+            KitchenObjectSO sourceSO = source.GetKitchenObjectSO();
+            if (sourceSO == null) continue;
+
+            bool isBase = plate.IsBaseIngredient(sourceSO);
+            if (onlyBase && !isBase) continue;
+            if (!onlyBase && isBase && plate.HasBaseIngredient()) continue;
+
+            if (plate.TryAddIngredient(sourceSO))
+            {
+                RemoveSourceKitchenObject(counter, source);
+                added = true;
+                if (onlyBase) break; // only one base needed
+            }
+        }
+
+        return added;
+    }
+
+    private void RemoveSourceKitchenObject(BaseCounter counter, KitchenObject source)
+    {
+        var stove = counter as StoveCounter;
+        source.DestroySelf();
+        stove?.ForceResetToIdle();
     }
 }

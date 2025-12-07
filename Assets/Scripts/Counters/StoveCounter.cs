@@ -142,6 +142,11 @@ public class StoveCounter : BaseCounter, IHasProgress
         OnProgressChanged?.Invoke(this, new IHasProgress.OnProgressChangedEventArgs { progressNormalized = 0f });
     }
 
+    public void ForceResetToIdle()
+    {
+        ResetToIdle();
+    }
+
     public override void Interact(Player player)
     {
         if (!HasKitchenObject()) {
