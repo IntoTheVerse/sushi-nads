@@ -187,6 +187,7 @@ public class SpellManager : MonoBehaviour
         OnEnchantmentActivated?.Invoke(this, EventArgs.Empty);
         Debug.Log($"Enchanted {heldSO.objectName} into {finalSO.objectName}");
         ShowPopup($"Enchanted: {heldSO.objectName} -> {finalSO.objectName}");
+        ResetCountersAfterInstantTransform();
         return true;
     }
 
@@ -412,6 +413,22 @@ public class SpellManager : MonoBehaviour
             }
         }
         return counters;
+    }
+
+    private void ResetCountersAfterInstantTransform()
+    {
+        // Clear any lingering progress/animations on empty processing counters
+        var cutters = FindObjectsOfType<CuttingCounter>(true);
+        foreach (var cutter in cutters)
+        {
+            cutter.ForceResetProgressIfEmpty();
+        }
+
+        var stoves = FindObjectsOfType<StoveCounter>(true);
+        foreach (var stove in stoves)
+        {
+            if (!stove.HasItemOnTop()) stove.ForceResetToIdle();
+        }
     }
 
     private bool PullIngredientsToPlate(IEnumerable<BaseCounter> counters, PlateKitchenObject plate, bool onlyBase)

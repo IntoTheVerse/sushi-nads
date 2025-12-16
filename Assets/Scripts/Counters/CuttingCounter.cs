@@ -13,6 +13,17 @@ public class CuttingCounter : BaseCounter, IHasProgress
 
     [SerializeField] private CuttingRecipeSO[] cuttingRecipeSOArray;
     private int cuttingProgress;
+
+    public void ForceResetProgressIfEmpty()
+    {
+        if (HasKitchenObject()) return;
+        cuttingProgress = 0;
+        OnProgressChanged?.Invoke(this, new IHasProgress.OnProgressChangedEventArgs
+        {
+            progressNormalized = 0f
+        });
+    }
+
     public override void Interact(Player player){
         Debug.Log($"[CUT/INTERACT] frame={Time.frameCount} counter={name} hasKO={HasKitchenObject()} playerHas={player.HasKitchenObject()} onCounter={(HasKitchenObject() ? GetKitchenObject().GetKitchenObjectSO().name : "null")}");
 
