@@ -2,6 +2,7 @@ import express from 'express';
 import { leaderboard, chefNFT, gameCore } from '../services/blockchain.service.js';
 import { optionalAuth } from '../middleware/auth.js';
 import { getCachedLeaderboard, setCachedLeaderboard } from '../services/cache.service.js';
+import { safePlayerHasChef, safeGetChefTokenId, safeGetChefName } from '../utils/contractHelpers.js';
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
@@ -89,10 +90,13 @@ router.get('/top', optionalAuth, async (req, res, next) => {
             entries.map(async (entry, index) => {
                 let name = 'Unknown';
                 try {
-                    const hasChef = await chefNFT.playerHasChef(entry.player);
+                    const hasChef = await safePlayerHasChef(entry.player);
                     if (hasChef) {
-                        const tokenId = await chefNFT.getChefTokenId(entry.player);
-                        name = await chefNFT.getChefName(tokenId);
+                        const tokenIdBigInt = await safeGetChefTokenId(entry.player);
+                        const tokenId = Number(tokenIdBigInt);
+                        if (tokenId > 0) {
+                            name = await safeGetChefName(tokenId);
+                        }
                     }
                 } catch (error) {
                     console.warn(`Failed to get name for ${entry.player}:`, error.message);
