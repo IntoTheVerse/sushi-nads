@@ -429,9 +429,9 @@ Most "blockchain games" only use blockchain for tokens. Sushi Base puts **gamepl
 
 | Contract | Address | Explorer |
 |----------|---------|----------|
-| **ChefNFT** | `0xF9DC1860df4F3b17725964E2CF9bDE4aA75Ce83a` | [MonVision](https://testnet.monadexplorer.com/address/0xF9DC1860df4F3b17725964E2CF9bDE4aA75Ce83a) |
-| **GameCore** | `0xbBeC5987BBC89e99bD36a675b4c2F097b8eB2624` | [MonVision](https://testnet.monadexplorer.com/address/0xbBeC5987BBC89e99bD36a675b4c2F097b8eB2624) |
-| **Leaderboard** | `0x9d6F6bC7AEF75Dc85ca00AC87fC2533fA606Ecf7` | [MonVision](https://testnet.monadexplorer.com/address/0x9d6F6bC7AEF75Dc85ca00AC87fC2533fA606Ecf7) |
+| **ChefNFT** | `0xF768A55F53e366b20819657dE10Da4D7Fb977aB8` | [MonVision](https://testnet.monadexplorer.com/address/0xF768A55F53e366b20819657dE10Da4D7Fb977aB8) |
+| **GameCore** | `0x66EE15732F5d30B1eA1091E5AACb3d23d8aaab94` | [MonVision](https://testnet.monadexplorer.com/address/0x66EE15732F5d30B1eA1091E5AACb3d23d8aaab94) |
+| **Leaderboard** | `0x3C5075A3cd6e08bc43963CE94687aA36d72818CD` | [MonVision](https://testnet.monadexplorer.com/address/0x3C5075A3cd6e08bc43963CE94687aA36d72818CD) |
 
 ---
 
