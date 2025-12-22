@@ -7,6 +7,7 @@ import { validateSessionId } from '../middleware/validation.js';
 import { setCachedSession, deleteCachedSession, clearLeaderboardCache } from '../services/cache.service.js';
 import { GAME_CONFIG } from '../config/constants.js';
 import { clearSessionQueue, queueEndSession } from './gameplay.routes.js';
+import { safePlayerHasChef, safeGetPlayerEnergy } from '../utils/contractHelpers.js';
 
 const router = express.Router();
 
@@ -43,7 +44,7 @@ router.post('/start', requireAuth, async (req, res, next) => {
         console.log(`🎮 Starting session for ${playerAddress}`);
         
         // Check if player has chef
-        const hasChef = await chefNFT.playerHasChef(playerAddress);
+        const hasChef = await safePlayerHasChef(playerAddress);
         if (!hasChef) {
             return res.status(400).json({ 
                 error: 'No chef NFT found',
@@ -69,13 +70,14 @@ router.post('/start', requireAuth, async (req, res, next) => {
         }
         
         // Check energy
-        const energy = await chefNFT.getPlayerEnergy(playerAddress);
+        const energyBigInt = await safeGetPlayerEnergy(playerAddress);
+        const energy = Number(energyBigInt);
         const requiredEnergy = GAME_CONFIG.MOVE_COST * 5; // Contract requires MOVE_COST * 5
         if (energy < requiredEnergy) {
             return res.status(400).json({ 
                 error: 'Insufficient energy',
                 message: `Need at least ${requiredEnergy} energy to start. Current: ${energy}`,
-                currentEnergy: Number(energy),
+                currentEnergy: energy,
                 requiredEnergy
             });
         }
@@ -137,11 +139,12 @@ router.post('/start', requireAuth, async (req, res, next) => {
                 error.reason === 'InsufficientEnergy' ||
                 error.message?.includes('InsufficientEnergy')) {
                 // Re-check energy (might have changed)
-                const currentEnergy = await chefNFT.getPlayerEnergy(playerAddress);
+                const currentEnergyBigInt = await safeGetPlayerEnergy(playerAddress);
+                const currentEnergy = Number(currentEnergyBigInt);
                 return res.status(400).json({ 
                     error: 'Insufficient energy',
                     message: `Contract rejected: Need at least ${requiredEnergy} energy to start. Current on-chain: ${currentEnergy}`,
-                    currentEnergy: Number(currentEnergy),
+                    currentEnergy,
                     requiredEnergy
                 });
             }
