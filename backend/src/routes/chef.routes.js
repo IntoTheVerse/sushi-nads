@@ -5,6 +5,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { validateMintChef, validateUpdateName } from '../middleware/validation.js';
 import { getCachedProfile, setCachedProfile } from '../services/cache.service.js';
 import { GAME_CONFIG } from '../config/constants.js';
+import { safePlayerHasChef, safeGetChefTokenId, safeGetPlayerEnergy, safeGetChefName } from '../utils/contractHelpers.js';
 
 const router = express.Router();
 
@@ -20,7 +21,7 @@ router.post('/mint', requireAuth, validateMintChef, async (req, res, next) => {
         console.log(`🎨 Minting chef for ${playerAddress} with name: ${playerName}`);
         
         // Check if player already has chef
-        const hasChef = await chefNFT.playerHasChef(playerAddress);
+        const hasChef = await safePlayerHasChef(playerAddress);
         if (hasChef) {
             return res.status(400).json({ error: 'Already has chef NFT' });
         }
@@ -48,8 +49,12 @@ router.post('/mint', requireAuth, validateMintChef, async (req, res, next) => {
             const parsed = chefNFT.interface.parseLog(mintEvent);
             tokenId = Number(parsed.args.tokenId);
         } else {
-            // Fallback: query contract
-            tokenId = Number(await chefNFT.getChefTokenId(playerAddress));
+            // Fallback: query contract (with safe error handling)
+            const tokenIdBigInt = await safeGetChefTokenId(playerAddress);
+            tokenId = Number(tokenIdBigInt);
+            if (tokenId === 0) {
+                console.warn(`⚠️  Could not retrieve token ID from contract, using 0`);
+            }
         }
         
         res.json({
@@ -78,14 +83,20 @@ router.get('/profile', requireAuth, async (req, res, next) => {
         }
         
         // Get chef info
-        const hasChef = await chefNFT.playerHasChef(playerAddress);
+        const hasChef = await safePlayerHasChef(playerAddress);
         if (!hasChef) {
             return res.status(404).json({ error: 'No chef NFT found. Please mint a chef first.' });
         }
         
-        const tokenId = await chefNFT.getChefTokenId(playerAddress);
-        const name = await chefNFT.getChefName(tokenId);
-        const energy = await chefNFT.getPlayerEnergy(playerAddress);
+        const tokenIdBigInt = await safeGetChefTokenId(playerAddress);
+        const tokenId = Number(tokenIdBigInt);
+        if (tokenId === 0) {
+            return res.status(404).json({ error: 'No chef NFT found. Please mint a chef first.' });
+        }
+        
+        const name = await safeGetChefName(tokenId);
+        const energyBigInt = await safeGetPlayerEnergy(playerAddress);
+        const energy = Number(energyBigInt);
         
         // Get global stats from GameCore
         const globalStats = await gameCore.getPlayerGlobalStats(playerAddress);
@@ -97,8 +108,8 @@ router.get('/profile', requireAuth, async (req, res, next) => {
             player: {
                 address: playerAddress,
                 name,
-                tokenId: Number(tokenId),
-                energy: Number(energy),
+                tokenId,
+                energy,
                 maxEnergy: GAME_CONFIG.MAX_ENERGY
             },
             globalStats: {
@@ -134,7 +145,7 @@ router.post('/refill-energy', requireAuth, async (req, res, next) => {
         console.log(`⚡ Refilling energy for ${playerAddress}`);
         
         // Check if player has chef
-        const hasChef = await chefNFT.playerHasChef(playerAddress);
+        const hasChef = await safePlayerHasChef(playerAddress);
         if (!hasChef) {
             return res.status(400).json({ error: 'No chef NFT found' });
         }
@@ -150,7 +161,8 @@ router.post('/refill-energy', requireAuth, async (req, res, next) => {
         console.log('   ✅ Energy refilled (FREE for testing)!');
         
         // Get new energy level
-        const newEnergy = await chefNFT.getPlayerEnergy(playerAddress);
+        const newEnergyBigInt = await safeGetPlayerEnergy(playerAddress);
+        const newEnergy = Number(newEnergyBigInt);
         
         res.json({
             success: true,
@@ -178,7 +190,7 @@ router.put('/update-name', requireAuth, validateUpdateName, async (req, res, nex
         console.log(`✏️  Updating name for ${playerAddress} to: ${newName}`);
         
         // Check if player has chef
-        const hasChef = await chefNFT.playerHasChef(playerAddress);
+        const hasChef = await safePlayerHasChef(playerAddress);
         if (!hasChef) {
             return res.status(400).json({ error: 'No chef NFT found' });
         }
@@ -257,7 +269,7 @@ router.post('/refill-energy-usdc', requireAuth, async (req, res, next) => {
         console.log(`💰 Refilling energy with USDC for ${playerAddress}`);
         
         // Check if player has chef
-        const hasChef = await chefNFT.playerHasChef(playerAddress);
+        const hasChef = await safePlayerHasChef(playerAddress);
         if (!hasChef) {
             return res.status(400).json({ error: 'No chef NFT found' });
         }
@@ -277,7 +289,8 @@ router.post('/refill-energy-usdc', requireAuth, async (req, res, next) => {
             console.log('   ✅ Energy refilled with USDC payment!');
             
             // Get new energy level
-            const newEnergy = await chefNFT.getPlayerEnergy(playerAddress);
+            const newEnergyBigInt = await safeGetPlayerEnergy(playerAddress);
+            const newEnergy = Number(newEnergyBigInt);
             
             return res.json({
                 success: true,
