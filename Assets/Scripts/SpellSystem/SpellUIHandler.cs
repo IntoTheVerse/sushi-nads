@@ -300,7 +300,8 @@ public class SpellUIHandler : MonoBehaviour
     {
         if (radialFill != null && cooldownTotal > 0f)
         {
-            float fillAmount = 1f - (cooldownRemaining / cooldownTotal);
+            // Inverted fill: cover shrinks from full (1) to empty (0) as cooldown expires
+            float fillAmount = cooldownRemaining / cooldownTotal;
             radialFill.fillAmount = Mathf.Clamp01(fillAmount);
         }
 

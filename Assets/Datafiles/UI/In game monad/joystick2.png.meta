@@ -49,7 +49,7 @@ TextureImporter:
   alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
   spritePixelsToUnits: 100
-  spriteBorder: {x: 120, y: 117, z: 118, w: 116}
+  spriteBorder: {x: 119, y: 117, z: 117, w: 116}
   spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
   alphaIsTransparency: 1
@@ -139,42 +139,20 @@ TextureImporter:
       name: joystick2_0
       rect:
         serializedVersion: 2
-        x: 179
-        y: 206
-        width: 3
-        height: 3
+        x: 119
+        y: 117
+        width: 134
+        height: 132
       alignment: 0
-      pivot: {x: 0.5, y: 0.5}
+      pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 5a097e857db721e46ac8289554f0b22c
-      internalID: -42800259
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: joystick2_1
-      rect:
-        serializedVersion: 2
-        x: 117
-        y: 117
-        width: 136
-        height: 134
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
-      border: {x: 1, y: 1, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: 0
-      bones: []
-      spriteID: 35c8ca6eb0253d3449c971b94af25665
-      internalID: 1391053212
+      spriteID: 356a0bd582770c241a605d5bcf4c0298
+      internalID: 1688478326
       vertices: []
       indices: 
       edges: []
@@ -193,8 +171,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      joystick2_0: -42800259
-      joystick2_1: 1391053212
+      joystick2_0: 1688478326
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
