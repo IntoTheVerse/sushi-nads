@@ -6,7 +6,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 /// <summary>
-/// Minimal runtime UI to connect/disconnect a Solana wallet from MainMenuScene.
+    /// Minimal runtime UI to connect/disconnect a Solana wallet from SplashScreen.
 /// Creates a Canvas + Panel with buttons and a label showing the connected public key.
 /// </summary>
 [DefaultExecutionOrder(-1000)]
@@ -22,7 +22,7 @@ public class SolanaWalletUI : MonoBehaviour
     private Button copyButton;
     private GameObject panelRoot;
 
-    private const string TargetSceneName = "MainMenuScene";
+    private const string TargetSceneName = "SplashScreen";
     private const string DevnetRpcUrl = "https://api.devnet.solana.com";
     private const string LocalKeystoreKey = "EncryptedKeystore";
 

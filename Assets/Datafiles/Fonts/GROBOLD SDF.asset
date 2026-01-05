@@ -2356,11 +2356,11 @@ Material:
     m_Ints: []
     m_Floats:
     - _Ambient: 0.5
-    - _Bevel: 0.5
+    - _Bevel: 0.505
     - _BevelClamp: 0
-    - _BevelOffset: 0
+    - _BevelOffset: 0.018
     - _BevelRoundness: 0
-    - _BevelWidth: 0
+    - _BevelWidth: -0.009
     - _BumpFace: 0
     - _BumpOutline: 0
     - _ColorMask: 15
@@ -2388,7 +2388,7 @@ Material:
     - _ScaleRatioC: 1
     - _ScaleX: 1
     - _ScaleY: 1
-    - _ShaderFlags: 0
+    - _ShaderFlags: 1
     - _Sharpness: 1
     - _SpecularPower: 2
     - _Stencil: 0

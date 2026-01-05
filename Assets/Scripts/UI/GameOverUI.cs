@@ -331,6 +331,6 @@ public class GameOverUI : MonoBehaviour
         }
         
         // Return to main menu using Loader (consistent with GamePauseUI)
-        Loader.Load(Loader.Scene.MainMenuScene);
+        Loader.Load(Loader.Scene.SplashScreen);
     }
 }
