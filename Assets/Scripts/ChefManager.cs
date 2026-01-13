@@ -374,7 +374,7 @@ public class ChefManager : MonoBehaviour
     
     private IEnumerator ShowStatus(string message, Color color, float durationSeconds)
     {
-        ColorUtility.TryParseHtmlString("#826DF8", out color);
+        ColorUtility.TryParseHtmlString("#F5F2FC", out color);
         StatusPanel.SetActive(true);
         if (statusText != null)
         {
