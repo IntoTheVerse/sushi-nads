@@ -18,7 +18,7 @@ public class GamePauseUI : MonoBehaviour
             KitchenGameManager.Instance.TogglePauseGame();
         });
         mainMenuButton.onClick.AddListener(() => {
-            Loader.Load(Loader.Scene.SplashScreen);
+            Loader.Load(Loader.Scene.MainMenuScene);
         });
         optionsButton.onClick.AddListener(() => {
             OptionsUI.Instance.Show();

@@ -169,7 +169,7 @@ public class SpellUIHandler : MonoBehaviour
         if (spellPanel == null) return;
         if (isPanelVisible) return;
         isPanelVisible = true;
-        if (spellPanelToggleButton != null) spellPanelToggleButton.SetActive(false);
+        if (spellPanelToggleButton != null){}// spellPanelToggleButton.SetActive(false);
         SlidePanel(panelShownPosition);
     }
 
@@ -180,7 +180,7 @@ public class SpellUIHandler : MonoBehaviour
         isPanelVisible = false;
         SlidePanel(panelHiddenPosition, () =>
         {
-            if (spellPanelToggleButton != null) spellPanelToggleButton.SetActive(true);
+            if (spellPanelToggleButton != null) {}//spellPanelToggleButton.SetActive(true);
         });
     }
 

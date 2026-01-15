@@ -7,14 +7,14 @@ public static class Loader
 {
     public static Scene targetScene;
     public enum Scene {     
-        SplashScreen,
+        MainMenuScene,
         GameScene,
-        LoadingScene
+        SplashScreen
     }
 
     public static void Load(Scene targetScene) {
         Loader.targetScene = targetScene;
-        SceneManager.LoadScene(Scene.LoadingScene.ToString());
+        SceneManager.LoadScene(Scene.SplashScreen.ToString());
         // SceneManager.LoadScene(targetScene.ToString());
     }
 
