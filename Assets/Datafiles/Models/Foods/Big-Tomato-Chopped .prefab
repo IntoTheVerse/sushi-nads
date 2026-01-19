@@ -59,6 +59,11 @@ PrefabInstance:
       propertyPath: m_Name
       value: Tomato_Chopped (4)
       objectReference: {fileID: 0}
+    - target: {fileID: 2657353287495717419, guid: 469062cd7f8d4984da60d87a9281cd82,
+        type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 751f6b5e9beef4b47b93d2e320fb2553, type: 2}
     - target: {fileID: 3046815785565647938, guid: 469062cd7f8d4984da60d87a9281cd82,
         type: 3}
       propertyPath: m_LocalScale.x
