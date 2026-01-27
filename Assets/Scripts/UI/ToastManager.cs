@@ -9,6 +9,9 @@ public class ToastManager : MonoBehaviour
     [SerializeField] private TextMeshProUGUI messageText;
     [SerializeField] private float showDuration = 1.6f;
     [SerializeField] private Vector2 screenPadding = new Vector2(16, 16);
+    private enum ToastPlacement { TopCenter, Center, BottomCenter }
+    [SerializeField] private ToastPlacement placement = ToastPlacement.TopCenter;
+    [SerializeField] private float verticalOffset = 0f; // additional offset from edge/center
 
     float timer;
     bool showing;
@@ -38,25 +41,39 @@ public class ToastManager : MonoBehaviour
         var canvasRT = (RectTransform)canvas.transform;
         var rt = (RectTransform)canvasGroup.transform;
 
-        // 1) Convert screen -> canvas local
-        Vector2 localPoint;
-        RectTransformUtility.ScreenPointToLocalPointInRectangle(
-            canvasRT,
-            screenPos,
-            canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera,
-            out localPoint
-        );
+        // Compute canvas/local sizes and toast rect
+        var canvasSize = canvasRT.rect.size;
+        var toastSize = rt.rect.size;
+        var pivot = rt.pivot;
 
-        // 2) Optionally clamp inside canvas rect (respect padding & toast size/pivot)
+        float halfW = canvasSize.x * 0.5f;
+        float halfH = canvasSize.y * 0.5f;
+
+        Vector2 localPoint = Vector2.zero;
+
+        // Static placement: ignore incoming screenPos and position relative to canvas
+        switch (placement)
+        {
+            case ToastPlacement.Center:
+                localPoint = new Vector2(0f, verticalOffset);
+                break;
+            case ToastPlacement.TopCenter:
+                localPoint = new Vector2(
+                    0f,
+                    halfH - screenPadding.y - toastSize.y * (1f - pivot.y) + verticalOffset
+                );
+                break;
+            case ToastPlacement.BottomCenter:
+                localPoint = new Vector2(
+                    0f,
+                    -halfH + screenPadding.y + toastSize.y * pivot.y + verticalOffset
+                );
+                break;
+        }
+
+        // Optionally still clamp to ensure toast remains inside canvas
         if (clampToScreen)
         {
-            var canvasSize = canvasRT.rect.size;
-            var toastSize = rt.rect.size;
-            var pivot = rt.pivot;
-
-            float halfW = canvasSize.x * 0.5f;
-            float halfH = canvasSize.y * 0.5f;
-
             float minX = -halfW + screenPadding.x + toastSize.x * pivot.x;
             float maxX = halfW - screenPadding.x - toastSize.x * (1f - pivot.x);
             float minY = -halfH + screenPadding.y + toastSize.y * pivot.y;
@@ -66,7 +83,7 @@ public class ToastManager : MonoBehaviour
             localPoint.y = Mathf.Clamp(localPoint.y, minY, maxY);
         }
 
-        // 3) Apply anchored position (now in canvas-local space)
+        // Apply anchored position (canvas-local space)
         rt.anchoredPosition = localPoint;
     }
 

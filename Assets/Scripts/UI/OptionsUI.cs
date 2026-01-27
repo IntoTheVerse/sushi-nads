@@ -28,14 +28,25 @@ public class OptionsUI : MonoBehaviour
 
         EnsureReferences();
 
+        Debug.Log($"[OptionsUI] Awake - sfxSlider: {(sfxSlider != null ? "FOUND" : "NULL")}, musicSlider: {(musicSlider != null ? "FOUND" : "NULL")}");
+        Debug.Log($"[OptionsUI] Awake - sfxValueText: {(sfxValueText != null ? "FOUND" : "NULL")}, musicValueText: {(musicValueText != null ? "FOUND" : "NULL")}");
+
         if (!ValidateBindings())
         {
             enabled = false;
             return;
         }
 
-        if (sfxSlider != null) sfxSlider.onValueChanged.AddListener(OnSfxChanged);
-        if (musicSlider != null) musicSlider.onValueChanged.AddListener(OnMusicChanged);
+        if (sfxSlider != null)
+        {
+            sfxSlider.onValueChanged.AddListener(OnSfxChanged);
+            Debug.Log("[OptionsUI] SFX slider listener registered");
+        }
+        if (musicSlider != null)
+        {
+            musicSlider.onValueChanged.AddListener(OnMusicChanged);
+            Debug.Log("[OptionsUI] Music slider listener registered");
+        }
         if (prevTrackButton != null) prevTrackButton.onClick.AddListener(OnPrevTrack);
         if (nextTrackButton != null) nextTrackButton.onClick.AddListener(OnNextTrack);
         if (closeButton != null) closeButton.onClick.AddListener(Hide);
@@ -51,11 +62,15 @@ public class OptionsUI : MonoBehaviour
         if (SoundManager.Instance != null && sfxSlider != null)
         {
             sfxSlider.SetValueWithoutNotify(SoundManager.Instance.GetVolume());     // 0..1
+            if (sfxValueText)
+                sfxValueText.text = Mathf.RoundToInt(SoundManager.Instance.GetVolume() * 10f).ToString();
         }
 
         if (MusicManager.Instance != null && musicSlider != null)
         {
             musicSlider.SetValueWithoutNotify(MusicManager.Instance.GetVolume());   // 0..1
+            if (musicValueText)
+                musicValueText.text = Mathf.RoundToInt(MusicManager.Instance.GetVolume() * 10f).ToString();
         }
 
         UpdateVisual();
@@ -98,6 +113,10 @@ public class OptionsUI : MonoBehaviour
             musicSlider = sliders.FirstOrDefault(s => s.name.IndexOf("music", StringComparison.OrdinalIgnoreCase) >= 0)
                           ?? (sliders.Length > 1 ? sliders[1] : sliders.FirstOrDefault());
         }
+
+        Debug.Log($"[OptionsUI] CacheSliders - Found {sliders.Length} sliders total");
+        Debug.Log($"[OptionsUI] SFX Slider: {(sfxSlider != null ? sfxSlider.name : "NULL")}, interactable: {(sfxSlider != null ? sfxSlider.interactable : "N/A")}");
+        Debug.Log($"[OptionsUI] Music Slider: {(musicSlider != null ? musicSlider.name : "NULL")}, interactable: {(musicSlider != null ? musicSlider.interactable : "N/A")}");
     }
 
     private void CacheButtons()
@@ -178,6 +197,17 @@ public class OptionsUI : MonoBehaviour
             valid = false;
         }
 
+        // Log which text fields are missing (these are optional)
+        if (sfxValueText == null)
+        {
+            Debug.LogWarning("OptionsUI missing SFX value text reference (optional).", this);
+        }
+
+        if (musicValueText == null)
+        {
+            Debug.LogWarning("OptionsUI missing Music value text reference (optional).", this);
+        }
+
         return valid;
     }
 
@@ -185,20 +215,40 @@ public class OptionsUI : MonoBehaviour
 
     private void OnSfxChanged(float v)
     {
+        Debug.Log($"[OptionsUI] OnSfxChanged called with value: {v}");
         if (SoundManager.Instance != null)
         {
             SoundManager.Instance.SetVolume(v);
         }
-        if (sfxValueText) sfxValueText.text = Mathf.RoundToInt(v * 10f).ToString();
+        if (sfxValueText) 
+        {
+            string newText = Mathf.RoundToInt(v * 10f).ToString();
+            sfxValueText.text = newText;
+            Debug.Log($"[OptionsUI] Updated SFX text to: {newText}");
+        }
+        else
+        {
+            Debug.LogWarning("[OptionsUI] sfxValueText is null!");
+        }
     }
 
     private void OnMusicChanged(float v)
     {
+        Debug.Log($"[OptionsUI] OnMusicChanged called with value: {v}");
         if (MusicManager.Instance != null)
         {
             MusicManager.Instance.SetVolume(v);
         }
-        if (musicValueText) musicValueText.text = Mathf.RoundToInt(v * 10f).ToString();
+        if (musicValueText) 
+        {
+            string newText = Mathf.RoundToInt(v * 10f).ToString();
+            musicValueText.text = newText;
+            Debug.Log($"[OptionsUI] Updated Music text to: {newText}");
+        }
+        else
+        {
+            Debug.LogWarning("[OptionsUI] musicValueText is null!");
+        }
     }
 
     private void OnPrevTrack()

@@ -131,7 +131,7 @@ public class ChefManager : MonoBehaviour
         // Check if player is logged in
         if (PrivyManager.Instance?.User == null)
         {
-            ShowStatusMessage("Please login first", Color.yellow);
+            //ShowStatusMessage("Please login first", Color.yellow);
             if (mintChefButton != null) mintChefButton.interactable = false;
             yield break;
         }
@@ -172,7 +172,7 @@ public class ChefManager : MonoBehaviour
                 chefName = profile.player.name;
                 tokenId = profile.player.tokenId;
                 playPanelUsernameTxt.text = profile.player.name;
-                ShowStatusMessage($"Welcome back, {chefName}! (Chef #{tokenId})", Color.green);
+                ShowStatusMessage($"Welcome back, {chefName}! (Chef #{tokenId})", Color.green, 4f);
 
                 playPanel.SetActive(true);
                 
