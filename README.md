@@ -1,13 +1,15 @@
-# 🍣 Sushi Base
+# 🍣 SushiNads
 
 <p align="center">
-  <img width="400" alt="Sushi Bonks Logo" src="https://github.com/user-attachments/assets/8ea45e28-644d-4593-8938-0efdc9121a29" />
+  
+
+  <img width="400" alt="SushiNads Logo" src="https://github.com/user-attachments/assets/a70b45a0-deed-4456-a0cb-da551e5edcaa" />
 </p>
 
 <h3 align="center">🎮 Overcooked Meets Blockchain 🔗</h3>
 
 <p align="center">
-  <strong>The first fully on-chain cooking game on Base sepolia network</strong><br/>
+  <strong>The first fully on-chain cooking game on Monad Test network</strong><br/>
   Where every recipe, every move, and every burnt ingredient lives forever on the blockchain.
 </p>
 
@@ -19,14 +21,14 @@
 
 ---
 
-## 🎯 What is Sushi Base?
+## 🎯 What is SushiNads?
 
-**Sushi Base** is a fast-paced, blockchain-native cooking game inspired by Overcooked. Players cook sushi recipes under time pressure, but with a twist: **every action is recorded on-chain**.
+**Sushi Nads** is a fast-paced, blockchain-native cooking game inspired by Overcooked. Players cook sushi recipes under time pressure, but with a twist: **every action is recorded on-chain**.
 
-Unlike traditional games where your progress lives on centralized servers, in Sushi Base:
+Unlike traditional games where your progress lives on centralized servers, in SushiNads:
 - 🎨 Your **Chef is an NFT** (soulbound to your wallet)
 - ⚡ **Energy system** powered by smart contracts
-- 🎮 **Every gameplay event** recorded on Base blockchain
+- 🎮 **Every gameplay event** recorded on Monad blockchain
 - 🏆 **Permanent leaderboards** secured by blockchain
 - 💎 **True ownership** of your gaming identity
 
@@ -63,10 +65,10 @@ Every game action is a blockchain event:
 - No server-side scoring - trustless and transparent
 
 ### 🏆 **On-Chain Leaderboard**
-- Rankings stored permanently on Base
+- Rankings stored permanently on Monad
 - Seasonal competitions
 - Global and personal stats
-- Verifiable on Basescan
+- Verifiable on Monadvision
 
 ### 🔐 **Privy Authentication**
 - Gasless onboarding via embedded wallets
@@ -110,7 +112,7 @@ Make sushi recipes under time pressure!
 - ⏱️ Finish fast for time bonus
 
 ### 5️⃣ **View Your Score**
-Session ends → Score computed on-chain → View on Basescan!
+Session ends → Score computed on-chain → View on Monad Explorer!
 
 ```
 Final Score = (Deliveries × 100) + (Cooked × 10) + Time Bonus + Combo
@@ -213,7 +215,7 @@ Final Score = (Deliveries × 100) + (Cooked × 10) + Time Bonus + Combo
 
 ## 🏗️ Technical Architecture
 
-### **Smart Contracts (Base Sepolia)**
+### **Smart Contracts**
 
 #### **ChefNFT.sol**
 - ERC-721 NFT for player identity
@@ -235,7 +237,7 @@ Final Score = (Deliveries × 100) + (Cooked × 10) + Time Bonus + Combo
 ### **Tech Stack**
 
 **Blockchain:**
-- ⛓️ Base Sepolia Testnet
+- ⛓️ Monad Sepolia Testnet
 - 🔐 Smart Contracts: Solidity ^0.8.20
 - 🔗 Ethers.js v6
 
@@ -276,7 +278,7 @@ function endGameSession(uint256 sessionId, string memory reason) external
 - Start/end tracked on-chain
 - Energy consumed on start
 - Score computed on end
-- All verifiable on Basescan
+- All verifiable on Monad explorer
 
 ### **3. Gameplay Event Recording**
 ```solidity
@@ -385,7 +387,7 @@ npm start
 ## 🎨 What Makes It Special?
 
 ### **True Blockchain Gaming**
-Most "blockchain games" only use blockchain for tokens. Sushi Base puts **gameplay itself on-chain**:
+Most "blockchain games" only use blockchain for tokens. SushiNads puts **gameplay itself on-chain**:
 
 ❌ **Typical Blockchain Game:**
 - Game runs on server
@@ -393,7 +395,7 @@ Most "blockchain games" only use blockchain for tokens. Sushi Base puts **gamepl
 - Score can be manipulated
 - No transparency
 
-✅ **Sushi Base:**
+✅ **SushiNads:**
 - Every action on-chain
 - Score computed in smart contract
 - Fully transparent
@@ -649,7 +651,7 @@ sushi-bonks/
 - ✅ **Community:** NFT faction rivalries create engagement
 - ✅ **Rewards:** Earn memecoins while playing
 - ✅ **Ownership:** Your Chef & progress on-chain forever
-- ✅ **Low Friction:** Base L2 = minimal gas fees
+- ✅ **Low Friction:** Monad L1
 
 **Why Communities Will Participate:**
 - 🎭 **Faction Pride:** Represent your NFT community
@@ -680,7 +682,7 @@ This project is licensed under the MIT License.
 
 ## 🙏 Acknowledgments
 
-- **Base** - For the L2 infrastructure
+- **Monad** - For the L1 infrastructure
 - **Privy** - For seamless authentication
 - **Unity** - For the game engine
 - **Overcooked** - For the inspiration
@@ -693,12 +695,12 @@ This project is licensed under the MIT License.
 - **Website:** [IntoTheVerse](https://intotheverse.xyz/)
 - **Twitter:** [Sushi Bonks](https://x.com/sushibonks_)
 - **Discord:** *(Coming Soon)*
-- **GitHub:** [github.com/lopeselio/sushi-base](github.com/lopeselio/sushi-base)
+- **GitHub:** [github.com/lopeselio/sushi-nads](github.com/IntoTheVerse/sushi-nads)
 
 ---
 
 <p align="center">
-  <strong>Built with ❤️ for the Base ecosystem</strong><br/>
+  <strong>Built with ❤️ for the Monad ecosystem</strong><br/>
   🍣 Cook. Compete. Conquer On-Chain. 🔗
 </p>
 
