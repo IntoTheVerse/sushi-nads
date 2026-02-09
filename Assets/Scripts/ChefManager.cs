@@ -7,6 +7,7 @@ using TMPro;
 using Privy;
 using Newtonsoft.Json;
 using System.Collections;
+using UnityEngine.SceneManagement;
 
 /// <summary>
 /// Manages chef NFT minting and player profile
@@ -28,6 +29,7 @@ public class ChefManager : MonoBehaviour
     [SerializeField] private Button refillEnergyButton; // Free energy refill
     [SerializeField] private Button refillEnergyUSDCButton; // USDC payment refill
     [SerializeField] private Button copyWABtn; // USDC payment refill
+    [SerializeField] private Button tutorialBtn; // USDC payment refill
     [SerializeField] private TMP_Text statusText;
     [SerializeField] private TMP_Text walletAddressText;
     [SerializeField] private TMP_Text chefTokenIdText;
@@ -78,6 +80,9 @@ public class ChefManager : MonoBehaviour
         if (copyWABtn != null)
         {
             copyWABtn.onClick.AddListener(CopyWalletAddress);
+        }if (tutorialBtn != null)
+        {
+            tutorialBtn.onClick.AddListener(OpenTutorial);
         }
         // if (refillEnergyUSDCButton != null)
         // {
@@ -483,6 +488,12 @@ public class ChefManager : MonoBehaviour
         }
     }    
     
+    public void OpenTutorial()
+    {
+        TutorialManager.QueueTutorialOnNextGameSceneLoad();
+        SceneManager.LoadScene("GameScene");
+    }
+
     // Call this from a UI button
     public void CopyWalletAddress()
     {

@@ -15,7 +15,7 @@ public class GameStartCountdownUI : MonoBehaviour
         } else {
             Debug.LogError("KitchenGameManager.Instance is null in GameStartCountdownUI.Start()");
         }
-        Hide();
+        //Hide();
     }
 
 
