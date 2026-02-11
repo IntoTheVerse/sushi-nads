@@ -490,7 +490,7 @@ public class ChefManager : MonoBehaviour
     
     public void OpenTutorial()
     {
-        TutorialManager.QueueTutorialOnNextGameSceneLoad();
+        GameSceneLaunchContext.SetTutorialMode();
         SceneManager.LoadScene("GameScene");
     }
 
@@ -636,6 +636,8 @@ public class ChefManager : MonoBehaviour
 
     private async void OnPlayButtonClicked()
     {
+        GameSceneLaunchContext.SetNormalMode();
+
         // Start game session - SessionManager will handle it
         if (energyVal < 5)
         {

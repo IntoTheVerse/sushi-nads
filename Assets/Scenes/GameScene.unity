@@ -6196,7 +6196,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 827ce56a3ab84034e934a896ab48ee2e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  forceStartInEditor: 1
+  forceStartInEditor: 0
   pauseGameDuringTutorial: 0
   tutorialOverlayRoot: {fileID: 1962203887}
   promptText: {fileID: 334715784}

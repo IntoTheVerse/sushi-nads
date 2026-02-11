@@ -104,6 +104,7 @@ public class SessionManager : MonoBehaviour
                 
                 // Load gameplay scene - KitchenGameManager will handle timer
                 Debug.Log("🎮 Loading gameplay scene...");
+                GameSceneLaunchContext.SetNormalMode();
                 SceneManager.LoadScene(2);
             }
             else

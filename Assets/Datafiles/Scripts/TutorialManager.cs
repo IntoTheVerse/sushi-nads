@@ -55,7 +55,6 @@ public class TutorialManager : MonoBehaviour
         public BaseCounter Counter;
     }
 
-    private static bool startTutorialOnNextGameSceneLoad;
     private static readonly BindingFlags PrivateInstanceFlags = BindingFlags.Instance | BindingFlags.NonPublic;
     private static readonly Vector3[] RectCorners = new Vector3[4];
     private static FieldInfo cuttingRecipesField;
@@ -108,14 +107,11 @@ public class TutorialManager : MonoBehaviour
     private bool hasHandBaseScale;
     private bool hasBuiltVariantOutputMap;
 
-    public static void QueueTutorialOnNextGameSceneLoad()
-    {
-        startTutorialOnNextGameSceneLoad = true;
-    }
-
     private void Awake()
     {
-        bool shouldRunTutorial = forceStartInEditor || startTutorialOnNextGameSceneLoad;
+        GameSceneLaunchMode launchMode = GameSceneLaunchContext.ConsumeMode();
+        bool shouldRunTutorial = forceStartInEditor || launchMode == GameSceneLaunchMode.Tutorial;
+
         if (!shouldRunTutorial)
         {
             if (tutorialOverlayRoot != null)
@@ -125,8 +121,6 @@ public class TutorialManager : MonoBehaviour
             enabled = false;
             return;
         }
-
-        startTutorialOnNextGameSceneLoad = false;
 
         if (worldCamera == null)
         {
