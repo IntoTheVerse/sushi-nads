@@ -195,6 +195,7 @@ public class MainMenuUI : MonoBehaviour
     [SerializeField] private bool disableSelectedButton = true; // optional UX
 
     private int currentIndex = -1;
+    private bool externalControlEnabled = false;
 
     private void Awake()
     {
@@ -212,6 +213,7 @@ public class MainMenuUI : MonoBehaviour
 
     private void Start()
     {
+        if (externalControlEnabled) return;
         Select(Mathf.Clamp(defaultIndex, 0, Mathf.Max(0, tabs.Count - 1)));
     }
 
@@ -239,5 +241,28 @@ public class MainMenuUI : MonoBehaviour
     {
         int idx = tabs.FindIndex(t => t.button == clicked);
         if (idx >= 0) Select(idx);
+    }
+
+    // Allow other systems (e.g., ChefManager) to switch tabs by panel reference.
+    public bool SelectPanel(GameObject panel)
+    {
+        if (panel == null || tabs == null || tabs.Count == 0)
+        {
+            return false;
+        }
+
+        int idx = tabs.FindIndex(t => t != null && t.panel == panel);
+        if (idx < 0)
+        {
+            return false;
+        }
+
+        Select(idx);
+        return true;
+    }
+
+    public void SetExternalControl(bool enabled)
+    {
+        externalControlEnabled = enabled;
     }
 }

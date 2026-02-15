@@ -31,9 +31,11 @@ public class PrivyAndroidLogin : MonoBehaviour
     [SerializeField] private GameObject playPanel;
     [SerializeField] private GameObject mintPanel;
     [SerializeField] private GameObject SessionOverlayPanel;
+    [SerializeField] private bool managePanelsDirectly = false; // Keep false to let ChefManager own panel flow
 
 
     private static bool _inited;
+    private bool isLoggingOut = false;
 
     private void Awake()
     {
@@ -79,19 +81,38 @@ public class PrivyAndroidLogin : MonoBehaviour
 
     private void RefreshButtons()
     {
-        bool isLoggedIn = PrivyManager.Instance?.User != null;
+        bool hasUser = PrivyManager.Instance?.User != null;
+        if (isLoggingOut && !hasUser)
+        {
+            isLoggingOut = false;
+        }
+
+        bool isLoggedIn = hasUser && !isLoggingOut;
         if (isLoggedIn)
         {
-            ChefManager.Instance.CheckExistingChef();
+            ChefManager.Instance?.CheckExistingChef();
         }
-        if (isLoggedIn) { 
-            mintPanel.SetActive(isLoggedIn);
-            loginPanel.SetActive(!isLoggedIn); }
+        else
+        {
+            ChefManager.Instance?.ShowLoggedOutState();
+        }
+        if (managePanelsDirectly)
+        {
+            if (isLoggedIn)
+            {
+                mintPanel.SetActive(isLoggedIn);
+                loginPanel.SetActive(!isLoggedIn);
+            }
+            else
+            {
+                otpField.text = string.Empty;
+                loginPanel.SetActive(!isLoggedIn);
+                mintPanel.SetActive(isLoggedIn);
+            }
+        }
         else if (!isLoggedIn)
         {
             otpField.text = string.Empty;
-            loginPanel.SetActive(!isLoggedIn);
-            mintPanel.SetActive(isLoggedIn);
         }
         if (playButton) { playButton.gameObject.SetActive(isLoggedIn); playButton.interactable = isLoggedIn; }
         if (loginButton) { loginButton.gameObject.SetActive(!isLoggedIn); loginButton.interactable = !isLoggedIn; }
@@ -282,8 +303,11 @@ public class PrivyAndroidLogin : MonoBehaviour
             {
                 await EnsureWalletAsync();
                 Log("Wallet: " + GetAddress());
-                loginPanel.SetActive(false);
-                mintPanel.SetActive(true);
+                if (managePanelsDirectly)
+                {
+                    loginPanel.SetActive(false);
+                    mintPanel.SetActive(true);
+                }
                 playPanelLogoutButton.interactable = true;
                 playPanelLogoutButton.gameObject.SetActive(true);
                 mintPanelLogoutButton.interactable = true;
@@ -301,11 +325,15 @@ public class PrivyAndroidLogin : MonoBehaviour
 
     public async void Logout()
     {
+        isLoggingOut = true;
         try
         {
            PrivyManager.Instance.Logout();   // if your SDK is sync: PrivyManager.Instance.Logout();
-            loginPanel.SetActive(true);
-            playPanel.SetActive(false);
+            if (managePanelsDirectly)
+            {
+                loginPanel.SetActive(true);
+                playPanel.SetActive(false);
+            }
            PrivyTokenHelper.ClearToken();  // Clear saved auth token
             otpField.gameObject.SetActive(false);
             emailField.gameObject.SetActive(true);
@@ -318,6 +346,7 @@ public class PrivyAndroidLogin : MonoBehaviour
         {
             Debug.LogWarning("Logout failed: " + e.Message);
         }
+        ChefManager.Instance?.ShowLoggedOutState();
         RefreshButtons();
         Log("Logged out");
     }

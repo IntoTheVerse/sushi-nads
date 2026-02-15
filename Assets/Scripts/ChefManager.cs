@@ -17,7 +17,16 @@ public class ChefManager : MonoBehaviour
 {
     public static ChefManager Instance { get; private set; }
 
+    private enum MenuUiState
+    {
+        Loading,
+        LoggedOut,
+        NeedsMint,
+        Ready
+    }
+
     [Header("UI References")]
+    [SerializeField] private GameObject loginPanel; // Login/OTP panel
     [SerializeField] private GameObject mintPanel; // Panel to show/hide based on chef status
     [SerializeField] private GameObject playPanel; // Panel to show/hide based on chef status
     [SerializeField] private GameObject GetEnergyPanel; // Panel to show/hide based on chef status
@@ -50,6 +59,14 @@ public class ChefManager : MonoBehaviour
     private string chefName;
     private int tokenId;
     private bool hasChef;
+
+    // In-memory cache so returning from GameScene goes straight to menu panel.
+    private static bool cachedHasChef;
+    private static string cachedWalletAddress = string.Empty;
+    private static string cachedChefName = string.Empty;
+    private static int cachedChefTokenId;
+
+    private MainMenuUI mainMenuUi;
     
     private Coroutine currentStatusCoroutine;
 
@@ -62,6 +79,8 @@ public class ChefManager : MonoBehaviour
         }
         
         Instance = this;
+        ResolvePanelReferences();
+        SetMenuUiState(MenuUiState.Loading);
         
         if (mintChefButton != null)
         {
@@ -98,6 +117,8 @@ public class ChefManager : MonoBehaviour
 
     private System.Collections.IEnumerator WaitForPrivyAndInitialize()
     {
+        SetMenuUiState(MenuUiState.Loading);
+
         // Wait for PrivyAndroidLogin to initialize Privy first
         yield return new WaitForSeconds(2f);
         
@@ -128,6 +149,7 @@ public class ChefManager : MonoBehaviour
 
         if (!privyReady)
         {
+            SetMenuUiState(MenuUiState.LoggedOut);
             ShowStatusMessage("Privy not initialized. Please go to login scene first.", Color.red);
             if (mintChefButton != null) mintChefButton.interactable = false;
             yield break;
@@ -136,6 +158,7 @@ public class ChefManager : MonoBehaviour
         // Check if player is logged in
         if (PrivyManager.Instance?.User == null)
         {
+            SetMenuUiState(MenuUiState.LoggedOut);
             //ShowStatusMessage("Please login first", Color.yellow);
             if (mintChefButton != null) mintChefButton.interactable = false;
             yield break;
@@ -143,6 +166,12 @@ public class ChefManager : MonoBehaviour
 
         // Display wallet address
         UpdateWalletDisplay();
+
+        if (TryApplyCachedChefState())
+        {
+            _ = RefreshProfileSilently();
+            yield break;
+        }
         
         // Check if player already has chef
         CheckExistingChef();
@@ -172,33 +201,22 @@ public class ChefManager : MonoBehaviour
             
             if (profile != null && profile.player != null)
             {
-                // Player already has chef
-                hasChef = true;
-                chefName = profile.player.name;
-                tokenId = profile.player.tokenId;
-                playPanelUsernameTxt.text = profile.player.name;
+                ApplyReadyState(profile);
                 ShowStatusMessage($"Welcome back, {chefName}! (Chef #{tokenId})", Color.green, 4f);
 
-                playPanel.SetActive(true);
-                
-                // HIDE mint panel - player already has chef
-                if (mintPanel != null) mintPanel.SetActive(false);
                 
                 // Disable minting controls
                 if (mintChefButton != null) mintChefButton.interactable = false;
                 if (chefNameInput != null) chefNameInput.interactable = false;
                 
-                UpdateUI(profile);
-                
-                // Update wallet display again after profile is loaded (ensures it's set)
-                UpdateWalletDisplay();
                 
                 Debug.Log($"✅ Existing chef found: {chefName} (#{tokenId})");
             }
             else
             {
+                ClearCachedChefState();
                 // No chef found - show mint panel
-                if (mintPanel != null) mintPanel.SetActive(true);
+                SetMenuUiState(MenuUiState.NeedsMint);
                 
                 ShowStatusMessage("Create your chef to start playing!", Color.white);
                 if (mintChefButton != null) mintChefButton.interactable = true;
@@ -208,9 +226,10 @@ public class ChefManager : MonoBehaviour
         {
             // Likely 404 - no chef exists
             Debug.Log("No existing chef found (this is normal for new players)");
+            ClearCachedChefState();
             
             // SHOW mint panel - new player needs to mint
-            if (mintPanel != null) mintPanel.SetActive(true);
+            SetMenuUiState(MenuUiState.NeedsMint);
             
             // Still try to update wallet display even if no chef exists
             UpdateWalletDisplay();
@@ -264,6 +283,7 @@ public class ChefManager : MonoBehaviour
                 hasChef = true;
                 chefName = response.name;
                 tokenId = response.tokenId;
+                CacheChefState(chefName, tokenId);
                 
                 ShowStatusMessage($"Chef minted! You are {chefName} (#{tokenId})", Color.green);
                 
@@ -271,7 +291,7 @@ public class ChefManager : MonoBehaviour
                 {
                     ShowStatusMessage($"{chefName} #{tokenId} | Gas: FREE (sponsored)", Color.green);
                 }
-                playPanel.SetActive(true);
+                SetMenuUiState(MenuUiState.Ready);
 
                 Debug.Log($"✅ Chef NFT minted successfully!");
                 Debug.Log($"   Name: {chefName}");
@@ -286,7 +306,7 @@ public class ChefManager : MonoBehaviour
                 }
                 
                 // Hide mint panel after successful mint
-                if (mintPanel != null) mintPanel.SetActive(false);
+                SetMenuUiState(MenuUiState.Ready);
                 
                 // Wait for blockchain to index the transaction
                 Debug.Log("⏳ Waiting for blockchain confirmation...");
@@ -327,7 +347,7 @@ public class ChefManager : MonoBehaviour
             
             if (profile != null)
             {
-                UpdateUI(profile);
+                ApplyReadyState(profile);
                 Debug.Log("✅ Profile loaded successfully!");
             }
         }
@@ -697,6 +717,197 @@ public class ChefManager : MonoBehaviour
                 playButtonText.text = originalButtonText;
             }
         }
+    }
+
+    private void ResolvePanelReferences()
+    {
+        if (mainMenuUi == null)
+        {
+            mainMenuUi = FindFirstObjectByType<MainMenuUI>();
+            if (mainMenuUi != null)
+            {
+                mainMenuUi.SetExternalControl(true);
+            }
+        }
+
+        if (loginPanel == null)
+        {
+            var login = GameObject.Find("LoginPanel");
+            if (login != null)
+            {
+                loginPanel = login;
+            }
+        }
+
+        if (mintPanel == null)
+        {
+            var mint = GameObject.Find("MintPanel");
+            if (mint != null)
+            {
+                mintPanel = mint;
+            }
+        }
+
+        if (playPanel == null)
+        {
+            var play = GameObject.Find("PlaygamePanel");
+            if (play == null)
+            {
+                play = GameObject.Find("PlayPanel");
+            }
+            if (play != null)
+            {
+                playPanel = play;
+            }
+        }
+    }
+
+    private void SetMenuUiState(MenuUiState state)
+    {
+        GameObject targetPanel = null;
+        switch (state)
+        {
+            case MenuUiState.LoggedOut:
+                targetPanel = loginPanel;
+                break;
+            case MenuUiState.NeedsMint:
+                targetPanel = mintPanel;
+                break;
+            case MenuUiState.Ready:
+                targetPanel = playPanel;
+                break;
+        }
+
+        if (mainMenuUi != null && targetPanel != null)
+        {
+            if (mainMenuUi.SelectPanel(targetPanel))
+            {
+                return;
+            }
+        }
+
+        if (loginPanel != null)
+        {
+            loginPanel.SetActive(state == MenuUiState.LoggedOut);
+        }
+
+        if (mintPanel != null)
+        {
+            mintPanel.SetActive(state == MenuUiState.NeedsMint);
+        }
+
+        if (playPanel != null)
+        {
+            playPanel.SetActive(state == MenuUiState.Ready);
+        }
+    }
+
+    private string GetCurrentWalletAddress()
+    {
+        var wallet = PrivyManager.Instance?.User?.EmbeddedWallets?.FirstOrDefault();
+        return wallet?.Address ?? string.Empty;
+    }
+
+    private bool TryApplyCachedChefState()
+    {
+        if (!cachedHasChef)
+        {
+            return false;
+        }
+
+        string walletAddress = GetCurrentWalletAddress();
+        if (string.IsNullOrEmpty(walletAddress))
+        {
+            return false;
+        }
+
+        if (!walletAddress.Equals(cachedWalletAddress, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        hasChef = true;
+        chefName = cachedChefName;
+        tokenId = cachedChefTokenId;
+
+        if (playPanelUsernameTxt != null) playPanelUsernameTxt.text = chefName;
+        if (chefTokenIdText != null) chefTokenIdText.text = $"Chef #{tokenId}: {chefName}";
+        if (playerProfileChefIdTxt != null) playerProfileChefIdTxt.text = $"#{tokenId}";
+        if (playerProfileUsernameTxt != null) playerProfileUsernameTxt.text = chefName;
+
+        SetMenuUiState(MenuUiState.Ready);
+        return true;
+    }
+
+    private void ApplyReadyState(PlayerProfileResponse profile)
+    {
+        if (profile == null || profile.player == null)
+        {
+            return;
+        }
+
+        hasChef = true;
+        chefName = profile.player.name;
+        tokenId = profile.player.tokenId;
+
+        if (playPanelUsernameTxt != null)
+        {
+            playPanelUsernameTxt.text = profile.player.name;
+        }
+
+        UpdateUI(profile);
+        UpdateWalletDisplay();
+        CacheChefState(chefName, tokenId);
+        SetMenuUiState(MenuUiState.Ready);
+    }
+
+    private async Task RefreshProfileSilently()
+    {
+        try
+        {
+            var profile = await GameAPIClient.Instance.GetProfile();
+            if (profile != null && profile.player != null)
+            {
+                ApplyReadyState(profile);
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"Silent profile refresh failed: {e.Message}");
+        }
+    }
+
+    private void CacheChefState(string name, int id)
+    {
+        string walletAddress = GetCurrentWalletAddress();
+        if (string.IsNullOrEmpty(walletAddress))
+        {
+            return;
+        }
+
+        cachedHasChef = true;
+        cachedWalletAddress = walletAddress;
+        cachedChefName = name ?? string.Empty;
+        cachedChefTokenId = id;
+    }
+
+    private void ClearCachedChefState()
+    {
+        cachedHasChef = false;
+        cachedWalletAddress = string.Empty;
+        cachedChefName = string.Empty;
+        cachedChefTokenId = 0;
+    }
+
+    public void ShowLoggedOutState()
+    {
+        hasChef = false;
+        ClearCachedChefState();
+        SetMenuUiState(MenuUiState.LoggedOut);
+
+        if (mintChefButton != null) mintChefButton.interactable = false;
+        if (chefNameInput != null) chefNameInput.interactable = true;
+        if (playButton != null) playButton.interactable = false;
     }
 
     // ============ Public Getters ============
