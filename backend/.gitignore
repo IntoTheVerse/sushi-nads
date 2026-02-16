@@ -63,3 +63,6 @@ configure-privy.sh
 private/
 secrets/
 
+# App Engine config (may contain secrets - use app.yaml.example as template)
+app.yaml
+app.*.yaml
