@@ -167,8 +167,8 @@ PlayerSettings:
   androidMinAspectRatio: 1
   applicationIdentifier:
     Android: com.Intotheverse.SushiBonks
-    Standalone: com.Unity-Technologies.com.unity.template.urp-blank
-    iPhone: com.Unity-Technologies.com.unity.template.urp-blank
+    Standalone: com.Intotheverse.SushiBonks
+    iPhone: com.Intotheverse.SushiBonks
   buildNumber:
     Bratwurst: 0
     Standalone: 0
