@@ -174,6 +174,8 @@ backend/
 │   ├── routes/           # API routes
 │   ├── abis/             # Contract ABIs
 │   └── server.js         # Main entry point
+├── nginx/                # Nginx config for production (reverse proxy)
+├── scripts/              # CLI tools (manageSession, setup-server)
 └── test/                 # Tests
 ```
 
@@ -211,9 +213,16 @@ pm2 start ecosystem.config.cjs
 pm2 save && pm2 startup
 ```
 
-Configure Nginx as reverse proxy (see `nginx/sushi-bonks.conf.example`).
+**Nginx reverse proxy** (production server only – not needed for local dev):
 
-Backend URL: `https://your-domain.com` (or your server IP)
+`nginx/sushi-bonks.conf.example` configures Nginx to listen on port 80 and forward requests to your Node app on port 3000. Use it when deploying to a Linux server (VPS, DigitalOcean, etc.).
+
+1. Copy to server: `sudo cp nginx/sushi-bonks.conf.example /etc/nginx/conf.d/sushi-bonks.conf`
+2. Edit: replace `your_domain.com` with your domain or server IP
+3. Reload: `sudo nginx -t && sudo systemctl reload nginx`
+4. Optional HTTPS: `sudo certbot --nginx -d your_domain.com`
+
+Backend URL: `https://your-domain.com` (or `http://your-server-ip`)
 
 ### GCP Cloud Run (alternative)
 
