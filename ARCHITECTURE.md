@@ -31,7 +31,7 @@ Sushi Bonks uses a **hybrid architecture** optimizing Privy's embedded wallet ca
                            │
                            ↓
 ┌─────────────────────────────────────────────────────────────┐
-│              NODE.JS BACKEND (GCP Cloud Run)                │
+│         NODE.JS BACKEND (PM2 + Nginx / Dedicated Server)   │
 │  ┌────────────────────────────────────────────────────┐    │
 │  │  Express API Server                                │    │
 │  │  - RESTful endpoints                               │    │
@@ -219,7 +219,7 @@ Unity Client                Backend               Smart Contracts
 
 | Key Type | Storage Location | Purpose |
 |----------|------------------|---------|
-| **Backend Signer** | GCP Secret Manager | Signs all gameplay transactions |
+| **Backend Signer** | .env / Secret Manager | Signs all gameplay transactions |
 | **Player Wallet** | Privy (encrypted) | Embedded wallet for identity |
 | **Owner Wallet** | Hardware wallet | Contract admin operations |
 
@@ -525,10 +525,10 @@ App Stores: iOS App Store, Google Play
 ### **Backend**
 ```
 Platform: Node.js 20 LTS
-Hosting: GCP Cloud Run (auto-scaling)
+Hosting: PM2 + Nginx (dedicated server) or Cloud Run
 Database: Firebase/Firestore
-Secrets: GCP Secret Manager
-Monitoring: GCP Cloud Logging
+Secrets: .env (self-hosted) or Secret Manager (cloud)
+Monitoring: PM2 logs, Nginx access logs
 ```
 
 ### **Smart Contracts**
@@ -614,9 +614,9 @@ FIREBASE_CREDENTIALS={}
 - Base Sepolia
 
 ### **Infrastructure**
-- GCP Cloud Run
+- PM2 + Nginx (dedicated server) or Cloud Run
 - Firebase/Firestore
-- GCP Secret Manager
+- .env / Secret Manager
 - Base RPC
 
 ---
