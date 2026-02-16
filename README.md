@@ -332,10 +332,12 @@ cd sushi-bonks
 ```bash
 cd backend
 npm install
-cp .env.example .env
+cp env.example.txt .env
 # Edit .env with your keys
-npm start
+npm run dev
 ```
+
+   **Production deployment:** See [backend/DEPLOYMENT.md](backend/DEPLOYMENT.md) for PM2 + Nginx setup on a dedicated server.
 
 3. **Open Unity project**
 ```bash
@@ -451,7 +453,8 @@ sushi-bonks/
 │   │   ├── routes/     # API endpoints
 │   │   ├── services/   # Blockchain services
 │   │   └── middleware/ # Auth & validation
-│   └── scripts/        # Utility scripts
+│   ├── scripts/        # Setup & deployment scripts
+│   └── nginx/          # Nginx config for production
 ├── blockchain/         # Smart contracts
 │   ├── contracts/      # Solidity files
 │   ├── scripts/        # Deployment scripts
