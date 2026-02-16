@@ -215,12 +215,33 @@ pm2 save && pm2 startup
 
 **Nginx reverse proxy** (production server only – not needed for local dev):
 
-`nginx/sushi-bonks.conf.example` configures Nginx to listen on port 80 and forward requests to your Node app on port 3000. Use it when deploying to a Linux server (VPS, DigitalOcean, etc.).
+`nginx/sushi-bonks.conf.example` configures Nginx to listen on port 80 and forward requests to your Node app on port 3000.
 
-1. Copy to server: `sudo cp nginx/sushi-bonks.conf.example /etc/nginx/conf.d/sushi-bonks.conf`
-2. Edit: replace `your_domain.com` with your domain or server IP
-3. Reload: `sudo nginx -t && sudo systemctl reload nginx`
-4. Optional HTTPS: `sudo certbot --nginx -d your_domain.com`
+**How to use it:**
+
+1. Copy the file on the server:
+   ```bash
+   sudo cp backend/nginx/sushi-bonks.conf.example /etc/nginx/conf.d/sushi-bonks.conf
+   ```
+
+2. Edit the config:
+   ```bash
+   sudo nano /etc/nginx/conf.d/sushi-bonks.conf
+   ```
+   Replace `your_domain.com` with your domain or server IP (e.g. `api.sushibonks.com` or `123.45.67.89`)
+
+3. Check and reload Nginx:
+   ```bash
+   sudo nginx -t
+   sudo systemctl reload nginx
+   ```
+
+4. Optional – HTTPS:
+   ```bash
+   sudo certbot --nginx -d your_domain.com
+   ```
+
+**Summary:** Local dev: ignore this file. Production server: copy it, set `server_name`, then reload Nginx.
 
 Backend URL: `https://your-domain.com` (or `http://your-server-ip`)
 
