@@ -205,14 +205,32 @@ contract GameCore is Ownable, ReentrancyGuard {
      * @notice End a game session and compute score
      * @param sessionId The session to end
      * @param reason Reason for ending (e.g., "TIME_UP", "OUT_OF_ENERGY")
+     * @param moveCount Total moves made this session (tracked off-chain, sent at end to reduce on-chain tx load)
      */
-    function endGameSession(uint256 sessionId, string memory reason) 
+    function endGameSession(uint256 sessionId, string memory reason, uint256 moveCount) 
         external 
         onlyBackend 
         nonReentrant 
         sessionActive(sessionId) 
     {
         GameSession storage session = sessions[sessionId];
+
+        // Apply off-chain move count when provided (new flow: client tracks locally, sends at end).
+        // When moveCount > 0: use it, consume energy in batch. When 0: legacy flow (recordMove was used).
+        if (moveCount > 0) {
+            uint256 movesToApply = moveCount;
+            uint256 energyCost = MOVE_COST * movesToApply;
+            uint256 currentEnergy = chefNFT.getPlayerEnergy(session.player);
+            if (currentEnergy < energyCost) {
+                movesToApply = currentEnergy / MOVE_COST;
+                energyCost = MOVE_COST * movesToApply;
+            }
+            if (movesToApply > 0) {
+                chefNFT.consumeEnergy(session.player, energyCost);
+                session.moveCount = movesToApply;
+                globalStats[session.player].totalMoves += movesToApply;
+            }
+        }
         
         session.endTime = block.timestamp;
         session.isActive = false;
