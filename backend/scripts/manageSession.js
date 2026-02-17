@@ -171,7 +171,7 @@ async function endSession(sessionId) {
         
         // End session using transaction queue
         const receipt = await queueTransaction(
-            () => gameCore.endGameSession(sessionId, 'MANUAL_CLI'),
+            () => gameCore.endGameSession(sessionId, 'MANUAL_CLI', 0),
             `Manual End Session ${sessionId}`
         );
         
