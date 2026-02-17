@@ -320,11 +320,11 @@ public class GameAPIClient : MonoBehaviour
         return await SendRequestAsync<StartSessionResponse>("/api/session/start", "POST");
     }
 
-    public async Task<EndSessionResponse> EndSession(int sessionId)
+    public async Task<EndSessionResponse> EndSession(int sessionId, int moveCount = 0)
     {
-        Debug.Log($"🏁 Ending session {sessionId}...");
+        Debug.Log($"🏁 Ending session {sessionId} (local move count: {moveCount})...");
         
-        var body = new { sessionId };
+        var body = new { sessionId, moveCount };
         // Longer timeout for session end (score computation can be slow)
         return await SendRequestAsync<EndSessionResponse>("/api/session/end", "POST", body, timeoutSeconds: 60);
     }
