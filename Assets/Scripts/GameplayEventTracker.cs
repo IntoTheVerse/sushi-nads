@@ -18,6 +18,10 @@ public class GameplayEventTracker : MonoBehaviour
     // Tracks in-flight API calls so SessionManager can wait before ending a session
     private readonly object pendingLock = new object();
     private int pendingRequestCount = 0;
+
+    // Local move count (off-chain) - sent to backend at session end for score computation
+    // No persistence needed: session-scoped, reset when session starts
+    private int localMoveCount = 0;
     private TaskCompletionSource<bool> pendingDrainedSignal = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
     private void Awake()
@@ -88,18 +92,36 @@ public class GameplayEventTracker : MonoBehaviour
     }
 
     /// <summary>
-    /// Record a player move (optional - minor score impact)
-    /// Moves are batched on backend to save gas (10 moves per batch)
+    /// Record a player move locally (off-chain).
+    /// Move count is kept in memory and sent to backend at session end for score computation.
+    /// This avoids 70+ API calls per session and ensures scoring events (recipe-delivered, well-cooked)
+    /// are reliably recorded on-chain.
     /// </summary>
-    public async void RecordMove()
+    public void RecordMove()
     {
-        await TrackAndSendEventAsync(
-            "player move",
-            onStart: () => null, // avoid spamming logs for frequent events
-            onSuccess: () => null,
-            sendAsync: sessionId => GameAPIClient.Instance.RecordMove(sessionId),
-            warnOnFailure: verboseLogging // only log move failures when verbose
-        );
+        if (!enableBlockchainRecording) return;
+        if (!CanRecordGameplayEvents()) return;
+        localMoveCount++;
+    }
+
+    /// <summary>
+    /// Reset local move count. Call when a new session starts.
+    /// </summary>
+    public void ResetLocalMoveCount()
+    {
+        localMoveCount = 0;
+        if (verboseLogging) Debug.Log("[GameplayEventTracker] 📊 Local move count reset to 0");
+    }
+
+    /// <summary>
+    /// Get the current local move count for the active session.
+    /// Pass this to EndSession so the backend can use it for score computation.
+    /// </summary>
+    public int GetLocalMoveCount() => localMoveCount;
+
+    private bool CanRecordGameplayEvents()
+    {
+        return SessionManager.Instance != null && SessionManager.Instance.CanRecordGameplayEvents();
     }
 
     // ============ Helper Methods ============
