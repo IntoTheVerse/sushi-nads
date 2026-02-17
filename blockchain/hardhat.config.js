@@ -1,13 +1,21 @@
 require("@nomicfoundation/hardhat-toolbox");
 require("@nomicfoundation/hardhat-verify");
-require("dotenv").config();
+const path = require("path");
+const fs = require("fs");
+
+const envPath = path.resolve(__dirname, ".env");
+if (!fs.existsSync(envPath)) {
+  console.warn("[Hardhat] WARNING: .env not found at", envPath);
+}
+require("dotenv").config({ path: envPath });
 
 const normalizePrivateKey = (key) => {
   if (!key) return undefined;
   return key.startsWith("0x") ? key : `0x${key}`;
 };
 
-const deployerKey = normalizePrivateKey(process.env.PRIVATE_KEY);
+// DEPLOYER_PRIVATE_KEY overrides PRIVATE_KEY (useful if .env has wrong key)
+const deployerKey = normalizePrivateKey(process.env.DEPLOYER_PRIVATE_KEY || process.env.PRIVATE_KEY);
 const sharedAccounts = deployerKey ? [deployerKey] : [];
 const etherscanApiKey =
   process.env.ETHERSCAN_API_KEY ||
