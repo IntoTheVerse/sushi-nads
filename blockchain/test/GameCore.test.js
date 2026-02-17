@@ -103,7 +103,7 @@ describe("GameCore", function () {
         for (let i = 0; i < 296; i++) {
           await gameCore.connect(backend).recordMove(1);
         }
-        await gameCore.connect(backend).endGameSession(1, "TEST");
+        await gameCore.connect(backend).endGameSession(1, "TEST", 0);
       }
 
       await expect(gameCore.connect(backend).startGameSession(player1.address))
@@ -124,7 +124,7 @@ describe("GameCore", function () {
 
       await gameCore.connect(backend).startGameSession(player1.address);
       
-      await expect(gameCore.connect(backend).endGameSession(1, "TIME_UP"))
+      await expect(gameCore.connect(backend).endGameSession(1, "TIME_UP", 0))
         .to.emit(gameCore, "SessionEnded");
 
       const session = await gameCore.getSession(1);
@@ -232,7 +232,7 @@ describe("GameCore", function () {
       const { gameCore, backend, player1 } = await loadFixture(deployGameCoreFixture);
 
       await gameCore.connect(backend).startGameSession(player1.address);
-      await gameCore.connect(backend).endGameSession(1, "TIME_UP");
+      await gameCore.connect(backend).endGameSession(1, "TIME_UP", 0);
 
       await expect(gameCore.connect(backend).recordMove(1))
         .to.be.revertedWithCustomError(gameCore, "SessionNotActive");
@@ -250,7 +250,7 @@ describe("GameCore", function () {
         await gameCore.connect(backend).recordRecipeDelivered(1);
       }
 
-      await gameCore.connect(backend).endGameSession(1, "TIME_UP");
+      await gameCore.connect(backend).endGameSession(1, "TIME_UP", 0);
 
       const session = await gameCore.getSession(1);
       // 5 deliveries * 100 = 500 base
@@ -272,7 +272,7 @@ describe("GameCore", function () {
       // Advance time to reduce time bonus
       await time.increase(500);
 
-      await gameCore.connect(backend).endGameSession(1, "TIME_UP");
+      await gameCore.connect(backend).endGameSession(1, "TIME_UP", 0);
 
       const session = await gameCore.getSession(1);
       // Base: 1 delivery * 100 = 100
@@ -295,11 +295,27 @@ describe("GameCore", function () {
       }
 
       await gameCore.connect(backend).recordRecipeDelivered(1);
-      await gameCore.connect(backend).endGameSession(1, "TIME_UP");
+      await gameCore.connect(backend).endGameSession(1, "TIME_UP", 0);
 
       const session = await gameCore.getSession(1);
-      // Score should be reduced by move count
       expect(session.moveCount).to.equal(100);
+    });
+
+    it("Should apply off-chain move count at session end (new flow)", async function () {
+      const { gameCore, chefNFT, backend, player1 } = await loadFixture(deployGameCoreFixture);
+
+      await gameCore.connect(backend).startGameSession(player1.address);
+      const energyBefore = await chefNFT.getPlayerEnergy(player1.address);
+
+      // No recordMove calls - client tracks locally and sends at end
+      await gameCore.connect(backend).recordRecipeDelivered(1);
+      await gameCore.connect(backend).endGameSession(1, "TIME_UP", 50);
+
+      const session = await gameCore.getSession(1);
+      expect(session.moveCount).to.equal(50);
+
+      const energyAfter = await chefNFT.getPlayerEnergy(player1.address);
+      expect(energyAfter).to.equal(energyBefore - 50n); // 50 moves * 1 energy each
     });
 
     it("Should give time bonus for fast completion", async function () {
@@ -310,7 +326,7 @@ describe("GameCore", function () {
       await gameCore.connect(backend).recordRecipeDelivered(1);
       
       // End immediately (fast completion)
-      await gameCore.connect(backend).endGameSession(1, "TIME_UP");
+      await gameCore.connect(backend).endGameSession(1, "TIME_UP", 0);
 
       const session = await gameCore.getSession(1);
       // Should have significant time bonus
@@ -331,7 +347,7 @@ describe("GameCore", function () {
       // Advance time past game duration to remove time bonus
       await time.increase(1001);
 
-      await gameCore.connect(backend).endGameSession(1, "TIME_UP");
+      await gameCore.connect(backend).endGameSession(1, "TIME_UP", 0);
 
       const session = await gameCore.getSession(1);
       // With time bonus gone and only penalties, score should be 0
@@ -347,7 +363,7 @@ describe("GameCore", function () {
       await gameCore.connect(backend).startGameSession(player1.address);
       await gameCore.connect(backend).recordRecipeDelivered(1);
       await gameCore.connect(backend).recordMove(1);
-      await gameCore.connect(backend).endGameSession(1, "TIME_UP");
+      await gameCore.connect(backend).endGameSession(1, "TIME_UP", 0);
 
       // Refill energy for session 2 using same instance
       const energyRefillCost = await chefNFT.energyRefillCost();
@@ -358,7 +374,7 @@ describe("GameCore", function () {
       await gameCore.connect(backend).startGameSession(player1.address);
       await gameCore.connect(backend).recordRecipeDelivered(2);
       await gameCore.connect(backend).recordMove(2);
-      await gameCore.connect(backend).endGameSession(2, "TIME_UP");
+      await gameCore.connect(backend).endGameSession(2, "TIME_UP", 0);
 
       const stats = await gameCore.getPlayerGlobalStats(player1.address);
       expect(stats.totalSessionsPlayed).to.equal(2);
@@ -376,7 +392,7 @@ describe("GameCore", function () {
       await gameCore.connect(backend).startGameSession(player1.address);
       expect(await gameCore.getCurrentSessionId(player1.address)).to.equal(1);
 
-      await gameCore.connect(backend).endGameSession(1, "TIME_UP");
+      await gameCore.connect(backend).endGameSession(1, "TIME_UP", 0);
       expect(await gameCore.getCurrentSessionId(player1.address)).to.equal(0);
     });
 
@@ -384,7 +400,7 @@ describe("GameCore", function () {
       const { gameCore, backend, player1 } = await loadFixture(deployGameCoreFixture);
 
       await gameCore.connect(backend).startGameSession(player1.address);
-      await gameCore.connect(backend).endGameSession(1, "TIME_UP");
+      await gameCore.connect(backend).endGameSession(1, "TIME_UP", 0);
 
       const history = await gameCore.getPlayerSessionHistory(player1.address);
       expect(history.length).to.equal(1);
@@ -399,7 +415,7 @@ describe("GameCore", function () {
       await gameCore.connect(backend).startGameSession(player1.address);
       expect(await gameCore.totalSessions()).to.equal(1);
 
-      await gameCore.connect(backend).endGameSession(1, "TIME_UP");
+      await gameCore.connect(backend).endGameSession(1, "TIME_UP", 0);
       await gameCore.connect(backend).startGameSession(player2.address);
       expect(await gameCore.totalSessions()).to.equal(2);
     });
