@@ -32,6 +32,10 @@ public class GameOverUI : MonoBehaviour
     
     [Header("Navigation")]
     [SerializeField] private Button closeButton;
+
+    [Header("Tutorial Timeout Flow")]
+    [SerializeField] private float tutorialRedirectDelaySeconds = 5f;
+    [SerializeField] private string tutorialTimeoutMessage = "Well done! Redirecting to main menu...";
     
     // Catchy loading phrases (Overcooked-style)
     private readonly string[] loadingPhrases = {
@@ -49,6 +53,7 @@ public class GameOverUI : MonoBehaviour
     private bool isAnimating = false;
     private Coroutine loadingCoroutine;
     private Coroutine scoreAnimationCoroutine;
+    private Coroutine tutorialRedirectCoroutine;
     private SessionStats latestStats;
     
     private void Start() {
@@ -72,6 +77,10 @@ public class GameOverUI : MonoBehaviour
     private void KitchenGameManager_OnStateChanged(object sender, System.EventArgs e) {
         if (KitchenGameManager.Instance.IsGameOver()) {
             Show();
+            if (IsTutorialSession()) {
+                ShowTutorialTimeoutState();
+                return;
+            }
             // Start with loading state
             ShowLoadingState();
             // Show recipes delivered immediately (local count)
@@ -95,6 +104,10 @@ public class GameOverUI : MonoBehaviour
         if (scoreAnimationCoroutine != null) {
             StopCoroutine(scoreAnimationCoroutine);
             scoreAnimationCoroutine = null;
+        }
+        if (tutorialRedirectCoroutine != null) {
+            StopCoroutine(tutorialRedirectCoroutine);
+            tutorialRedirectCoroutine = null;
         }
         isAnimating = false;
     }
@@ -285,6 +298,50 @@ public class GameOverUI : MonoBehaviour
         textComponent.text = finalValue;
     }
 
+    private bool IsTutorialSession() {
+        TutorialManager tutorialManager = FindFirstObjectByType<TutorialManager>();
+        return tutorialManager != null && tutorialManager.isActiveAndEnabled;
+    }
+
+    private void ShowTutorialTimeoutState() {
+        if (loadingCoroutine != null) {
+            StopCoroutine(loadingCoroutine);
+            loadingCoroutine = null;
+        }
+
+        if (scoreAnimationCoroutine != null) {
+            StopCoroutine(scoreAnimationCoroutine);
+            scoreAnimationCoroutine = null;
+        }
+
+        if (tutorialRedirectCoroutine != null) {
+            StopCoroutine(tutorialRedirectCoroutine);
+        }
+
+        if (loadingPanel != null) {
+            loadingPanel.SetActive(true);
+        }
+
+        if (scorePanel != null) {
+            scorePanel.SetActive(false);
+        }
+
+        if (loadingText != null) {
+            loadingText.text = tutorialTimeoutMessage;
+        }
+
+        if (closeButton != null) {
+            closeButton.interactable = false;
+        }
+
+        tutorialRedirectCoroutine = StartCoroutine(RedirectToMainMenuAfterTutorialDelay());
+    }
+
+    private IEnumerator RedirectToMainMenuAfterTutorialDelay() {
+        yield return new WaitForSecondsRealtime(Mathf.Max(4f, tutorialRedirectDelaySeconds));
+        Loader.Load(Loader.Scene.MainMenuScene);
+    }
+
     private string FormatDuration(int seconds) {
         if (seconds <= 0) return "00:00";
         var timeSpan = TimeSpan.FromSeconds(seconds);
@@ -328,6 +385,10 @@ public class GameOverUI : MonoBehaviour
         if (scoreAnimationCoroutine != null) {
             StopCoroutine(scoreAnimationCoroutine);
             scoreAnimationCoroutine = null;
+        }
+        if (tutorialRedirectCoroutine != null) {
+            StopCoroutine(tutorialRedirectCoroutine);
+            tutorialRedirectCoroutine = null;
         }
         
         // Return to main menu using Loader (consistent with GamePauseUI)

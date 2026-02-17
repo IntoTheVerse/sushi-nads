@@ -26,6 +26,11 @@ public class CounterUI_HeadButton : MonoBehaviour
 
     [Tooltip("Force this UI to behave like an item source (always shows Pick when empty-handed). Leave OFF to auto-detect per counter.")]
     [SerializeField] private bool treatAsItemSourceOverride = false;
+
+    [Header("Tutorial Pulse")]
+    [SerializeField] private bool enableTutorialPulse = true;
+    [SerializeField] private float tutorialPulseCyclesPerSecond = 2.1f;
+    [SerializeField] [Range(0f, 0.5f)] private float tutorialPulseScaleAmount = 0.1f;
     private bool subscribed;
 
     private enum Action { None, Pick, Drop, Chop }
@@ -38,10 +43,17 @@ public class CounterUI_HeadButton : MonoBehaviour
     private IHasProgress currentProgressSource;
     private float progressNormalized; // 0..1 from IHasProgress
 
+    private RectTransform pulseRectTransform;
+    private Vector3 pulseBaseScale = Vector3.one;
+    private bool pulseBaseScaleInitialized;
+    private TutorialManager tutorialManager;
+
     private void Awake()
     {
         if (!button) button = GetComponentInChildren<Button>(includeInactive: true);
         if (!label) label = GetComponentInChildren<Image>(includeInactive: true);
+        pulseRectTransform = button != null ? button.GetComponent<RectTransform>() : null;
+        CachePulseBaseScale();
         button.onClick.AddListener(OnClick);
         SetVisible(false);
     }
@@ -69,6 +81,7 @@ public class CounterUI_HeadButton : MonoBehaviour
     {
         if (!subscribed) TrySubscribe();
         Refresh();
+        UpdateTutorialPulse();
     }
 
     private void OnSelectedCounterChanged(object sender, Player.OnSelectedCounterChangedEventArgs e)
@@ -82,6 +95,7 @@ public class CounterUI_HeadButton : MonoBehaviour
 
         // Unhook progress from old target
         DetachFromProgressSource();
+        ResetPulseVisuals();
 
         currentCounter = newCounter;
         progressNormalized = 0f;
@@ -138,7 +152,7 @@ public class CounterUI_HeadButton : MonoBehaviour
         {
             // Button stays enabled only when visible
             button.enabled = show;
-            // Clickable only when there’s an actionable state
+            // Clickable only when there's an actionable state
             button.interactable = show && lastAction != Action.None;
 
             // Make sure the Button uses the same Image as its graphic
@@ -148,8 +162,13 @@ public class CounterUI_HeadButton : MonoBehaviour
         {
             // Visuals shown only when visible
             label.enabled = show && label.sprite != null;
-            // Don’t block clicks when hidden
+            // Don't block clicks when hidden
             label.raycastTarget = show;
+        }
+
+        if (!show)
+        {
+            ResetPulseVisuals();
         }
     }
 
@@ -221,5 +240,68 @@ public class CounterUI_HeadButton : MonoBehaviour
             Player.Instance.OnSelectedCounterChanged -= OnSelectedCounterChanged;
         subscribed = false;
         DetachFromProgressSource();
+        ResetPulseVisuals();
+    }
+
+    private bool IsTutorialActive()
+    {
+        if (tutorialManager == null)
+        {
+            tutorialManager = FindFirstObjectByType<TutorialManager>();
+        }
+
+        return tutorialManager != null && tutorialManager.isActiveAndEnabled;
+    }
+
+    private void CachePulseBaseScale()
+    {
+        if (pulseRectTransform == null)
+        {
+            return;
+        }
+
+        pulseBaseScale = pulseRectTransform.localScale;
+        pulseBaseScaleInitialized = true;
+    }
+
+    private void UpdateTutorialPulse()
+    {
+        if (!enableTutorialPulse || pulseRectTransform == null)
+        {
+            return;
+        }
+
+        bool shouldPulse =
+            IsTutorialActive() &&
+            button != null &&
+            button.enabled &&
+            button.interactable &&
+            label != null &&
+            label.enabled;
+
+        if (!shouldPulse)
+        {
+            ResetPulseVisuals();
+            return;
+        }
+
+        if (!pulseBaseScaleInitialized)
+        {
+            CachePulseBaseScale();
+        }
+
+        float wave = Mathf.Sin(Time.unscaledTime * tutorialPulseCyclesPerSecond * Mathf.PI * 2f);
+        float scale = 1f + (wave * tutorialPulseScaleAmount);
+        pulseRectTransform.localScale = pulseBaseScale * scale;
+    }
+
+    private void ResetPulseVisuals()
+    {
+        if (!pulseBaseScaleInitialized || pulseRectTransform == null)
+        {
+            return;
+        }
+
+        pulseRectTransform.localScale = pulseBaseScale;
     }
 }

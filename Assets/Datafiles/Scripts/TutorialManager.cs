@@ -12,7 +12,10 @@ public class TutorialManager : MonoBehaviour
         None,
         Timed,
         HoldIngredient,
+        HoldPlate,
+        PlacePlateOnCounter,
         ProduceIngredient,
+        PlaceIngredientOnPlate,
         AssembleRecipeOnPlate,
         DeliverRecipe
     }
@@ -44,6 +47,7 @@ public class TutorialManager : MonoBehaviour
         public KitchenObjectSO RequiredIngredient;
         public RecipeSO RequiredRecipe;
         public int RequiredSuccessfulRecipesMin;
+        public int RequiredPlateIngredientCountMin;
         public bool RequireFriedStateOnStove;
     }
 
@@ -92,6 +96,8 @@ public class TutorialManager : MonoBehaviour
     [Header("Step Targets")]
     [SerializeField] private RectTransform priorityOrderTargetUI;
     [SerializeField] private RectTransform timerTargetUI;
+    [SerializeField] private float priorityOrderPromptDurationSeconds = 5f;
+    [SerializeField] private float timerPromptDurationSeconds = 5f;
     [SerializeField] private float introStepDurationSeconds = 3f;
 
     private readonly List<TutorialStep> steps = new List<TutorialStep>();
@@ -99,6 +105,7 @@ public class TutorialManager : MonoBehaviour
     private readonly Dictionary<KitchenObjectSO, KitchenObjectSO> variantOutputToInputMap = new Dictionary<KitchenObjectSO, KitchenObjectSO>();
     private TutorialStep currentStep;
     private CounterHighlighter currentStepCounterHighlighter;
+    private BaseCounter trackedPlateCounter;
     private bool isTutorialRunning;
     private bool pausedByTutorial;
     private float cachedTimeScale = 1f;
@@ -238,17 +245,18 @@ public class TutorialManager : MonoBehaviour
     private void BuildTutorialSteps()
     {
         steps.Clear();
+        trackedPlateCounter = null;
 
         AddUIStep(
             "Priority orders appear here. Complete the top order first, then the next order becomes priority.",
             priorityOrderTargetUI,
-            introStepDurationSeconds
+            priorityOrderPromptDurationSeconds
         );
 
         AddUIStep(
             "This is your game timer. Finish as many correct dishes as possible before it reaches zero.",
             timerTargetUI,
-            introStepDurationSeconds
+            timerPromptDurationSeconds
         );
 
         AddPriorityOrderCounterSteps();
@@ -287,6 +295,7 @@ public class TutorialManager : MonoBehaviour
 
         RecipeSO priorityRecipe = waitingRecipes[0];
         List<ProcessRecipeLink> recipeLinks = BuildSceneRecipeLinks();
+        AddPlateSetupSteps();
 
         for (int i = 0; i < priorityRecipe.kitchenObjectSOList.Count; i++)
         {
@@ -300,7 +309,53 @@ public class TutorialManager : MonoBehaviour
             AddFlowStepsForIngredient(preparationIngredient, i + 1, priorityRecipe.kitchenObjectSOList.Count, recipeLinks);
         }
 
-        AddAssemblyStep(priorityRecipe);
+        AddDeliveryStep(priorityRecipe);
+    }
+
+    private void AddPlateSetupSteps()
+    {
+        PlatesCounter plateCounter = FindPlateCounter();
+        BaseCounter emptyCounter = FindPreferredEmptyCounterForPlate();
+
+        if (plateCounter != null)
+        {
+            AddWorldStep(
+                "Pick a plate from this plate counter.",
+                plateCounter.transform,
+                plateCounter,
+                StepCompletionMode.HoldPlate,
+                null
+            );
+        }
+        else
+        {
+            steps.Add(new TutorialStep
+            {
+                Prompt = "Pick a plate from the plate counter.",
+                TargetType = StepTargetType.None,
+                CompletionMode = StepCompletionMode.HoldPlate
+            });
+        }
+
+        if (emptyCounter != null)
+        {
+            AddWorldStep(
+                "Place the plate on this empty counter.",
+                emptyCounter.transform,
+                emptyCounter,
+                StepCompletionMode.PlacePlateOnCounter,
+                null
+            );
+        }
+        else
+        {
+            steps.Add(new TutorialStep
+            {
+                Prompt = "Place the plate on an empty counter.",
+                TargetType = StepTargetType.None,
+                CompletionMode = StepCompletionMode.PlacePlateOnCounter
+            });
+        }
     }
 
     private void AddAssemblyStep(RecipeSO priorityRecipe)
@@ -409,6 +464,7 @@ public class TutorialManager : MonoBehaviour
                 }
             }
 
+            AddPlaceIngredientOnPlateStep(targetIngredient, ingredientIndex, ingredientCount);
             return;
         }
 
@@ -421,6 +477,7 @@ public class TutorialManager : MonoBehaviour
                 StepCompletionMode.ProduceIngredient,
                 targetIngredient
             );
+            AddPlaceIngredientOnPlateStep(targetIngredient, ingredientIndex, ingredientCount);
             return;
         }
 
@@ -430,6 +487,32 @@ public class TutorialManager : MonoBehaviour
             TargetType = StepTargetType.None,
             CompletionMode = StepCompletionMode.Timed,
             TimedDurationSeconds = introStepDurationSeconds
+        });
+    }
+
+    private void AddPlaceIngredientOnPlateStep(KitchenObjectSO ingredient, int ingredientIndex, int ingredientCount)
+    {
+        BaseCounter plateCounter = ResolveTrackedPlateCounter();
+        string prompt = $"Ingredient {ingredientIndex}/{ingredientCount}: Place the ingredient on the plate.";
+
+        if (plateCounter != null)
+        {
+            AddWorldStep(
+                prompt,
+                plateCounter.transform,
+                plateCounter,
+                StepCompletionMode.PlaceIngredientOnPlate,
+                ingredient
+            );
+            return;
+        }
+
+        steps.Add(new TutorialStep
+        {
+            Prompt = prompt,
+            TargetType = StepTargetType.None,
+            CompletionMode = StepCompletionMode.PlaceIngredientOnPlate,
+            RequiredIngredient = ingredient
         });
     }
 
@@ -643,6 +726,23 @@ public class TutorialManager : MonoBehaviour
         return plateCounters[0];
     }
 
+    private BaseCounter FindPreferredEmptyCounterForPlate()
+    {
+        ClearCounter[] clearCounters = FindObjectsByType<ClearCounter>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        for (int i = 0; i < clearCounters.Length; i++)
+        {
+            ClearCounter counter = clearCounters[i];
+            if (counter == null || counter.HasKitchenObject())
+            {
+                continue;
+            }
+
+            return counter;
+        }
+
+        return null;
+    }
+
     private DeliveryCounter FindDeliveryCounter()
     {
         DeliveryCounter[] deliveryCounters = FindObjectsByType<DeliveryCounter>(FindObjectsInactive.Include, FindObjectsSortMode.None);
@@ -779,6 +879,18 @@ public class TutorialManager : MonoBehaviour
                 ? DeliveryManager.Instance.GetSuccessfulRecipesAmount() + 1
                 : 1;
         }
+        else if (currentStep.CompletionMode == StepCompletionMode.PlaceIngredientOnPlate)
+        {
+            BaseCounter plateCounter = ResolveTrackedPlateCounter();
+            if (plateCounter != null)
+            {
+                currentStep.TargetType = StepTargetType.World;
+                currentStep.TargetCounter = plateCounter;
+                currentStep.WorldTarget = plateCounter.transform;
+            }
+
+            currentStep.RequiredPlateIngredientCountMin = GetIngredientCountOnCounterPlate(plateCounter) + 1;
+        }
 
         if (promptText != null)
         {
@@ -802,6 +914,7 @@ public class TutorialManager : MonoBehaviour
         currentStep = null;
         HideCurrentCounterHighlight();
         RestoreDynamicCounterHighlighters();
+        trackedPlateCounter = null;
 
         if (tutorialOverlayRoot != null)
         {
@@ -1186,8 +1299,17 @@ public class TutorialManager : MonoBehaviour
             case StepCompletionMode.HoldIngredient:
                 return IsIngredientHeldByPlayer(currentStep.RequiredIngredient);
 
+            case StepCompletionMode.HoldPlate:
+                return IsPlateHeldByPlayer();
+
+            case StepCompletionMode.PlacePlateOnCounter:
+                return HasPlacedPlateOnCounter(currentStep);
+
             case StepCompletionMode.ProduceIngredient:
                 return HasProducedRequiredIngredient(currentStep);
+
+            case StepCompletionMode.PlaceIngredientOnPlate:
+                return HasPlacedIngredientOnPlate(currentStep);
 
             case StepCompletionMode.AssembleRecipeOnPlate:
                 return HasAssembledRecipeOnPlate(currentStep.RequiredRecipe);
@@ -1199,6 +1321,17 @@ public class TutorialManager : MonoBehaviour
             default:
                 return false;
         }
+    }
+
+    private bool IsPlateHeldByPlayer()
+    {
+        if (Player.Instance == null || !Player.Instance.HasKitchenObject())
+        {
+            return false;
+        }
+
+        KitchenObject heldObject = Player.Instance.GetKitchenObject();
+        return heldObject != null && heldObject.TryGetPlate(out _);
     }
 
     private bool IsIngredientHeldByPlayer(KitchenObjectSO requiredIngredient)
@@ -1253,6 +1386,160 @@ public class TutorialManager : MonoBehaviour
         }
 
         return IsIngredientHeldByPlayer(step.RequiredIngredient);
+    }
+
+    private bool HasPlacedPlateOnCounter(TutorialStep step)
+    {
+        if (IsPlateHeldByPlayer())
+        {
+            return false;
+        }
+
+        if (step != null && step.TargetCounter != null && TryGetPlateOnCounter(step.TargetCounter, out _))
+        {
+            trackedPlateCounter = step.TargetCounter;
+            return true;
+        }
+
+        if (TryFindAnyPlateCounterPlacement(out BaseCounter plateCounter))
+        {
+            trackedPlateCounter = plateCounter;
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool HasPlacedIngredientOnPlate(TutorialStep step)
+    {
+        if (step == null)
+        {
+            return false;
+        }
+
+        BaseCounter plateCounter = ResolveTrackedPlateCounter();
+        if (!TryGetPlateOnCounter(plateCounter, out PlateKitchenObject plate))
+        {
+            return false;
+        }
+
+        List<KitchenObjectSO> ingredients = plate.GetKitchenObjectSOList();
+        int ingredientCount = ingredients != null ? ingredients.Count : 0;
+        if (ingredientCount < Mathf.Max(1, step.RequiredPlateIngredientCountMin))
+        {
+            return false;
+        }
+
+        if (step.RequiredIngredient == null)
+        {
+            return true;
+        }
+
+        return PlateContainsIngredientOrResolvedVariant(plate, step.RequiredIngredient);
+    }
+
+    private BaseCounter ResolveTrackedPlateCounter()
+    {
+        if (trackedPlateCounter != null && TryGetPlateOnCounter(trackedPlateCounter, out _))
+        {
+            return trackedPlateCounter;
+        }
+
+        if (TryFindAnyPlateCounterPlacement(out BaseCounter foundCounter))
+        {
+            trackedPlateCounter = foundCounter;
+            return foundCounter;
+        }
+
+        trackedPlateCounter = null;
+        return null;
+    }
+
+    private int GetIngredientCountOnCounterPlate(BaseCounter counter)
+    {
+        if (!TryGetPlateOnCounter(counter, out PlateKitchenObject plate))
+        {
+            return 0;
+        }
+
+        List<KitchenObjectSO> ingredients = plate.GetKitchenObjectSOList();
+        return ingredients != null ? ingredients.Count : 0;
+    }
+
+    private bool TryGetPlateOnCounter(BaseCounter counter, out PlateKitchenObject plate)
+    {
+        plate = null;
+        if (counter == null || !counter.HasKitchenObject())
+        {
+            return false;
+        }
+
+        KitchenObject objectOnCounter = counter.GetKitchenObject();
+        if (objectOnCounter == null || !objectOnCounter.TryGetPlate(out PlateKitchenObject resolvedPlate))
+        {
+            return false;
+        }
+
+        plate = resolvedPlate;
+        return true;
+    }
+
+    private bool TryFindAnyPlateCounterPlacement(out BaseCounter plateCounter)
+    {
+        plateCounter = null;
+        ClearCounter[] counters = FindObjectsByType<ClearCounter>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        for (int i = 0; i < counters.Length; i++)
+        {
+            ClearCounter counter = counters[i];
+            if (counter == null)
+            {
+                continue;
+            }
+
+            if (TryGetPlateOnCounter(counter, out _))
+            {
+                plateCounter = counter;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool PlateContainsIngredientOrResolvedVariant(PlateKitchenObject plate, KitchenObjectSO requiredIngredient)
+    {
+        if (plate == null || requiredIngredient == null)
+        {
+            return false;
+        }
+
+        BuildVariantOutputInputMapIfNeeded();
+        List<KitchenObjectSO> plateIngredients = plate.GetKitchenObjectSOList();
+        if (plateIngredients == null)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < plateIngredients.Count; i++)
+        {
+            KitchenObjectSO ingredient = plateIngredients[i];
+            if (ingredient == null)
+            {
+                continue;
+            }
+
+            if (ingredient == requiredIngredient)
+            {
+                return true;
+            }
+
+            if (variantOutputToInputMap.TryGetValue(ingredient, out KitchenObjectSO mappedInput) && mappedInput == requiredIngredient)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private bool HasAssembledRecipeOnPlate(RecipeSO recipe)

@@ -29,6 +29,7 @@ public class ChefManager : MonoBehaviour
     [SerializeField] private GameObject loginPanel; // Login/OTP panel
     [SerializeField] private GameObject mintPanel; // Panel to show/hide based on chef status
     [SerializeField] private GameObject playPanel; // Panel to show/hide based on chef status
+    [SerializeField] private GameObject tutorialPromptPanel; // Forced tutorial prompt for first-time users
     [SerializeField] private GameObject GetEnergyPanel; // Panel to show/hide based on chef status
     [SerializeField] private GameObject StatusPanel; 
     [SerializeField] private Button playButton; // Play/Start Game button
@@ -39,6 +40,8 @@ public class ChefManager : MonoBehaviour
     [SerializeField] private Button refillEnergyUSDCButton; // USDC payment refill
     [SerializeField] private Button copyWABtn; // USDC payment refill
     [SerializeField] private Button tutorialBtn; // USDC payment refill
+    [SerializeField] private Button tutorialPromptYesButton; // "Yes" button inside forced tutorial prompt
+    [SerializeField] private bool enableTutorialGateDebug = true; // Verbose gate diagnostics in Console
     [SerializeField] private TMP_Text statusText;
     [SerializeField] private TMP_Text walletAddressText;
     [SerializeField] private TMP_Text chefTokenIdText;
@@ -67,6 +70,10 @@ public class ChefManager : MonoBehaviour
     private static int cachedChefTokenId;
 
     private MainMenuUI mainMenuUi;
+    private bool mustPlayTutorialFirst;
+    private bool hasResolvedTutorialGate;
+
+    private const string TutorialDoneKeyPrefix = "mandatory_tutorial_done_";
     
     private Coroutine currentStatusCoroutine;
 
@@ -95,6 +102,16 @@ public class ChefManager : MonoBehaviour
         if (playButton != null)
         {
             playButton.onClick.AddListener(OnPlayButtonClicked);
+            playButton.onClick.AddListener(OnPlayButtonRawClicked);
+            LogTutorialGate("Awake", $"Bound Play button listener at path={GetHierarchyPath(playButton.transform)}");
+        }
+        else
+        {
+            LogTutorialGate("Awake", "Play button is NULL in ChefManager inspector. Tutorial gate click cannot run.");
+        }
+        if (tutorialPromptYesButton != null)
+        {
+            tutorialPromptYesButton.onClick.AddListener(OnTutorialPromptYesClicked);
         }
         if (copyWABtn != null)
         {
@@ -107,6 +124,13 @@ public class ChefManager : MonoBehaviour
         // {
         //     refillEnergyUSDCButton.onClick.AddListener(OnRefillEnergyUSDCClicked);
         // }
+
+        if (tutorialPromptPanel != null)
+        {
+            tutorialPromptPanel.SetActive(false);
+        }
+
+        LogTutorialGate("Awake", $"tutorialPromptPanel={DescribePanel(tutorialPromptPanel)}, tutorialPromptYesButton={(tutorialPromptYesButton != null ? tutorialPromptYesButton.name : "null")}");
     }
 
     private void Start()
@@ -121,6 +145,7 @@ public class ChefManager : MonoBehaviour
 
         // Wait for PrivyAndroidLogin to initialize Privy first
         yield return new WaitForSeconds(2f);
+        hasResolvedTutorialGate = false;
         
         // Try to safely check if Privy is initialized
         bool privyReady = false;
@@ -193,6 +218,8 @@ public class ChefManager : MonoBehaviour
         try
         {
             ShowStatusMessage("Checking for existing chef...", Color.yellow);
+            hasResolvedTutorialGate = false;
+            LogTutorialGate("CheckExistingChef", "Starting profile check from backend.");
             
             // Update wallet display first (in case Privy wasn't ready earlier)
             UpdateWalletDisplay();
@@ -215,6 +242,7 @@ public class ChefManager : MonoBehaviour
             else
             {
                 ClearCachedChefState();
+                hasResolvedTutorialGate = false;
                 // No chef found - show mint panel
                 SetMenuUiState(MenuUiState.NeedsMint);
                 
@@ -227,6 +255,7 @@ public class ChefManager : MonoBehaviour
             // Likely 404 - no chef exists
             Debug.Log("No existing chef found (this is normal for new players)");
             ClearCachedChefState();
+            hasResolvedTutorialGate = false;
             
             // SHOW mint panel - new player needs to mint
             SetMenuUiState(MenuUiState.NeedsMint);
@@ -510,8 +539,30 @@ public class ChefManager : MonoBehaviour
     
     public void OpenTutorial()
     {
+        LogTutorialGate("OpenTutorial", $"Starting tutorial launch. key={GetMandatoryTutorialKey()}");
+        MarkMandatoryTutorialCompleted();
+        mustPlayTutorialFirst = false;
+        hasResolvedTutorialGate = true;
+
+        if (tutorialPromptPanel != null)
+        {
+            tutorialPromptPanel.SetActive(false);
+            LogTutorialGate("OpenTutorial", $"Prompt hidden after confirmation. {DescribePanel(tutorialPromptPanel)}");
+        }
+
         GameSceneLaunchContext.SetTutorialMode();
         SceneManager.LoadScene("GameScene");
+    }
+
+    public void OnTutorialPromptYesClicked()
+    {
+        LogTutorialGate("OnTutorialPromptYesClicked", "User confirmed tutorial prompt.");
+        OpenTutorial();
+    }
+
+    private void OnPlayButtonRawClicked()
+    {
+        LogTutorialGate("OnPlayButtonRawClicked", "Raw UnityEvent click received on configured Play button.");
     }
 
     // Call this from a UI button
@@ -656,6 +707,34 @@ public class ChefManager : MonoBehaviour
 
     private async void OnPlayButtonClicked()
     {
+        LogTutorialGate("OnPlayButtonClicked", $"Clicked. hasChef={hasChef}, hasResolvedTutorialGate={hasResolvedTutorialGate}, mustPlayTutorialFirst={mustPlayTutorialFirst}, energyVal={energyVal}, prompt={DescribePanel(tutorialPromptPanel)}");
+
+        // Guard against early clicks before profile gate has been resolved.
+        if (hasChef && !hasResolvedTutorialGate)
+        {
+            LogTutorialGate("OnPlayButtonClicked", "Gate not resolved yet. Refreshing profile before deciding.");
+            await RefreshProfileSilently();
+            LogTutorialGate("OnPlayButtonClicked", $"After refresh. hasResolvedTutorialGate={hasResolvedTutorialGate}, mustPlayTutorialFirst={mustPlayTutorialFirst}");
+
+            if (!hasResolvedTutorialGate)
+            {
+                ShowStatusMessage("Syncing profile. Please tap Play again.", Color.yellow, 3f);
+                LogTutorialGate("OnPlayButtonClicked", "Gate unresolved after refresh. Blocking play to avoid incorrect mode.");
+                return;
+            }
+        }
+
+        if (mustPlayTutorialFirst)
+        {
+            if (!ShowTutorialPromptPanel("OnPlayButtonClicked"))
+            {
+                // Fallback: if prompt panel is not wired, force tutorial directly.
+                LogTutorialGate("OnPlayButtonClicked", "Prompt panel is null, falling back to direct tutorial launch.");
+                OnTutorialPromptYesClicked();
+            }
+            return;
+        }
+
         GameSceneLaunchContext.SetNormalMode();
 
         // Start game session - SessionManager will handle it
@@ -829,6 +908,7 @@ public class ChefManager : MonoBehaviour
         hasChef = true;
         chefName = cachedChefName;
         tokenId = cachedChefTokenId;
+        hasResolvedTutorialGate = false;
 
         if (playPanelUsernameTxt != null) playPanelUsernameTxt.text = chefName;
         if (chefTokenIdText != null) chefTokenIdText.text = $"Chef #{tokenId}: {chefName}";
@@ -836,6 +916,7 @@ public class ChefManager : MonoBehaviour
         if (playerProfileUsernameTxt != null) playerProfileUsernameTxt.text = chefName;
 
         SetMenuUiState(MenuUiState.Ready);
+        LogTutorialGate("TryApplyCachedChefState", $"Applied cached chef. wallet={GetCurrentWalletAddress()}, chef={chefName}, tokenId={tokenId}. Waiting for silent refresh.");
         return true;
     }
 
@@ -859,21 +940,49 @@ public class ChefManager : MonoBehaviour
         UpdateWalletDisplay();
         CacheChefState(chefName, tokenId);
         SetMenuUiState(MenuUiState.Ready);
+
+        int sessionsPlayed = profile.globalStats != null ? profile.globalStats.totalSessionsPlayed : 0;
+        bool hasCompletedTutorial = HasCompletedMandatoryTutorial();
+        mustPlayTutorialFirst = sessionsPlayed <= 0 && !hasCompletedTutorial;
+        hasResolvedTutorialGate = true;
+
+        LogTutorialGate(
+            "ApplyReadyState",
+            $"wallet={GetCurrentWalletAddress()}, sessionsPlayed={sessionsPlayed}, hasCompletedTutorialLocal={hasCompletedTutorial}, mustPlayTutorialFirst={mustPlayTutorialFirst}");
+
+        if (mustPlayTutorialFirst)
+        {
+            if (!ShowTutorialPromptPanel("ApplyReadyState"))
+            {
+                LogTutorialGate("ApplyReadyState", "mustPlayTutorialFirst=true but tutorialPromptPanel is NULL.");
+            }
+        }
+        else if (tutorialPromptPanel != null)
+        {
+            tutorialPromptPanel.SetActive(false);
+            LogTutorialGate("ApplyReadyState", $"Prompt hidden because gate=false. {DescribePanel(tutorialPromptPanel)}");
+        }
     }
 
     private async Task RefreshProfileSilently()
     {
         try
         {
+            LogTutorialGate("RefreshProfileSilently", "Fetching profile in background.");
             var profile = await GameAPIClient.Instance.GetProfile();
             if (profile != null && profile.player != null)
             {
                 ApplyReadyState(profile);
             }
+            else
+            {
+                LogTutorialGate("RefreshProfileSilently", "Profile returned null/empty.");
+            }
         }
         catch (Exception e)
         {
             Debug.LogWarning($"Silent profile refresh failed: {e.Message}");
+            LogTutorialGate("RefreshProfileSilently", $"Failed with error: {e.Message}");
         }
     }
 
@@ -899,15 +1008,128 @@ public class ChefManager : MonoBehaviour
         cachedChefTokenId = 0;
     }
 
+    private string GetMandatoryTutorialKey()
+    {
+        string walletAddress = GetCurrentWalletAddress();
+        if (string.IsNullOrEmpty(walletAddress))
+        {
+            return string.Empty;
+        }
+
+        return $"{TutorialDoneKeyPrefix}{walletAddress.ToLowerInvariant()}";
+    }
+
+    private bool HasCompletedMandatoryTutorial()
+    {
+        string key = GetMandatoryTutorialKey();
+        if (string.IsNullOrEmpty(key))
+        {
+            LogTutorialGate("HasCompletedMandatoryTutorial", "No wallet key yet. Returning false.");
+            return false;
+        }
+
+        int pref = PlayerPrefs.GetInt(key, 0);
+        bool completed = pref == 1;
+        LogTutorialGate("HasCompletedMandatoryTutorial", $"key={key}, pref={pref}, completed={completed}");
+        return completed;
+    }
+
+    private void MarkMandatoryTutorialCompleted()
+    {
+        string key = GetMandatoryTutorialKey();
+        if (string.IsNullOrEmpty(key))
+        {
+            LogTutorialGate("MarkMandatoryTutorialCompleted", "Skipped saving because wallet key is empty.");
+            return;
+        }
+
+        PlayerPrefs.SetInt(key, 1);
+        PlayerPrefs.Save();
+        LogTutorialGate("MarkMandatoryTutorialCompleted", $"Saved tutorial completion key={key}");
+    }
+
     public void ShowLoggedOutState()
     {
         hasChef = false;
+        mustPlayTutorialFirst = false;
+        hasResolvedTutorialGate = false;
         ClearCachedChefState();
         SetMenuUiState(MenuUiState.LoggedOut);
+
+        if (tutorialPromptPanel != null)
+        {
+            tutorialPromptPanel.SetActive(false);
+        }
 
         if (mintChefButton != null) mintChefButton.interactable = false;
         if (chefNameInput != null) chefNameInput.interactable = true;
         if (playButton != null) playButton.interactable = false;
+        LogTutorialGate("ShowLoggedOutState", "Reset all profile and tutorial gate state to logged out.");
+    }
+
+    private void LogTutorialGate(string context, string message)
+    {
+        if (!enableTutorialGateDebug)
+        {
+            return;
+        }
+
+        Debug.Log($"[ChefManager][TutorialGate][{context}] {message}");
+    }
+
+    private string DescribePanel(GameObject panel)
+    {
+        if (panel == null)
+        {
+            return "null";
+        }
+
+        string parent = panel.transform.parent != null ? panel.transform.parent.name : "none";
+        CanvasGroup group = panel.GetComponent<CanvasGroup>();
+        string canvasGroupInfo = group == null
+            ? "canvasGroup=none"
+            : $"canvasGroup(alpha={group.alpha}, interactable={group.interactable}, blocksRaycasts={group.blocksRaycasts})";
+        return $"name={panel.name}, activeSelf={panel.activeSelf}, activeInHierarchy={panel.activeInHierarchy}, parent={parent}, {canvasGroupInfo}";
+    }
+
+    private string GetHierarchyPath(Transform node)
+    {
+        if (node == null)
+        {
+            return "null";
+        }
+
+        string path = node.name;
+        Transform current = node.parent;
+        while (current != null)
+        {
+            path = $"{current.name}/{path}";
+            current = current.parent;
+        }
+
+        return path;
+    }
+
+    private bool ShowTutorialPromptPanel(string context)
+    {
+        if (tutorialPromptPanel == null)
+        {
+            return false;
+        }
+
+        tutorialPromptPanel.SetActive(true);
+        tutorialPromptPanel.transform.SetAsLastSibling();
+
+        CanvasGroup group = tutorialPromptPanel.GetComponent<CanvasGroup>();
+        if (group != null)
+        {
+            group.alpha = 1f;
+            group.interactable = true;
+            group.blocksRaycasts = true;
+        }
+
+        LogTutorialGate(context, $"Forced tutorial prompt visible. {DescribePanel(tutorialPromptPanel)}");
+        return true;
     }
 
     // ============ Public Getters ============
