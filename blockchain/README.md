@@ -78,6 +78,13 @@ npx hardhat verify --network baseSepolia <CONTRACT_ADDRESS> <CONSTRUCTOR_ARGS>
 
 (See deployment output for exact commands)
 
+### After Deployment: Update Backend ABI
+
+The backend uses compiled ABIs from `backend/src/abis/`. After deploying updated contracts:
+
+1. Run `npm run compile` in the blockchain folder
+2. Copy the compiled GameCore ABI from `blockchain/artifacts/contracts/GameCore.sol/GameCore.json` to `backend/src/abis/base/` and `backend/src/abis/monad/` (or ensure the `abi` array matches the new contract interface)
+
 ## 📊 Contract Architecture
 
 ```
@@ -116,15 +123,18 @@ npx hardhat verify --network baseSepolia <CONTRACT_ADDRESS> <CONSTRUCTOR_ARGS>
 
 4. **Gameplay Actions** (backend)
    ```solidity
-   gameCore.recordMove(sessionId)
    gameCore.recordRecipeDelivered(sessionId)
    gameCore.recordWellCooked(sessionId)
-   // etc.
+   gameCore.recordRecipeDiscarded(sessionId)
+   gameCore.recordOverCooked(sessionId)
+   gameCore.recordRecipeSpawned(sessionId)
+   // recordMove is deprecated - moves tracked off-chain, sent at session end
    ```
 
 5. **End Session & Compute Score** (backend)
    ```solidity
-   gameCore.endGameSession(sessionId, "TIME_UP")
+   gameCore.endGameSession(sessionId, "TIME_UP", moveCount)
+   // moveCount: client tracks locally, sends at end (reduces on-chain tx load)
    // Score automatically computed and sent to leaderboard
    ```
 

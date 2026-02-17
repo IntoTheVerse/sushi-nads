@@ -273,10 +273,11 @@ function mintChef(address player, string memory name) external
 ### **2. Session Management**
 ```solidity
 function startGameSession(address player) external returns (uint256 sessionId)
-function endGameSession(uint256 sessionId, string memory reason) external
+function endGameSession(uint256 sessionId, string memory reason, uint256 moveCount) external
 ```
 - Start/end tracked on-chain
 - Energy consumed on start
+- Move count sent at end (tracked locally in client to reduce API/blockchain load)
 - Score computed on end
 - All verifiable on Monad explorer
 
@@ -286,12 +287,11 @@ function recordRecipeDelivered(uint256 sessionId) external
 function recordWellCooked(uint256 sessionId) external
 function recordOverCooked(uint256 sessionId) external
 function recordRecipeDiscarded(uint256 sessionId) external
-function recordMove(uint256 sessionId) external
+// recordMove deprecated - moves tracked off-chain, sent at session end
 ```
-- Every action becomes a transaction
-- Sequential processing via queue
-- Prevents nonce conflicts
-- Transparent gameplay
+- Scoring events (delivered, well-cooked, discarded, overcooked) recorded on-chain
+- Moves tracked locally in Unity, sent as moveCount at session end
+- Reduces API calls and ensures scoring events are reliably recorded
 
 ### **4. Score Computation**
 ```solidity
