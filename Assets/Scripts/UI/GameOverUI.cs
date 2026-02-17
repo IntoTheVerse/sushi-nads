@@ -44,6 +44,16 @@ public class GameOverUI : MonoBehaviour
         "Finalizing your kitchen performance...",
         "Crunching the numbers on-chain..."
     };
+
+    // Congratulatory messages shown once score is displayed
+    private readonly string[] completionPhrases = {
+        "Congratulations on the successful cook!",
+        "Bravo! You did great!",
+        "Bravo! You cooked!",
+        "Well done, chef!",
+        "Amazing kitchen mastery!",
+        "You nailed it!"
+    };
     
     private int currentScore = 0;
     private bool isAnimating = false;
@@ -161,6 +171,12 @@ public class GameOverUI : MonoBehaviour
         }
         if (scorePanel != null) {
             scorePanel.SetActive(true);
+        }
+
+        // Update bottom message to congratulatory phrase
+        if (loadingText != null && completionPhrases.Length > 0) {
+            int index = Random.Range(0, completionPhrases.Length);
+            loadingText.text = completionPhrases[index];
         }
         
         // Start score count-up animation
