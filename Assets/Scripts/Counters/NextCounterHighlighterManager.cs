@@ -101,6 +101,14 @@ public class NextCounterHighlighterManager : MonoBehaviour
             return;
         }
 
+        // If the held item cannot be processed any further (cut/cook),
+        // don't pulse any counter for it.
+        if (!CanHeldItemBeProcessedFurther(so))
+        {
+            ClearAllHighlights();
+            return;
+        }
+
         // Use DeliveryManager's top-most order to prefer counters that produce the required recipe ingredient
         var waiting = DeliveryManager.Instance != null ? DeliveryManager.Instance.GetWaitingRecipeSOList() : null;
         RecipeSO topRecipe = null;
@@ -328,5 +336,46 @@ public class NextCounterHighlighterManager : MonoBehaviour
             if (h == null) continue;
             h.HideHighlight();
         }
+    }
+
+    private bool CanHeldItemBeProcessedFurther(KitchenObjectSO heldSo)
+    {
+        if (heldSo == null)
+        {
+            return false;
+        }
+
+        foreach (var h in highlighters)
+        {
+            if (h == null) continue;
+            var counter = h.GetCounter();
+            if (counter == null) continue;
+
+            if (counter is CuttingCounter cutting)
+            {
+                try
+                {
+                    if (cutting.CanProcess(heldSo))
+                    {
+                        return true;
+                    }
+                }
+                catch { }
+            }
+
+            if (counter is StoveCounter stove)
+            {
+                try
+                {
+                    if (stove.CanProcess(heldSo))
+                    {
+                        return true;
+                    }
+                }
+                catch { }
+            }
+        }
+
+        return false;
     }
 }
