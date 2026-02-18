@@ -1,0 +1,48 @@
+# DEPRECATED: We now use PM2 + Nginx on a dedicated server. See DEPLOYMENT.md
+#
+# Google App Engine configuration (kept for reference)
+# Copy to app.yaml and fill in your values before deploying.
+# IMPORTANT: Add app.yaml to .gitignore if it contains secrets.
+
+service: sushi-bonks-api
+runtime: nodejs20
+env: standard
+
+instance_class: F2
+automatic_scaling:
+  target_cpu_utilization: 0.65
+  min_instances: 0
+  max_instances: 5
+
+entrypoint: npm run start
+
+env_variables:
+  NODE_ENV: 'production'
+  PORT: '8080'
+  GCP_PROJECT_ID: ''  # Your Google Cloud project ID
+
+  # Privy (set via Secret Manager or App Engine console for production)
+  PRIVY_APP_ID: ''
+  PRIVY_APP_SECRET: ''
+  PRIVY_CLIENT_ID: ''
+  PRIVY_BACKEND_AUTH_KEY_ID: ''
+  PRIVY_BACKEND_AUTH_PRIVATE_KEY: ''
+
+  # Blockchain
+  TARGET_NETWORK: 'base'
+  BASE_SEPOLIA_RPC_URL: 'https://sepolia.base.org'
+  BACKEND_PRIVATE_KEY: ''
+  CHEFNFT_ADDRESS: ''
+  GAMECORE_ADDRESS: ''
+  LEADERBOARD_ADDRESS: ''
+
+  # Firebase (if not using Application Default Credentials)
+  FIREBASE_PROJECT_ID: ''
+
+  # CORS - add your Unity WebGL / hosted app URLs
+  ALLOWED_ORIGINS: 'https://your-game-domain.com,https://*.itch.io'
+
+handlers:
+  - url: /.*
+    secure: always
+    script: auto

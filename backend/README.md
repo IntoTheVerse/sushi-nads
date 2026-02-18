@@ -25,12 +25,56 @@ cp env.example.txt .env
 nano .env  # Fill in your values
 ```
 
-### 4. Run Development Server
+### 4. Run the Server
+
+Choose **one** of these (don't run both at once):
+
+| Method | Use case |
+|--------|----------|
+| `npm run dev` | Active development – auto-restarts on code changes |
+| `pm2 start ecosystem.config.cjs` | Background process – keeps running after closing terminal |
+
+**Development (with auto-reload):**
 ```bash
 npm run dev
 ```
 
-Server will start on `http://localhost:3000`
+**Production / background (PM2):**
+```bash
+pm2 start ecosystem.config.cjs
+pm2 save
+pm2 startup   # Follow the command it prints to enable auto-start on reboot
+```
+
+---
+
+## 🔄 PM2 Commands
+
+| Command | Description |
+|---------|-------------|
+| `pm2 list` | List all processes |
+| `pm2 logs sushi-bonks-api` | View logs (live) |
+| `pm2 restart sushi-bonks-api` | Restart after code changes |
+| `pm2 stop sushi-bonks-api` | Stop the app |
+| `pm2 delete sushi-bonks-api` | Remove from PM2 |
+| `pm2 monit` | Real-time monitoring dashboard |
+
+**Auto-start on reboot:** Run `pm2 startup` and execute the command it prints (includes your Node path).
+
+---
+
+## 🏥 Health Check
+
+```bash
+curl http://localhost:3000/health
+```
+
+Expected response:
+```json
+{"status":"ok","timestamp":"...","service":"sushi-bonks-api","version":"1.0.0"}
+```
+
+Server runs on `http://localhost:3000` – set this as the API base URL in Unity.
 
 ---
 
@@ -91,11 +135,6 @@ GET    /api/leaderboard/global-stats  # Get global stats
 
 ## 🧪 Testing
 
-### Health Check
-```bash
-curl http://localhost:3000/health
-```
-
 ### With Privy Token
 ```bash
 # Get profile
@@ -135,6 +174,8 @@ backend/
 │   ├── routes/           # API routes
 │   ├── abis/             # Contract ABIs
 │   └── server.js         # Main entry point
+├── nginx/                # Nginx config for production (reverse proxy)
+├── scripts/              # CLI tools (manageSession, setup-server)
 └── test/                 # Tests
 ```
 
@@ -159,23 +200,60 @@ backend/
 
 ## 📦 Deployment
 
-### GCP Cloud Run
-```bash
-# Build
-gcloud builds submit --tag gcr.io/PROJECT_ID/sushi-bonks-api
+### PM2 + Nginx (recommended – dedicated server)
 
-# Deploy
+Deploy on your own cloud server. See **[DEPLOYMENT.md](./DEPLOYMENT.md)** for full instructions.
+
+```bash
+cd backend
+npm install
+cp env.example.txt .env
+# Edit .env with your values
+pm2 start ecosystem.config.cjs
+pm2 save && pm2 startup
+```
+
+**Nginx reverse proxy** (production server only – not needed for local dev):
+
+`nginx/sushi-bonks.conf.example` configures Nginx to listen on port 80 and forward requests to your Node app on port 3000.
+
+**How to use it:**
+
+1. Copy the file on the server:
+   ```bash
+   sudo cp backend/nginx/sushi-bonks.conf.example /etc/nginx/conf.d/sushi-bonks.conf
+   ```
+
+2. Edit the config:
+   ```bash
+   sudo nano /etc/nginx/conf.d/sushi-bonks.conf
+   ```
+   Replace `your_domain.com` with your domain or server IP (e.g. `api.sushibonks.com` or `123.45.67.89`)
+
+3. Check and reload Nginx:
+   ```bash
+   sudo nginx -t
+   sudo systemctl reload nginx
+   ```
+
+4. Optional – HTTPS:
+   ```bash
+   sudo certbot --nginx -d your_domain.com
+   ```
+
+**Summary:** Local dev: ignore this file. Production server: copy it, set `server_name`, then reload Nginx.
+
+Backend URL: `https://your-domain.com` (or `http://your-server-ip`)
+
+### GCP Cloud Run (alternative)
+
+```bash
+gcloud builds submit --tag gcr.io/PROJECT_ID/sushi-bonks-api
 gcloud run deploy sushi-bonks-api \
   --image gcr.io/PROJECT_ID/sushi-bonks-api \
   --platform managed \
   --region us-central1 \
   --allow-unauthenticated
-```
-
-### Set Environment Variables
-```bash
-gcloud run services update sushi-bonks-api \
-  --set-env-vars "PRIVY_APP_ID=xxx,..."
 ```
 
 ---

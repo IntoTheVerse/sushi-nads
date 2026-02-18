@@ -1,0 +1,42 @@
+# Ignore local environment files (use App Engine env_variables or Secret Manager)
+.env
+.env.development
+.env.production
+.env.local
+.env.*.local
+
+# Ignore dependencies (App Engine installs from package.json)
+node_modules/
+
+# Ignore local build output
+dist/
+build/
+
+# Ignore logs
+*.log
+logs/
+
+# Ignore temporary files
+tmp/
+temp/
+.cache/
+.DS_Store
+
+# Ignore Git files
+.git/
+.gitignore
+
+# Ignore IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Ignore test files (optional - remove if you want tests deployed)
+# **/*.test.js
+# test/
+
+# Ignore setup scripts (not needed in production)
+setup-backend-env.sh
+update-contract-addresses.sh
+configure-privy.sh

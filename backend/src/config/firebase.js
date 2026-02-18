@@ -10,23 +10,30 @@ export function initializeFirebase() {
         return true;
     }
 
-    // Check if Firebase credentials are provided
-    if (!process.env.FIREBASE_CREDENTIALS || process.env.FIREBASE_CREDENTIALS === '{}') {
-        console.warn('⚠️  Firebase credentials not provided - caching disabled');
+    if (!process.env.FIREBASE_PROJECT_ID) {
+        console.warn('⚠️  FIREBASE_PROJECT_ID not provided - caching disabled');
         return false;
     }
 
     try {
-        const serviceAccount = JSON.parse(process.env.FIREBASE_CREDENTIALS);
-
-        admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount),
-            projectId: process.env.FIREBASE_PROJECT_ID
-        });
+        // Use explicit credentials if provided (local dev, CI)
+        if (process.env.FIREBASE_CREDENTIALS && process.env.FIREBASE_CREDENTIALS !== '{}') {
+            const serviceAccount = JSON.parse(process.env.FIREBASE_CREDENTIALS);
+            admin.initializeApp({
+                credential: admin.credential.cert(serviceAccount),
+                projectId: process.env.FIREBASE_PROJECT_ID
+            });
+        } else {
+            // Use Application Default Credentials on GCP (App Engine, Cloud Run)
+            admin.initializeApp({
+                credential: admin.credential.applicationDefault(),
+                projectId: process.env.FIREBASE_PROJECT_ID
+            });
+        }
 
         db = admin.firestore();
         auth = admin.auth();
-        
+
         firebaseInitialized = true;
         console.log('✅ Firebase initialized successfully');
         return true;

@@ -223,3 +223,8 @@ Verify contract addresses in `.env` match deployment
 
 **Once `.env` is configured, run:** `npm run dev` 🚀
 
+---
+
+## 🚀 Production Deployment
+
+For deploying to a dedicated server with PM2 + Nginx, see **[DEPLOYMENT.md](./DEPLOYMENT.md)**.

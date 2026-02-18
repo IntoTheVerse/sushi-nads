@@ -175,11 +175,13 @@ router.post('/start', requireAuth, async (req, res, next) => {
  */
 router.post('/end', requireAuth, validateSessionId, async (req, res, next) => {
     try {
-        const { sessionId } = req;
+        const sessionId = req.sessionId; // From validateSessionId
+        const { moveCount: clientMoveCount } = req.body || {};
         const playerAddress = req.walletAddress;
         const user = req.user;
-        
-        console.log(`🏁 Ending session ${sessionId} for ${playerAddress}`);
+        const moveCount = Math.max(0, parseInt(clientMoveCount, 10) || 0);
+
+        console.log(`🏁 Ending session ${sessionId} for ${playerAddress} (moveCount: ${moveCount})`);
         
         // Verify session ownership
         const session = await gameCore.getSession(sessionId);
@@ -220,7 +222,7 @@ router.post('/end', requireAuth, validateSessionId, async (req, res, next) => {
         
         let result;
         try {
-            result = await queueEndSession(sessionId, 'PLAYER_ENDED', playerAddress);
+            result = await queueEndSession(sessionId, 'PLAYER_ENDED', playerAddress, moveCount);
         } catch (error) {
             // Check if session was already ended (race condition)
             if (error.message?.includes('already ended') || 

@@ -41,86 +41,12 @@ function buildSessionStats(session) {
 
 /**
  * POST /api/gameplay/move
- * Record a player move (batched for gas optimization)
+ * NO-OP: Moves are now tracked locally in the client and sent at session end.
+ * Kept for backward compatibility - returns success without recording.
  */
 router.post('/move', requireAuth, validateSessionId, rateLimitGameActions, async (req, res, next) => {
     try {
-        const { sessionId } = req;
-        const playerAddress = req.walletAddress;
-        
-        // Verify session ownership and active status
-        const session = await gameCore.getSession(sessionId);
-        if (session.player.toLowerCase() !== playerAddress.toLowerCase()) {
-            return res.status(403).json({ error: 'Not your session' });
-        }
-        
-        if (!session.isActive) {
-            return res.status(400).json({ error: 'Session not active' });
-        }
-        
-        // Add to batch queue
-        if (!actionQueues.has(sessionId)) {
-            actionQueues.set(sessionId, []);
-        }
-        
-        const queue = actionQueues.get(sessionId);
-        
-        // Add move to queue - NEVER drop moves, all must be recorded
-        const moveId = `${sessionId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        queue.push({ 
-            type: 'move', 
-            id: moveId, // Unique ID for reliable tracking
-            timestamp: Date.now(),
-            player: playerAddress
-        });
-        
-        // Track total moves queued for this session
-        if (!moveCounters.has(sessionId)) {
-            moveCounters.set(sessionId, { total: 0, recorded: 0, lastProcessedIds: new Set() });
-        }
-        moveCounters.get(sessionId).total++;
-        
-        const queueSize = queue.length;
-        const endSessionCount = queue.filter(a => a.type === 'end-session').length;
-        
-        // Log if queue is getting very large (warning sign)
-        if (queueSize > 100) {
-            console.warn(`⚠️  WARNING: Queue size is very large (${queueSize} actions, ${endSessionCount} end-session). This may indicate slow processing.`);
-        }
-        
-        // Log if moves are being added during a flush (they'll be processed after current flush completes)
-        if (flushingQueues.has(sessionId)) {
-            const movesInQueue = queue.filter(a => a.type === 'move').length;
-            const eventsInQueue = queueSize - movesInQueue - endSessionCount;
-            console.log(`📝 Move added to queue during flush (total: ${queueSize}, moves: ${movesInQueue}, events: ${eventsInQueue}, end-session: ${endSessionCount}). Will be processed after current flush completes.`);
-        }
-        
-        // Aggressive flushing to ensure all moves are recorded quickly
-        // Flush immediately if batch size reached (and not already flushing)
-        if (queueSize >= BATCH_CONFIG.maxBatchSize && !flushingQueues.has(sessionId)) {
-            console.log(`📦 Queue reached batch size (${queueSize} actions). Flushing immediately.`);
-            await flushQueue(sessionId);
-        }
-        // If queue is getting large, force immediate flush (but keep all moves)
-        else if (queueSize >= 8 && !flushingQueues.has(sessionId)) {
-            console.log(`⚠️  Queue for session ${sessionId} is large (${queueSize} actions). Forcing immediate flush.`);
-            await flushQueue(sessionId);
-        }
-        // Setup auto-flush timer if not already set and not currently flushing
-        else if (!queueTimers.has(sessionId) && !flushingQueues.has(sessionId)) {
-            // Shorter timer for faster processing (2 seconds instead of 5)
-            const timer = setTimeout(() => {
-                flushQueue(sessionId);
-            }, 2000); // 2 seconds - faster than default 5s
-            queueTimers.set(sessionId, timer);
-        }
-        
-        // Return immediately for instant UX
-        res.json({ 
-            success: true,
-            queued: true,
-            queueSize: actionQueues.get(sessionId)?.length || 0
-        });
+        res.json({ success: true, queued: false, moveCountLocal: true });
     } catch (error) {
         next(error);
     }
@@ -151,16 +77,14 @@ router.post('/recipe-spawned', requireAuth, validateSessionId, async (req, res, 
         
         console.log(`📋 Recipe spawned queued in session ${sessionId} (queue size: ${queue.length})`);
         
-        // Trigger flush if needed (same logic as moves)
+        // Trigger flush if needed - non-blocking
         const queueSize = queue.length;
         if (queueSize >= BATCH_CONFIG.maxBatchSize && !flushingQueues.has(sessionId)) {
-            await flushQueue(sessionId);
+            setImmediate(() => flushQueue(sessionId));
         } else if (queueSize >= 8 && !flushingQueues.has(sessionId)) {
-            await flushQueue(sessionId);
+            setImmediate(() => flushQueue(sessionId));
         } else if (!queueTimers.has(sessionId) && !flushingQueues.has(sessionId)) {
-            const timer = setTimeout(() => {
-                flushQueue(sessionId);
-            }, 2000);
+            const timer = setTimeout(() => flushQueue(sessionId), 1500);
             queueTimers.set(sessionId, timer);
         }
         
@@ -196,16 +120,22 @@ router.post('/recipe-delivered', requireAuth, validateSessionId, async (req, res
         
         console.log(`✅ Recipe delivered queued in session ${sessionId} (queue size: ${queue.length})`);
         
-        // Trigger flush if needed (same logic as moves)
+        // Trigger flush if needed - NEVER await here to avoid blocking HTTP handler.
+        // Blocking causes 26+ requests to pile up; when client times out and sends end-session,
+        // those events may not be in the queue yet. Fire-and-forget ensures we can accept all requests.
         const queueSize = queue.length;
+        const nonMoveCount = queue.filter(a => a.type !== 'move').length;
         if (queueSize >= BATCH_CONFIG.maxBatchSize && !flushingQueues.has(sessionId)) {
-            await flushQueue(sessionId);
+            setImmediate(() => flushQueue(sessionId));
         } else if (queueSize >= 8 && !flushingQueues.has(sessionId)) {
-            await flushQueue(sessionId);
+            setImmediate(() => flushQueue(sessionId));
+        } else if (nonMoveCount >= 3 && !flushingQueues.has(sessionId)) {
+            console.log(`   ⚡ Flushing ${nonMoveCount} scoring events (non-blocking)`);
+            setImmediate(() => flushQueue(sessionId));
         } else if (!queueTimers.has(sessionId) && !flushingQueues.has(sessionId)) {
             const timer = setTimeout(() => {
                 flushQueue(sessionId);
-            }, 2000);
+            }, 1000); // Faster: 1s for recipe-delivered
             queueTimers.set(sessionId, timer);
         }
         
@@ -241,16 +171,17 @@ router.post('/recipe-discarded', requireAuth, validateSessionId, async (req, res
         
         console.log(`🗑️  Recipe discarded queued in session ${sessionId} (queue size: ${queue.length})`);
         
-        // Trigger flush if needed (same logic as moves)
+        // Trigger flush if needed - non-blocking (see recipe-delivered comment)
         const queueSize = queue.length;
+        const nonMoveCount = queue.filter(a => a.type !== 'move').length;
         if (queueSize >= BATCH_CONFIG.maxBatchSize && !flushingQueues.has(sessionId)) {
-            await flushQueue(sessionId);
+            setImmediate(() => flushQueue(sessionId));
         } else if (queueSize >= 8 && !flushingQueues.has(sessionId)) {
-            await flushQueue(sessionId);
+            setImmediate(() => flushQueue(sessionId));
+        } else if (nonMoveCount >= 3 && !flushingQueues.has(sessionId)) {
+            setImmediate(() => flushQueue(sessionId));
         } else if (!queueTimers.has(sessionId) && !flushingQueues.has(sessionId)) {
-            const timer = setTimeout(() => {
-                flushQueue(sessionId);
-            }, 2000);
+            const timer = setTimeout(() => flushQueue(sessionId), 1000);
             queueTimers.set(sessionId, timer);
         }
         
@@ -286,16 +217,17 @@ router.post('/well-cooked', requireAuth, validateSessionId, async (req, res, nex
         
         console.log(`🔥 Well-cooked ingredient queued in session ${sessionId} (queue size: ${queue.length})`);
         
-        // Trigger flush if needed (same logic as moves)
+        // Trigger flush if needed - non-blocking (see recipe-delivered comment)
         const queueSize = queue.length;
+        const nonMoveCount = queue.filter(a => a.type !== 'move').length;
         if (queueSize >= BATCH_CONFIG.maxBatchSize && !flushingQueues.has(sessionId)) {
-            await flushQueue(sessionId);
+            setImmediate(() => flushQueue(sessionId));
         } else if (queueSize >= 8 && !flushingQueues.has(sessionId)) {
-            await flushQueue(sessionId);
+            setImmediate(() => flushQueue(sessionId));
+        } else if (nonMoveCount >= 3 && !flushingQueues.has(sessionId)) {
+            setImmediate(() => flushQueue(sessionId));
         } else if (!queueTimers.has(sessionId) && !flushingQueues.has(sessionId)) {
-            const timer = setTimeout(() => {
-                flushQueue(sessionId);
-            }, 2000);
+            const timer = setTimeout(() => flushQueue(sessionId), 1000);
             queueTimers.set(sessionId, timer);
         }
         
@@ -331,16 +263,17 @@ router.post('/over-cooked', requireAuth, validateSessionId, async (req, res, nex
         
         console.log(`💀 Overcooked ingredient queued in session ${sessionId} (queue size: ${queue.length})`);
         
-        // Trigger flush if needed (same logic as moves)
+        // Trigger flush if needed - non-blocking
         const queueSize = queue.length;
+        const nonMoveCount = queue.filter(a => a.type !== 'move').length;
         if (queueSize >= BATCH_CONFIG.maxBatchSize && !flushingQueues.has(sessionId)) {
-            await flushQueue(sessionId);
+            setImmediate(() => flushQueue(sessionId));
         } else if (queueSize >= 8 && !flushingQueues.has(sessionId)) {
-            await flushQueue(sessionId);
+            setImmediate(() => flushQueue(sessionId));
+        } else if (nonMoveCount >= 3 && !flushingQueues.has(sessionId)) {
+            setImmediate(() => flushQueue(sessionId));
         } else if (!queueTimers.has(sessionId) && !flushingQueues.has(sessionId)) {
-            const timer = setTimeout(() => {
-                flushQueue(sessionId);
-            }, 2000);
+            const timer = setTimeout(() => flushQueue(sessionId), 1000);
             queueTimers.set(sessionId, timer);
         }
         
@@ -429,8 +362,9 @@ async function executeEndSession(sessionId, action) {
     try {
         console.log(`🏁 Executing end-session for session ${sessionId} (reason: ${action.reason || 'PLAYER_ENDED'})`);
         
+        const moveCount = Math.max(0, action.moveCount ?? 0);
         const receipt = await queueTransaction(
-            () => gameCore.endGameSession(sessionId, action.reason || 'PLAYER_ENDED'),
+            () => gameCore.endGameSession(sessionId, action.reason || 'PLAYER_ENDED', moveCount),
             `End Session ${sessionId}`
         );
         
@@ -1010,23 +944,24 @@ setInterval(() => {
  * @param {string} playerAddress The player's address
  * @returns {Promise<Object>} End session result (waits for all prior actions to complete)
  */
-export async function queueEndSession(sessionId, reason = 'PLAYER_ENDED', playerAddress) {
+export async function queueEndSession(sessionId, reason = 'PLAYER_ENDED', playerAddress, moveCount = 0) {
     // Add end-session to action queue (will be processed after all prior actions)
     // IMPORTANT: Deduplicate end-session actions - only allow ONE end-session in queue
     if (!actionQueues.has(sessionId)) {
         actionQueues.set(sessionId, []);
     }
-    
+
     const queue = actionQueues.get(sessionId);
-    
+
     // Check if end-session is already queued
     const existingEndSession = queue.find(a => a.type === 'end-session');
-    
+
     let endSessionAction;
     if (existingEndSession) {
-        // Reuse existing end-session action (deduplicate)
+        // Reuse existing end-session action (deduplicate), but update moveCount
         console.log(`🏁 End-session already queued for session ${sessionId}. Reusing existing end-session action.`);
         endSessionAction = existingEndSession;
+        endSessionAction.moveCount = moveCount;
     } else {
         // Create new end-session action
         const actionId = `${sessionId}-end-session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -1035,16 +970,22 @@ export async function queueEndSession(sessionId, reason = 'PLAYER_ENDED', player
             id: actionId,
             timestamp: Date.now(),
             player: playerAddress,
-            reason: reason
+            reason: reason,
+            moveCount: Math.max(0, moveCount)
         };
         queue.push(endSessionAction);
-        console.log(`🏁 End-session queued for session ${sessionId} (reason: ${reason}). Queue size: ${queue.length}`);
+        console.log(`🏁 End-session queued for session ${sessionId} (reason: ${reason}, moveCount: ${moveCount}). Queue size: ${queue.length}`);
     }
     
     // Count actions before end-session
     const endSessionIndex = queue.indexOf(endSessionAction);
     const actionsBeforeEndSession = endSessionIndex >= 0 ? endSessionIndex : 0;
     console.log(`   ⏳ Processing ${actionsBeforeEndSession} actions before end-session...`);
+    
+    // Grace period: allow in-flight events from client to arrive before we flush.
+    // With non-blocking handlers, backend accepts requests quickly; 1s gives late events time to land.
+    const END_SESSION_GRACE_MS = 1000;
+    await new Promise(resolve => setTimeout(resolve, END_SESSION_GRACE_MS));
     
     // Trigger immediate flush to process all actions before end-session
     await flushQueue(sessionId);

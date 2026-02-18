@@ -22,7 +22,8 @@ public class SessionManager : MonoBehaviour
     [Header("Session Data")]
     private int currentSessionId = 0;
     private bool isSessionActive = false;
-    private bool isEndingSession = false;
+    private bool isEndingSession = false;  // Blocks new events (set after draining pending)
+    private bool isEndingInProgress = false;  // Re-entrancy guard (set at start)
     [SerializeField] private int pendingEventsTimeoutMs = 15000;
 
     private void Awake()
@@ -94,6 +95,12 @@ public class SessionManager : MonoBehaviour
                 currentSessionId = response.sessionId;
                 isSessionActive = true;
                 isEndingSession = false;
+
+                // Reset local move count (off-chain) for this session
+                if (GameplayEventTracker.Instance != null)
+                {
+                    GameplayEventTracker.Instance.ResetLocalMoveCount();
+                }
                 
                 Debug.Log($"✅ Blockchain session started!");
                 Debug.Log($"   Session ID: {currentSessionId}");
@@ -142,14 +149,15 @@ public class SessionManager : MonoBehaviour
             return;
         }
 
-        if (isEndingSession)
+        if (isEndingInProgress)
         {
             Debug.LogWarning("Session end already in progress");
             return;
         }
+        isEndingInProgress = true;
 
-        isEndingSession = true;
-
+        // CRITICAL: Do NOT set isEndingSession yet - allow events that fire during the wait
+        // (e.g. cooking completing in same frame as timer) to still be recorded.
         try
         {
             // Drain any pending gameplay events before ending the blockchain session
@@ -157,6 +165,9 @@ public class SessionManager : MonoBehaviour
             {
                 await GameplayEventTracker.Instance.WaitForPendingEventsAsync(pendingEventsTimeoutMs);
             }
+
+            // Now block new events - we've drained pending and are about to call the API
+            isEndingSession = true;
 
             // Show loading state immediately when game ends
             if (_gameOverUI != null)
@@ -175,12 +186,16 @@ public class SessionManager : MonoBehaviour
                     UpdateSessionStatus("⏳ Computing score on-chain... Please wait", Color.yellow);
                     
                     // Call backend API with longer timeout
-                    var response = await GameAPIClient.Instance.EndSession(currentSessionId);
+                    int moveCount = GameplayEventTracker.Instance != null
+                        ? GameplayEventTracker.Instance.GetLocalMoveCount()
+                        : 0;
+                    var response = await GameAPIClient.Instance.EndSession(currentSessionId, moveCount);
                     
                     if (response.success)
                     {
                         isSessionActive = false;
                         isEndingSession = false;
+                        isEndingInProgress = false;
                         
                         Debug.Log($"✅ Session ended!");
                         Debug.Log($"   Final Score: {response.finalScore}");
@@ -228,6 +243,7 @@ public class SessionManager : MonoBehaviour
                             
                             isSessionActive = false; // Mark as inactive locally
                             isEndingSession = false;
+                            isEndingInProgress = false;
                             
                             // Show a simpler message (score will be 0, user can check later)
                             ShowScorePopup(0, "", CreateFallbackStats());
@@ -250,9 +266,10 @@ public class SessionManager : MonoBehaviour
         }
         finally
         {
-            if (isEndingSession)
+            if (isEndingInProgress)
             {
                 // Ensure we don't leave the session stuck in a "ending" state
+                isEndingInProgress = false;
                 isEndingSession = false;
             }
         }
