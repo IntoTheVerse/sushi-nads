@@ -188,7 +188,7 @@ public class GameOverUI : MonoBehaviour
 
         // Update bottom message to congratulatory phrase
         if (loadingText != null && completionPhrases.Length > 0) {
-            int index = Random.Range(0, completionPhrases.Length);
+            int index = UnityEngine.Random.Range(0, completionPhrases.Length);
             loadingText.text = completionPhrases[index];
         }
         
