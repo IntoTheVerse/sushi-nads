@@ -35,6 +35,7 @@ public class CharacterModification : MonoBehaviour
     public string legendaryName = "Legendary";
     public bool includeInactive = true;
     public bool treatEmptyTraitAsSingleOption = true;
+    public bool debugLogs = false;
 
     [Header("Optional: Manual Slot Configuration (used when Auto-Scan is off)")]
     public List<SlotConfig> slots = new List<SlotConfig>();
@@ -87,7 +88,9 @@ public class CharacterModification : MonoBehaviour
 
     public int GetOptionCount(string slot)
     {
+        slot = NormalizeSlotName(slot);
         if (string.IsNullOrEmpty(slot)) return 0;
+        if (cache.Count == 0) BuildCache();
         if (!cache.TryGetValue(slot, out var sc)) return 0;
         var total = 0;
         if (sc.common != null) total += sc.common.Count;
@@ -100,11 +103,12 @@ public class CharacterModification : MonoBehaviour
 
     public void SetCharacter(int index, bool rebuildTraits = true)
     {
-        if (charactersRoot == null) return;
-        if (index < 0 || index >= charactersRoot.childCount) return;
-        for (int i = 0; i < charactersRoot.childCount; i++)
+        var roots = GetCharacterRoots();
+        if (roots.Count == 0) return;
+        if (index < 0 || index >= roots.Count) return;
+        for (int i = 0; i < roots.Count; i++)
         {
-            var child = charactersRoot.GetChild(i);
+            var child = roots[i];
             if (child == null) continue;
             child.gameObject.SetActive(i == index);
         }
@@ -113,12 +117,32 @@ public class CharacterModification : MonoBehaviour
 
     public void SetCharacterByName(string name, bool rebuildTraits = true)
     {
-        if (charactersRoot == null || string.IsNullOrEmpty(name)) return;
-        for (int i = 0; i < charactersRoot.childCount; i++)
+        if (string.IsNullOrEmpty(name)) return;
+        var roots = GetCharacterRoots();
+        if (roots.Count == 0) return;
+        bool matchedAny = false;
+        for (int i = 0; i < roots.Count; i++)
         {
-            var child = charactersRoot.GetChild(i);
+            var child = roots[i];
             if (child == null) continue;
-            child.gameObject.SetActive(string.Equals(child.name, name, StringComparison.OrdinalIgnoreCase));
+            bool isMatch = CharacterNameMatches(child.name, name);
+            child.gameObject.SetActive(isMatch);
+            matchedAny |= isMatch;
+        }
+
+        if (!matchedAny)
+        {
+            if (debugLogs)
+            {
+                Debug.LogWarning($"[CharacterModification] No character matched '{name}'. Falling back to first character root.");
+            }
+
+            for (int i = 0; i < roots.Count; i++)
+            {
+                var child = roots[i];
+                if (child == null) continue;
+                child.gameObject.SetActive(i == 0);
+            }
         }
         if (rebuildTraits) BuildCache();
     }
@@ -127,7 +151,124 @@ public class CharacterModification : MonoBehaviour
 
     #region Helpers
 
+    private bool CharacterNameMatches(string actualName, string requestedName)
+    {
+        if (string.IsNullOrWhiteSpace(actualName) || string.IsNullOrWhiteSpace(requestedName))
+        {
+            return false;
+        }
 
+        string actual = NormalizeNameToken(actualName);
+        string requested = NormalizeNameToken(requestedName);
+
+        if (string.IsNullOrEmpty(actual) || string.IsNullOrEmpty(requested))
+        {
+            return false;
+        }
+
+        if (actual == requested) return true;
+
+        // Allow loose matching for minor naming differences in hierarchy labels.
+        return actual.Contains(requested) || requested.Contains(actual);
+    }
+
+    private string NormalizeNameToken(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+
+        var chars = value.Trim().ToLowerInvariant().ToCharArray();
+        var compact = new System.Text.StringBuilder(chars.Length);
+        for (int i = 0; i < chars.Length; i++)
+        {
+            if (char.IsLetterOrDigit(chars[i]))
+            {
+                compact.Append(chars[i]);
+            }
+        }
+        return compact.ToString();
+    }
+
+    private Transform FindBestTraitsRoot()
+    {
+        Transform best = null;
+        int bestScore = -1;
+
+        void Consider(Transform candidate)
+        {
+            if (candidate == null) return;
+            int score = GetTraitsRootScore(candidate);
+            if (score > bestScore)
+            {
+                bestScore = score;
+                best = candidate;
+            }
+        }
+
+        Consider(traitsRoot);
+        Consider(charactersRoot);
+        Consider(transform);
+
+        var all = FindObjectsOfType<Transform>(includeInactive);
+        for (int i = 0; i < all.Length; i++)
+        {
+            Consider(all[i]);
+        }
+
+        if (debugLogs)
+        {
+            string bestName = best != null ? best.name : "null";
+            Debug.Log($"[CharacterModification] FindBestTraitsRoot best={bestName}, score={bestScore}");
+        }
+
+        return bestScore > 0 ? best : null;
+    }
+
+    private int GetTraitsRootScore(Transform root)
+    {
+        if (root == null) return -1;
+
+        int score = 0;
+
+        if (FindDirectChildByName(root, commonName) != null) score += 4;
+        if (FindDirectChildByName(root, rareName) != null) score += 4;
+        if (FindDirectChildByName(root, legendaryName) != null) score += 4;
+
+        int characterLikeChildren = GetCharacterLikeChildCount(root);
+        score += characterLikeChildren * 5;
+
+        if (HasRaritySubtree(root)) score += 2;
+
+        string normalized = NormalizeNameToken(root.name);
+        if (normalized.Contains("trait")) score += 2;
+        if (normalized.Contains("sushinad")) score += 2;
+        if (normalized.Contains("character")) score += 1;
+
+        return score;
+    }
+
+    private int GetCharacterLikeChildCount(Transform root)
+    {
+        if (root == null) return 0;
+
+        int count = 0;
+        for (int i = 0; i < root.childCount; i++)
+        {
+            var child = root.GetChild(i);
+            if (child == null) continue;
+
+            if (NameEquals(child.name, commonName) || NameEquals(child.name, rareName) || NameEquals(child.name, legendaryName))
+            {
+                continue;
+            }
+
+            if (HasRaritySubtree(child))
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
 
     #endregion
 
@@ -142,7 +283,14 @@ public class CharacterModification : MonoBehaviour
         public (Rarity rarity, int index)? currentSelection = null;
     }
 
+    private struct RarityRootRef
+    {
+        public Transform root;
+        public Rarity rarity;
+    }
+
     private Dictionary<string, SlotCache> cache = new Dictionary<string, SlotCache>(StringComparer.OrdinalIgnoreCase);
+    private Transform resolvedTraitsRoot;
 
     private void Awake()
     {
@@ -152,31 +300,45 @@ public class CharacterModification : MonoBehaviour
     private void BuildCache()
     {
         cache.Clear();
+        resolvedTraitsRoot = null;
 
         if (!autoScanHierarchy)
         {
             foreach (var scfg in slots)
             {
                 if (string.IsNullOrEmpty(scfg.slotName)) continue;
-                var sc = new SlotCache { config = scfg };
-                sc.common = MakeOptionList(scfg.common);
-                sc.rare = MakeOptionList(scfg.rare);
-                sc.legendary = MakeOptionList(scfg.legendary);
-                cache[scfg.slotName] = sc;
+                string key = NormalizeSlotName(scfg.slotName);
+                if (string.IsNullOrEmpty(key)) continue;
+
+                if (!cache.TryGetValue(key, out var sc))
+                {
+                    sc = new SlotCache { config = scfg };
+                    cache[key] = sc;
+                }
+
+                MergeOptionLists(sc.common, MakeOptionList(scfg.common));
+                MergeOptionLists(sc.rare, MakeOptionList(scfg.rare));
+                MergeOptionLists(sc.legendary, MakeOptionList(scfg.legendary));
             }
             return;
         }
 
-        var root = ResolveTraitsRoot();
-        if (root == null) return;
+        Transform root = ResolveTraitsRoot();
+        bool built = TryBuildCacheFromRoot(root);
 
-        var commonRoot = FindByName(root, commonName);
-        var rareRoot = FindByName(root, rareName);
-        var legendaryRoot = FindByName(root, legendaryName);
+        if (!built)
+        {
+            Transform fallback = FindBestTraitsRoot();
+            if (fallback != root)
+            {
+                built = TryBuildCacheFromRoot(fallback);
+            }
+        }
 
-        AddRaritySlots(commonRoot, Rarity.Common);
-        AddRaritySlots(rareRoot, Rarity.Rare);
-        AddRaritySlots(legendaryRoot, Rarity.Legendary);
+        if (!built && debugLogs)
+        {
+            Debug.LogWarning("[CharacterModification] BuildCache found no trait slots. Check traitsRoot/character hierarchy.");
+        }
     }
 
     private Transform ResolveTraitsRoot()
@@ -194,6 +356,69 @@ public class CharacterModification : MonoBehaviour
         return transform;
     }
 
+    private List<Transform> GetCharacterRoots()
+    {
+        var roots = new List<Transform>();
+
+        if (charactersRoot != null)
+        {
+            for (int i = 0; i < charactersRoot.childCount; i++)
+            {
+                var child = charactersRoot.GetChild(i);
+                if (child != null) roots.Add(child);
+            }
+            return roots;
+        }
+
+        Transform root = resolvedTraitsRoot != null ? resolvedTraitsRoot : ResolveTraitsRoot();
+        if (root == null || root.childCount == 0)
+        {
+            root = FindBestTraitsRoot();
+        }
+        if (root == null) return roots;
+
+        for (int i = 0; i < root.childCount; i++)
+        {
+            var child = root.GetChild(i);
+            if (child == null) continue;
+            if (NameEquals(child.name, commonName) || NameEquals(child.name, rareName) || NameEquals(child.name, legendaryName))
+            {
+                continue;
+            }
+
+            if (HasRaritySubtree(child))
+            {
+                roots.Add(child);
+            }
+        }
+
+        return roots;
+    }
+
+    private bool TryBuildCacheFromRoot(Transform root)
+    {
+        if (root == null) return false;
+
+        int before = cache.Count;
+        var rootsToScan = CollectAutoScanRarityRoots(root);
+        for (int i = 0; i < rootsToScan.Count; i++)
+        {
+            AddRaritySlots(rootsToScan[i].root, rootsToScan[i].rarity);
+        }
+
+        if (cache.Count > before)
+        {
+            resolvedTraitsRoot = root;
+            if (debugLogs)
+            {
+                Debug.Log($"[CharacterModification] BuildCache success. root={root.name}, slots={cache.Count}");
+            }
+            return true;
+        }
+
+        return false;
+    }
+
     private void AddRaritySlots(Transform rarityRoot, Rarity rarity)
     {
         if (rarityRoot == null) return;
@@ -201,7 +426,7 @@ public class CharacterModification : MonoBehaviour
         {
             var trait = rarityRoot.GetChild(i);
             if (trait == null) continue;
-            var slotName = trait.name;
+            var slotName = NormalizeSlotName(trait.name);
             if (string.IsNullOrEmpty(slotName)) continue;
             if (!cache.TryGetValue(slotName, out var sc))
             {
@@ -211,11 +436,90 @@ public class CharacterModification : MonoBehaviour
             var options = MakeOptionList(trait);
             switch (rarity)
             {
-                case Rarity.Common: sc.common = options; break;
-                case Rarity.Rare: sc.rare = options; break;
-                case Rarity.Legendary: sc.legendary = options; break;
+                case Rarity.Common: MergeOptionLists(sc.common, options); break;
+                case Rarity.Rare: MergeOptionLists(sc.rare, options); break;
+                case Rarity.Legendary: MergeOptionLists(sc.legendary, options); break;
             }
         }
+    }
+
+    private List<RarityRootRef> CollectAutoScanRarityRoots(Transform root)
+    {
+        var result = new List<RarityRootRef>();
+        if (root == null) return result;
+
+        // 1) Global rarity roots directly under traits root (for shared slots like outfits/backpacks)
+        AddRarityRootIfValid(result, FindDirectChildByName(root, commonName), Rarity.Common);
+        AddRarityRootIfValid(result, FindDirectChildByName(root, rareName), Rarity.Rare);
+        AddRarityRootIfValid(result, FindDirectChildByName(root, legendaryName), Rarity.Legendary);
+
+        // 2) Active character rarity roots (for per-character slots like eye/hat/mouth/eyewear)
+        var activeCharacterRoot = ResolveActiveCharacterRoot(root);
+        if (activeCharacterRoot != null)
+        {
+            AddRarityRootIfValid(result, FindByName(activeCharacterRoot, commonName), Rarity.Common);
+            AddRarityRootIfValid(result, FindByName(activeCharacterRoot, rareName), Rarity.Rare);
+            AddRarityRootIfValid(result, FindByName(activeCharacterRoot, legendaryName), Rarity.Legendary);
+        }
+
+        return result;
+    }
+
+    private void AddRarityRootIfValid(List<RarityRootRef> target, Transform rarityRoot, Rarity rarity)
+    {
+        if (target == null || rarityRoot == null) return;
+        for (int i = 0; i < target.Count; i++)
+        {
+            if (target[i].root == rarityRoot) return;
+        }
+        target.Add(new RarityRootRef { root = rarityRoot, rarity = rarity });
+    }
+
+    private Transform ResolveActiveCharacterRoot(Transform root)
+    {
+        // Prefer explicit characters root if configured.
+        if (charactersRoot != null)
+        {
+            Transform fallback = null;
+            for (int i = 0; i < charactersRoot.childCount; i++)
+            {
+                var child = charactersRoot.GetChild(i);
+                if (child == null) continue;
+                if (!HasRaritySubtree(child)) continue;
+
+                if (child.gameObject.activeInHierarchy) return child;
+                if (fallback == null) fallback = child;
+            }
+            if (fallback != null) return fallback;
+        }
+
+        if (root == null) return null;
+
+        // Fallback: infer character root from traits root children (excluding global rarity folders).
+        Transform inferredFallback = null;
+        for (int i = 0; i < root.childCount; i++)
+        {
+            var child = root.GetChild(i);
+            if (child == null) continue;
+            if (NameEquals(child.name, commonName) || NameEquals(child.name, rareName) || NameEquals(child.name, legendaryName))
+            {
+                continue;
+            }
+            if (!HasRaritySubtree(child)) continue;
+
+            if (child.gameObject.activeInHierarchy) return child;
+            if (inferredFallback == null) inferredFallback = child;
+        }
+
+        return inferredFallback;
+    }
+
+    private bool HasRaritySubtree(Transform root)
+    {
+        if (root == null) return false;
+        return FindByName(root, commonName) != null
+            || FindByName(root, rareName) != null
+            || FindByName(root, legendaryName) != null;
     }
 
     private List<GameObject> MakeOptionList(Transform parent)
@@ -241,12 +545,89 @@ public class CharacterModification : MonoBehaviour
         var children = root.GetComponentsInChildren<Transform>(includeInactive);
         foreach (var t in children)
         {
-            if (t != null && string.Equals(t.name, name, StringComparison.OrdinalIgnoreCase))
+            if (t != null && NameEquals(t.name, name))
             {
                 return t;
             }
         }
         return null;
+    }
+
+    private Transform FindDirectChildByName(Transform root, string name)
+    {
+        if (root == null || string.IsNullOrEmpty(name)) return null;
+        for (int i = 0; i < root.childCount; i++)
+        {
+            var child = root.GetChild(i);
+            if (child != null && NameEquals(child.name, name))
+            {
+                return child;
+            }
+        }
+        return null;
+    }
+
+    private static bool NameEquals(string a, string b)
+    {
+        return string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void MergeOptionLists(List<GameObject> target, List<GameObject> incoming)
+    {
+        if (target == null || incoming == null) return;
+        for (int i = 0; i < incoming.Count; i++)
+        {
+            var go = incoming[i];
+            if (go == null) continue;
+            if (!target.Contains(go))
+            {
+                target.Add(go);
+            }
+        }
+    }
+
+    private string NormalizeSlotName(string slotName)
+    {
+        if (string.IsNullOrWhiteSpace(slotName)) return slotName;
+
+        string key = slotName.Trim().Replace("_", string.Empty).Replace(" ", string.Empty).ToLowerInvariant();
+        switch (key)
+        {
+            case "backpack":
+            case "backpacks":
+            case "bag":
+            case "bags":
+                return "Backpack";
+
+            case "outfit":
+            case "outfits":
+            case "clothes":
+            case "cloth":
+                return "Outfit";
+
+            case "glass":
+            case "glasses":
+            case "eyewear":
+                return "Glass";
+
+            case "eye":
+                return "Eye";
+
+            case "hat":
+                return "Hat";
+
+            case "mouth":
+                return "Mouth";
+
+            case "hair":
+                return "Hair";
+
+            case "body":
+                return "Body";
+
+            default:
+                return slotName.Trim();
+        }
     }
 
     private List<GameObject> GetListForRarity(SlotCache sc, Rarity r)
@@ -266,28 +647,85 @@ public class CharacterModification : MonoBehaviour
         disableList(sc.common); disableList(sc.rare); disableList(sc.legendary);
     }
 
+    private List<(Rarity rarity, int idx)> BuildCombinedIndexMap(SlotCache sc)
+    {
+        var flat = new List<(Rarity rarity, int idx)>();
+        if (sc == null) return flat;
+
+        void Add(List<GameObject> list, Rarity rarity)
+        {
+            if (list == null) return;
+            for (int i = 0; i < list.Count; i++)
+            {
+                flat.Add((rarity, i));
+            }
+        }
+
+        // Stable order when UI does not expose rarity tabs.
+        Add(sc.common, Rarity.Common);
+        Add(sc.rare, Rarity.Rare);
+        Add(sc.legendary, Rarity.Legendary);
+        return flat;
+    }
+
     public void SetSlot(string slotName, Rarity rarity, int index)
     {
+        slotName = NormalizeSlotName(slotName);
         if (string.IsNullOrEmpty(slotName)) return;
         if (cache.Count == 0) BuildCache();
-        if (!cache.TryGetValue(slotName, out var sc)) return;
+        if (!cache.TryGetValue(slotName, out var sc))
+        {
+            if (debugLogs) Debug.LogWarning($"[CharacterModification] Slot '{slotName}' not found. cacheCount={cache.Count}");
+            return;
+        }
 
         DisableAllInSlot(sc);
 
         if (index < 0) { sc.currentSelection = null; return; }
 
         var list = GetListForRarity(sc, rarity);
-        if (list == null || index >= list.Count) return;
+        if (list == null || index >= list.Count)
+        {
+            if (debugLogs) Debug.LogWarning($"[CharacterModification] Slot '{slotName}' rarity={rarity} index={index} out of range count={(list == null ? 0 : list.Count)}");
+            return;
+        }
         var go = list[index];
         if (go == null) return;
         go.SetActive(true);
         sc.currentSelection = (rarity, index);
     }
 
-    public void SetSlot(string slotName, int index) => SetSlot(slotName, Rarity.Common, index);
+    public void SetSlot(string slotName, int index)
+    {
+        slotName = NormalizeSlotName(slotName);
+        if (string.IsNullOrEmpty(slotName)) return;
+        if (cache.Count == 0) BuildCache();
+        if (!cache.TryGetValue(slotName, out var sc))
+        {
+            if (debugLogs) Debug.LogWarning($"[CharacterModification] Slot '{slotName}' not found for flat index selection. cacheCount={cache.Count}");
+            return;
+        }
+
+        if (index < 0)
+        {
+            ClearSlot(slotName);
+            return;
+        }
+
+        var flat = BuildCombinedIndexMap(sc);
+        if (index >= flat.Count)
+        {
+            if (debugLogs) Debug.LogWarning($"[CharacterModification] Slot '{slotName}' flat index={index} out of range count={flat.Count}");
+            return;
+        }
+
+        var pick = flat[index];
+        SetSlot(slotName, pick.rarity, pick.idx);
+    }
 
     public void SetSlotByName(string slotName, string childName)
     {
+        slotName = NormalizeSlotName(slotName);
         if (string.IsNullOrEmpty(slotName) || string.IsNullOrEmpty(childName)) return;
         if (cache.Count == 0) BuildCache();
         if (!cache.TryGetValue(slotName, out var sc)) return;
@@ -310,6 +748,7 @@ public class CharacterModification : MonoBehaviour
 
     public void ClearSlot(string slotName)
     {
+        slotName = NormalizeSlotName(slotName);
         if (string.IsNullOrEmpty(slotName)) return;
         if (cache.Count == 0) BuildCache();
         if (!cache.TryGetValue(slotName, out var sc)) return;
@@ -319,6 +758,7 @@ public class CharacterModification : MonoBehaviour
 
     public void RandomizeSlot(string slotName)
     {
+        slotName = NormalizeSlotName(slotName);
         if (string.IsNullOrEmpty(slotName)) return;
         if (cache.Count == 0) BuildCache();
         if (!cache.TryGetValue(slotName, out var sc)) return;
@@ -332,6 +772,7 @@ public class CharacterModification : MonoBehaviour
 
     public int GetOptionCount(string slotName, Rarity rarity)
     {
+        slotName = NormalizeSlotName(slotName);
         if (string.IsNullOrEmpty(slotName)) return 0;
         if (cache.Count == 0) BuildCache();
         if (!cache.TryGetValue(slotName, out var sc)) return 0;
