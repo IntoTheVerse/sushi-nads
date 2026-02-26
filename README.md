@@ -324,8 +324,8 @@ function updateScore(address player, uint256 score, uint256 sessionId) external
 
 1. **Clone the repository**
 ```bash
-git clone https://github.com/yourusername/sushi-bonks.git
-cd sushi-bonks
+git clone https://github.com/IntoTheVerse/sushi-nads.git
+cd sushi-nads
 ```
 
 2. **Install backend dependencies**
@@ -352,7 +352,7 @@ sudo npm install -g pm2
 
 2. **Deploy and start backend**
 ```bash
-cd /path/to/sushi-bonks/backend
+cd /path/to/sushi-nads/backend
 npm install
 cp env.example.txt .env
 nano .env
@@ -743,7 +743,7 @@ This project is licensed under the MIT License.
 ## 📞 Contact & Links
 
 - **Website:** [IntoTheVerse](https://intotheverse.xyz/)
-- **Twitter:** [Sushi Bonks](https://x.com/sushibonks_)
+- **Twitter:** [Sushi Nads](https://x.com/sushinads)
 - **Discord:** *(Coming Soon)*
 - **GitHub:** [github.com/lopeselio/sushi-nads](github.com/IntoTheVerse/sushi-nads)
 
@@ -756,9 +756,9 @@ This project is licensed under the MIT License.
 
 ---
 
-## 🔥 Why Sushi Bonks?
+## 🔥 Why Sushi Nads?
 
-> "Traditional games lock your progress on servers you don't control. Sushi Bonks puts your gaming identity, achievements, and history permanently on the blockchain. Your Chef, your scores, your legacy - all provably yours, forever."
+> "Traditional games lock your progress on servers you don't control. Sushi Nads puts your gaming identity, achievements, and history permanently on the blockchain. Your Chef, your scores, your legacy - all provably yours, forever."
 
 **This isn't just a game with crypto tacked on. This is blockchain gaming done right.**
 
