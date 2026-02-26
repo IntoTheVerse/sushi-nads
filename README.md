@@ -339,6 +339,53 @@ npm run dev
 
    **Production deployment:** See [backend/DEPLOYMENT.md](backend/DEPLOYMENT.md) for PM2 + Nginx setup on a dedicated server.
 
+### **Backend Hosting on Dedicated Cloud Server (PM2 + Nginx)**
+
+Use this when deploying the backend to your own VPS/cloud server (Ubuntu/Debian).
+
+1. **Install runtime packages on the server**
+```bash
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get install -y nodejs build-essential nginx
+sudo npm install -g pm2
+```
+
+2. **Deploy and start backend**
+```bash
+cd /path/to/sushi-bonks/backend
+npm install
+cp env.example.txt .env
+nano .env
+mkdir -p logs
+pm2 start ecosystem.config.cjs
+pm2 save
+pm2 startup
+```
+
+3. **Configure Nginx reverse proxy**
+```bash
+sudo cp nginx/sushi-bonks.conf.example /etc/nginx/conf.d/sushi-bonks.conf
+sudo nano /etc/nginx/conf.d/sushi-bonks.conf
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+4. **(Recommended) Enable HTTPS**
+```bash
+sudo apt install certbot python3-certbot-nginx
+sudo certbot --nginx -d your_domain.com
+```
+
+**Required `.env` notes for self-hosted backend:**
+- Create `backend/.env` from `backend/env.example.txt`
+- Set all Privy keys (`PRIVY_APP_ID`, `PRIVY_APP_SECRET`, `PRIVY_CLIENT_ID`, sponsorship keys)
+- Set blockchain signer and contract addresses (`BACKEND_PRIVATE_KEY`, `CHEFNFT_ADDRESS`, `GAMECORE_ADDRESS`, `LEADERBOARD_ADDRESS`)
+- Set Firebase values, including `FIREBASE_CREDENTIALS` service account JSON (required outside GCP)
+- Set `ALLOWED_ORIGINS` to your Unity/WebGL frontend domains
+- Keep `.env` out of git and never commit secrets
+
+For full deployment details and troubleshooting, use [backend/DEPLOYMENT.md](backend/DEPLOYMENT.md).
+
 3. **Open Unity project**
 ```bash
 # Open the project folder in Unity Hub
