@@ -3,7 +3,72 @@ guid: 5b1fcd5b413c4b74cba49961af72d165
 ModelImporter:
   serializedVersion: 22200
   internalIDToNameTable: []
-  externalObjects: {}
+  externalObjects:
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Atlus
+    second: {fileID: 2100000, guid: 31019f7c7ecff66459f1216be5d3fa33, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Default_Material
+    second: {fileID: 2100000, guid: 0fa554eeb9676f34c8bdee7bb41bb81d, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_Glass_01
+    second: {fileID: 2100000, guid: 5657976ebec6ab14fabc28cf6afb8a62, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_traits_01
+    second: {fileID: 2100000, guid: 2ad74e1377e878c4fb9a9f10f5bf3c2b, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_traits_2
+    second: {fileID: 2100000, guid: 20f2f3b5c98bdd144bd192fc419d7413, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: One_page
+    second: {fileID: 2100000, guid: 751f6b5e9beef4b47b93d2e320fb2553, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: metal_pallet
+    second: {fileID: 2100000, guid: f2b8bab27dda7eb4196b1d95e7d5714e, type: 2}
+  - first:
+      type: UnityEngine:Texture2D
+      assembly: UnityEngine.CoreModule
+      name: 2_Traits_M_traits_01_BaseColor_2
+    second: {fileID: 2800000, guid: 8ca016b40c3e559448483327dba8adf4, type: 3}
+  - first:
+      type: UnityEngine:Texture2D
+      assembly: UnityEngine.CoreModule
+      name: 2_Traits_M_traits_01_Emission_1
+    second: {fileID: 2800000, guid: b12aa6f54a9e1394f892d25d9692542f, type: 3}
+  - first:
+      type: UnityEngine:Texture2D
+      assembly: UnityEngine.CoreModule
+      name: Atlas_2
+    second: {fileID: 2800000, guid: f1a47aee6339c0848ae172a24c07d1d4, type: 3}
+  - first:
+      type: UnityEngine:Texture2D
+      assembly: UnityEngine.CoreModule
+      name: Head_M_traits_2_BaseColor_1
+    second: {fileID: 2800000, guid: 8341cd2506dda9b4f83cb1d883f3bf8f, type: 3}
+  - first:
+      type: UnityEngine:Texture2D
+      assembly: UnityEngine.CoreModule
+      name: M_glass_M_Glass_01_BaseColor
+    second: {fileID: 2800000, guid: 3cf8a1f6d570d214eb3aea7b28b0c7ba, type: 3}
+  - first:
+      type: UnityEngine:Texture2D
+      assembly: UnityEngine.CoreModule
+      name: Onepage_2
+    second: {fileID: 2800000, guid: df6ca3af379b455449bd6789dffdcd57, type: 3}
   materials:
     materialImportMode: 2
     materialName: 0

@@ -30,6 +30,7 @@ public class LeaderboardPanelUI : MonoBehaviour
     private VerticalLayoutGroup dynamicLayoutGroup;
     private ContentSizeFitter dynamicContentFitter;
     private Coroutine loadingRotationCoroutine;
+    private CharacterModification characterModification;
     
     // Medal sprites for top 3 and player highlight
     [Header("Rank Sprites")]
@@ -74,6 +75,40 @@ public class LeaderboardPanelUI : MonoBehaviour
         }
 
         _ = RefreshAsync();
+    }
+
+    /// <summary>
+    /// Single entry point to open/close character customization panel.
+    /// Use true to open, false to close.
+    /// </summary>
+    public void SetCharacterCustomizationPanelActive(bool isActive)
+    {
+        if (!TryGetCharacterCustomizationPanel(out var customizationPanel))
+        {
+            Debug.LogWarning("LeaderboardPanelUI: CharacterModification or customizationScreenRoot is not assigned.");
+            return;
+        }
+
+        customizationPanel.SetActive(isActive);
+        characterModification?.SetCustomizationLightingActive(isActive);
+    }
+
+    private bool TryGetCharacterCustomizationPanel(out GameObject panel)
+    {
+        panel = null;
+
+        if (characterModification == null)
+        {
+            characterModification = FindFirstObjectByType<CharacterModification>();
+        }
+
+        if (characterModification == null)
+        {
+            return false;
+        }
+
+        panel = characterModification.customizationScreenRoot;
+        return panel != null;
     }
 
     private async System.Threading.Tasks.Task RefreshAsync()

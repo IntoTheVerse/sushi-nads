@@ -3026,6 +3026,8 @@ MonoBehaviour:
   statDisplayDelay: 0.3
   statAnimationDuration: 0.5
   closeButton: {fileID: 1002503042}
+  tutorialRedirectDelaySeconds: 5
+  tutorialTimeoutMessage: Well done! Redirecting to main menu...
 --- !u!1001 &269562345
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -6215,6 +6217,8 @@ MonoBehaviour:
   handPulseAmount: 0.12
   priorityOrderTargetUI: {fileID: 663923314}
   timerTargetUI: {fileID: 1528450527}
+  priorityOrderPromptDurationSeconds: 5
+  timerPromptDurationSeconds: 5
   introStepDurationSeconds: 3
 --- !u!4 &415599685
 Transform:
@@ -8260,8 +8264,8 @@ RectTransform:
   - {fileID: 326078193}
   m_Father: {fileID: 445205736}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 0}
+  m_AnchorMin: {x: 0, y: 1}
+  m_AnchorMax: {x: 0, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 435, y: 128}
   m_Pivot: {x: 0, y: 1}
@@ -8401,6 +8405,7 @@ MonoBehaviour:
   stepMoveSpeed: 10
   holdRepeatInitialDelay: 0.35
   holdRepeatInterval: 0.12
+  speedMultiplier: 1
 --- !u!4 &591550580
 Transform:
   m_ObjectHideFlags: 0
@@ -29068,6 +29073,9 @@ MonoBehaviour:
   noneSprite: {fileID: 0}
   autoDetectItemSources: 1
   treatAsItemSourceOverride: 0
+  enableTutorialPulse: 1
+  tutorialPulseCyclesPerSecond: 2.1
+  tutorialPulseScaleAmount: 0.1
 --- !u!65 &1379731789
 BoxCollider:
   m_ObjectHideFlags: 0

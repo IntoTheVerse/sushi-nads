@@ -3,6 +3,7 @@ using UnityEngine;
 public class CharacterCustomizationUI : MonoBehaviour
 {
     public CharacterModification character;
+    public CharacterCustomizationCameraFocus cameraFocus;
     public bool debugLogs;
 
     [Header("Legacy Rarity Panels (Optional)")]
@@ -25,10 +26,16 @@ public class CharacterCustomizationUI : MonoBehaviour
             character = FindFirstObjectByType<CharacterModification>();
         }
 
+        if (cameraFocus == null)
+        {
+            cameraFocus = FindFirstObjectByType<CharacterCustomizationCameraFocus>();
+        }
+
         if (debugLogs)
         {
             string name = character != null ? character.name : "null";
-            Debug.Log($"[CharacterCustomizationUI] Awake character={name}");
+            string cameraName = cameraFocus != null ? cameraFocus.name : "null";
+            Debug.Log($"[CharacterCustomizationUI] Awake character={name}, cameraFocus={cameraName}");
         }
     }
 
@@ -63,6 +70,8 @@ public class CharacterCustomizationUI : MonoBehaviour
             target.SetCharacterByName(characterName, true);
         }
 
+        cameraFocus?.FocusDefault();
+
         ShowCharacterPanel(panelToShow);
     }
 
@@ -84,6 +93,7 @@ public class CharacterCustomizationUI : MonoBehaviour
 
         if (debugLogs) Debug.Log($"[CharacterCustomizationUI] Pick {slotName} index={index}");
         target.SetSlot(slotName, index);
+        cameraFocus?.FocusSlot(slotName);
     }
 
     private bool TryGetCharacter(out CharacterModification target)

@@ -55,7 +55,7 @@ public class Player : MonoBehaviour, IKitchenObjectParent
     private const float MOVE_RECORD_COOLDOWN = 0.1f; // Minimum seconds between move recordings (very short - just prevents duplicate calls for same position)
 
     // Spell effects
-    private float speedMultiplier = 1f; // multiplier for movement speed (e.g., 2f for haste)
+    [SerializeField] private float speedMultiplier = 1f; // multiplier for movement speed (e.g., 2f for haste)
 
     // Awake is called when the script instance is being loaded
     private void Awake()

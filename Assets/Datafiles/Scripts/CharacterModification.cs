@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 /// <summary>
 /// Character trait modifier for rarity-based hierarchies.
@@ -55,6 +56,19 @@ public class CharacterModification : MonoBehaviour
     [Header("Skin Material Options")]
     public List<Material> skinMaterials = new List<Material>();
     public Renderer[] skinRenderers;
+
+    [Header("Lighting Sets (Optional)")]
+    [Tooltip("Lighting GameObject used for main menu / non-customization view.")]
+    public GameObject lightingMainMenu;
+    [Tooltip("Lighting GameObject used while character customization screen is open.")]
+    public GameObject lightingCharCustomisation;
+    [Tooltip("When enabled, lighting auto-switches by reading customization screen active state.")]
+    public bool autoSwitchLightingFromPanel = true;
+    [Tooltip("Customization screen root panel to observe (active = customization lighting).")]
+    public GameObject customizationScreenRoot;
+    [Tooltip("Main menu panel root. Disabled while customization is open.")]
+    [FormerlySerializedAs("MainMenuPanel")]
+    public GameObject MainMenuPanelRoot;
 
     // Slot runtime cache (operates on pre-placed child objects via enable/disable).
     // Runtime cache structures are defined further down and initialized in Awake().
@@ -291,10 +305,29 @@ public class CharacterModification : MonoBehaviour
 
     private Dictionary<string, SlotCache> cache = new Dictionary<string, SlotCache>(StringComparer.OrdinalIgnoreCase);
     private Transform resolvedTraitsRoot;
+    private bool hasObservedCustomizationState;
+    private bool lastCustomizationScreenOpen;
 
     private void Awake()
     {
         BuildCache();
+        RefreshLightingFromCustomizationScreen();
+    }
+
+    private void OnEnable()
+    {
+        RefreshLightingFromCustomizationScreen();
+    }
+
+    private void Update()
+    {
+        if (!autoSwitchLightingFromPanel || customizationScreenRoot == null) return;
+
+        bool isOpen = customizationScreenRoot.activeInHierarchy;
+        if (!hasObservedCustomizationState || isOpen != lastCustomizationScreenOpen)
+        {
+            SetCustomizationLightingActive(isOpen);
+        }
     }
 
     private void BuildCache()
@@ -799,10 +832,61 @@ public class CharacterModification : MonoBehaviour
     public void SetGlassesSlot(int index) => SetSlot("Glass", index);
     public void SetHatSlot(int index) => SetSlot("Hat", index);
 
+    /// <summary>
+    /// Hook this to your "open customization" UI event.
+    /// </summary>
+    public void OnCustomizationScreenOpened()
+    {
+        SetCustomizationLightingActive(true);
+    }
+
+    /// <summary>
+    /// Hook this to your "close customization" UI event.
+    /// </summary>
+    public void OnCustomizationScreenClosed()
+    {
+        SetCustomizationLightingActive(false);
+    }
+
+    /// <summary>
+    /// Enables customization lighting and disables main menu lighting when true.
+    /// </summary>
+    public void SetCustomizationLightingActive(bool isCustomizationOpen)
+    {
+        if (lightingCharCustomisation != null)
+        {
+            lightingCharCustomisation.SetActive(isCustomizationOpen);
+        }
+
+        if (lightingMainMenu != null)
+        {
+            lightingMainMenu.SetActive(!isCustomizationOpen);
+        }
+
+        if (MainMenuPanelRoot != null)
+        {
+            MainMenuPanelRoot.SetActive(!isCustomizationOpen);
+        }
+
+        lastCustomizationScreenOpen = isCustomizationOpen;
+        hasObservedCustomizationState = true;
+
+        if (debugLogs)
+        {
+            Debug.Log($"[CharacterModification] Lighting switched. customizationOpen={isCustomizationOpen}");
+        }
+    }
+
     [ContextMenu("Clear All Traits")]
     public void ClearAll()
     {
         foreach (var kv in cache) DisableAllInSlot(kv.Value);
+    }
+
+    private void RefreshLightingFromCustomizationScreen()
+    {
+        if (!autoSwitchLightingFromPanel || customizationScreenRoot == null) return;
+        SetCustomizationLightingActive(customizationScreenRoot.activeInHierarchy);
     }
 
     #endregion
