@@ -16,9 +16,19 @@ public class GameAPIClient : MonoBehaviour
 {
     public static GameAPIClient Instance { get; private set; }
 
+    private enum ApiEnvironment
+    {
+        Local,
+        Hosted,
+        Custom
+    }
+
     [Header("API Configuration")]
-    [SerializeField] private string baseUrl = "http://localhost:3000";
-    // For production: "https://api.sushibonks.com"
+    [SerializeField] private ApiEnvironment apiEnvironment = ApiEnvironment.Hosted;
+    [SerializeField] private string localBaseUrl = "http://localhost:3000";
+    [SerializeField] private string hostedBaseUrl = "https://api-sushinads.cryptara.world";
+    [SerializeField] private string customBaseUrl = string.Empty;
+    [SerializeField] private string baseUrl = "https://api-sushinads.cryptara.world";
 
     private string cachedWalletAddress = string.Empty;
 
@@ -40,15 +50,66 @@ public class GameAPIClient : MonoBehaviour
             Destroy(gameObject);
             return;
         }
-        
+
+        ApplySelectedApiEnvironment();
         Instance = this;
         DontDestroyOnLoad(gameObject);
     }
+
+    private void ApplySelectedApiEnvironment()
+    {
+        switch (apiEnvironment)
+        {
+            case ApiEnvironment.Local:
+                baseUrl = localBaseUrl;
+                break;
+            case ApiEnvironment.Hosted:
+                baseUrl = hostedBaseUrl;
+                break;
+            case ApiEnvironment.Custom:
+                if (!string.IsNullOrWhiteSpace(customBaseUrl))
+                {
+                    baseUrl = customBaseUrl;
+                }
+                else
+                {
+                    baseUrl = hostedBaseUrl;
+                    Debug.LogWarning("⚠️ API environment is Custom but customBaseUrl is empty. Falling back to hostedBaseUrl.");
+                }
+                break;
+            default:
+                baseUrl = hostedBaseUrl;
+                break;
+        }
+
+        baseUrl = baseUrl.TrimEnd('/');
+        Debug.Log($"🌐 API environment: {apiEnvironment} | Base URL: {baseUrl}");
+    }
     public async Task<LeaderboardResponse> GetTopLeaderboardAsync(int limit = 25)
     {
-        string endpoint = $"/api/leaderboard/top?limit={limit}";
-        // This call uses your SendRequestAsync<T> and returns a LeaderboardResponse instance
-        return await SendRequestAsync<LeaderboardResponse>(endpoint, UnityWebRequest.kHttpVerbGET);
+        string url = $"{baseUrl}/api/leaderboard/top?limit={limit}";
+        using (UnityWebRequest request = UnityWebRequest.Get(url))
+        {
+            request.timeout = 15;
+            request.SetRequestHeader("Content-Type", "application/json");
+
+            var operation = request.SendWebRequest();
+            while (!operation.isDone)
+            {
+                await Task.Yield();
+            }
+
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                string responseText = request.downloadHandler.text;
+                Debug.Log($"✅ Public leaderboard response: {responseText}");
+                return JsonConvert.DeserializeObject<LeaderboardResponse>(responseText);
+            }
+
+            string errorText = request.downloadHandler?.text ?? request.error;
+            Debug.LogError($"❌ Public leaderboard error: {errorText}");
+            throw new Exception($"Public leaderboard request failed: {errorText}");
+        }
     }
     // ============ Helper Methods ============
 
