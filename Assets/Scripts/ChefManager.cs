@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -72,6 +73,25 @@ public class ChefManager : MonoBehaviour
     private MainMenuUI mainMenuUi;
     private bool mustPlayTutorialFirst;
     private bool hasResolvedTutorialGate;
+    private Task profileRefreshTask;
+    private enum PromptIntent
+    {
+        None,
+        Tutorial,
+        SessionRecovery
+    }
+
+    [Header("Session Recovery Prompt")]
+    [SerializeField] private Button tutorialPromptNoButton;
+    [SerializeField] private TMP_Text tutorialPromptText;
+    [SerializeField] private string sessionRecoveryPromptMessage = "End previous session to proceed to next?";
+    [SerializeField] private string sessionRecoveryDeclineMessage = "Previous session kept active. Try again later after timeout.";
+    [SerializeField] private float sessionRecoveryRetryDelaySeconds = 5f;
+
+    private PromptIntent activePromptIntent = PromptIntent.None;
+    private int pendingRecoverySessionId = 0;
+    private bool isProcessingSessionRecovery = false;
+    private string defaultTutorialPromptMessage = string.Empty;
 
     private const string TutorialDoneKeyPrefix = "mandatory_tutorial_done_";
     
@@ -112,6 +132,11 @@ public class ChefManager : MonoBehaviour
         if (tutorialPromptYesButton != null)
         {
             tutorialPromptYesButton.onClick.AddListener(OnTutorialPromptYesClicked);
+        }
+        ResolveTutorialPromptControls();
+        if (tutorialPromptNoButton != null)
+        {
+            tutorialPromptNoButton.onClick.AddListener(OnTutorialPromptNoClicked);
         }
         if (copyWABtn != null)
         {
@@ -215,11 +240,31 @@ public class ChefManager : MonoBehaviour
 
     public async void CheckExistingChef()
     {
+        await EnsureProfileRefreshAsync(showStatus: true, source: "CheckExistingChef");
+    }
+
+    private Task EnsureProfileRefreshAsync(bool showStatus, string source)
+    {
+        if (profileRefreshTask != null && !profileRefreshTask.IsCompleted)
+        {
+            LogTutorialGate(source, "Profile refresh already in flight. Reusing existing request.");
+            return profileRefreshTask;
+        }
+
+        profileRefreshTask = RefreshProfileInternalAsync(showStatus, source);
+        return profileRefreshTask;
+    }
+
+    private async Task RefreshProfileInternalAsync(bool showStatus, string source)
+    {
         try
         {
-            ShowStatusMessage("Checking for existing chef...", Color.yellow);
+            if (showStatus)
+            {
+                ShowStatusMessage("Checking for existing chef...", Color.yellow);
+            }
             hasResolvedTutorialGate = false;
-            LogTutorialGate("CheckExistingChef", "Starting profile check from backend.");
+            LogTutorialGate(source, "Starting profile check from backend.");
             
             // Update wallet display first (in case Privy wasn't ready earlier)
             UpdateWalletDisplay();
@@ -246,7 +291,10 @@ public class ChefManager : MonoBehaviour
                 // No chef found - show mint panel
                 SetMenuUiState(MenuUiState.NeedsMint);
                 
-                ShowStatusMessage("Create your chef to start playing!", Color.white);
+                if (showStatus)
+                {
+                    ShowStatusMessage("Create your chef to start playing!", Color.white);
+                }
                 if (mintChefButton != null) mintChefButton.interactable = true;
             }
         }
@@ -263,7 +311,10 @@ public class ChefManager : MonoBehaviour
             // Still try to update wallet display even if no chef exists
             UpdateWalletDisplay();
             
-            ShowStatusMessage("Create your chef to start playing!", Color.white);
+            if (showStatus)
+            {
+                ShowStatusMessage("Create your chef to start playing!", Color.white);
+            }
             if (mintChefButton != null) mintChefButton.interactable = true;
         }
     }
@@ -556,6 +607,12 @@ public class ChefManager : MonoBehaviour
 
     public void OnTutorialPromptYesClicked()
     {
+        if (activePromptIntent == PromptIntent.SessionRecovery)
+        {
+            _ = HandleSessionRecoveryYesAsync();
+            return;
+        }
+
         LogTutorialGate("OnTutorialPromptYesClicked", "User confirmed tutorial prompt.");
         OpenTutorial();
     }
@@ -783,10 +840,7 @@ public class ChefManager : MonoBehaviour
         }
         catch (Exception e)
         {
-            Debug.LogError($"❌ Failed to start game session: {e.Message}");
-            ShowStatusMessage($"Failed to start game: {e.Message}", Color.red);
-            
-            // Restore button state on failure
+            // Restore button state before handling error outcomes.
             if (playButton != null)
             {
                 playButton.interactable = true;
@@ -795,6 +849,15 @@ public class ChefManager : MonoBehaviour
             {
                 playButtonText.text = originalButtonText;
             }
+
+            if (TryExtractActiveSessionId(e, out int activeSessionId))
+            {
+                ShowSessionRecoveryPrompt(activeSessionId);
+                return;
+            }
+
+            Debug.LogError($"❌ Failed to start game session: {e.Message}");
+            ShowStatusMessage($"Failed to start game: {e.Message}", Color.red);
         }
     }
 
@@ -966,24 +1029,7 @@ public class ChefManager : MonoBehaviour
 
     private async Task RefreshProfileSilently()
     {
-        try
-        {
-            LogTutorialGate("RefreshProfileSilently", "Fetching profile in background.");
-            var profile = await GameAPIClient.Instance.GetProfile();
-            if (profile != null && profile.player != null)
-            {
-                ApplyReadyState(profile);
-            }
-            else
-            {
-                LogTutorialGate("RefreshProfileSilently", "Profile returned null/empty.");
-            }
-        }
-        catch (Exception e)
-        {
-            Debug.LogWarning($"Silent profile refresh failed: {e.Message}");
-            LogTutorialGate("RefreshProfileSilently", $"Failed with error: {e.Message}");
-        }
+        await EnsureProfileRefreshAsync(showStatus: false, source: "RefreshProfileSilently");
     }
 
     private void CacheChefState(string name, int id)
@@ -1117,6 +1163,7 @@ public class ChefManager : MonoBehaviour
             return false;
         }
 
+        ConfigurePromptForTutorial();
         tutorialPromptPanel.SetActive(true);
         tutorialPromptPanel.transform.SetAsLastSibling();
 
@@ -1130,6 +1177,226 @@ public class ChefManager : MonoBehaviour
 
         LogTutorialGate(context, $"Forced tutorial prompt visible. {DescribePanel(tutorialPromptPanel)}");
         return true;
+    }
+
+    private void ResolveTutorialPromptControls()
+    {
+        if (tutorialPromptPanel == null)
+        {
+            return;
+        }
+
+        if (tutorialPromptNoButton == null)
+        {
+            var buttons = tutorialPromptPanel.GetComponentsInChildren<Button>(true);
+            tutorialPromptNoButton = buttons.FirstOrDefault(b =>
+                b != null &&
+                b != tutorialPromptYesButton &&
+                b.name.Trim().Equals("NoButton", StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (tutorialPromptText == null)
+        {
+            var texts = tutorialPromptPanel.GetComponentsInChildren<TMP_Text>(true);
+            tutorialPromptText = texts.FirstOrDefault(t =>
+                t != null && t.name.Trim().Equals("PromptTxt", StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (tutorialPromptText != null && string.IsNullOrEmpty(defaultTutorialPromptMessage))
+        {
+            defaultTutorialPromptMessage = tutorialPromptText.text;
+        }
+    }
+
+    private bool TryExtractActiveSessionId(Exception error, out int sessionId)
+    {
+        sessionId = 0;
+        if (error == null || string.IsNullOrEmpty(error.Message))
+        {
+            return false;
+        }
+
+        string message = error.Message;
+        if (message.IndexOf("session already active", StringComparison.OrdinalIgnoreCase) < 0)
+        {
+            return false;
+        }
+
+        int jsonStart = message.IndexOf('{');
+        if (jsonStart >= 0)
+        {
+            string jsonText = message.Substring(jsonStart);
+            try
+            {
+                var payload = JsonConvert.DeserializeObject<Dictionary<string, object>>(jsonText);
+                if (payload != null && payload.TryGetValue("sessionId", out object rawSessionId))
+                {
+                    if (rawSessionId is long longId)
+                    {
+                        sessionId = (int)longId;
+                        return sessionId > 0;
+                    }
+
+                    if (rawSessionId is int intId)
+                    {
+                        sessionId = intId;
+                        return sessionId > 0;
+                    }
+
+                    if (int.TryParse(rawSessionId?.ToString(), out int parsedId))
+                    {
+                        sessionId = parsedId;
+                        return sessionId > 0;
+                    }
+                }
+            }
+            catch (Exception parseError)
+            {
+                Debug.LogWarning($"⚠️ Could not parse active session payload: {parseError.Message}");
+            }
+        }
+
+        return false;
+    }
+
+    private void ConfigurePromptForTutorial()
+    {
+        activePromptIntent = PromptIntent.Tutorial;
+        pendingRecoverySessionId = 0;
+        isProcessingSessionRecovery = false;
+
+        if (tutorialPromptText != null && !string.IsNullOrEmpty(defaultTutorialPromptMessage))
+        {
+            tutorialPromptText.text = defaultTutorialPromptMessage;
+        }
+
+        if (tutorialPromptNoButton != null)
+        {
+            tutorialPromptNoButton.gameObject.SetActive(false);
+            tutorialPromptNoButton.interactable = true;
+        }
+
+        if (tutorialPromptYesButton != null)
+        {
+            tutorialPromptYesButton.interactable = true;
+        }
+    }
+
+    private void ShowSessionRecoveryPrompt(int sessionId)
+    {
+        if (tutorialPromptPanel == null || tutorialPromptYesButton == null)
+        {
+            ShowStatusMessage("Active session detected. Please wait for timeout or contact support.", Color.yellow, 5f);
+            return;
+        }
+
+        ResolveTutorialPromptControls();
+        activePromptIntent = PromptIntent.SessionRecovery;
+        pendingRecoverySessionId = sessionId;
+        isProcessingSessionRecovery = false;
+
+        if (tutorialPromptText != null)
+        {
+            tutorialPromptText.text = sessionRecoveryPromptMessage;
+        }
+
+        tutorialPromptPanel.SetActive(true);
+        tutorialPromptPanel.transform.SetAsLastSibling();
+
+        if (tutorialPromptNoButton != null)
+        {
+            tutorialPromptNoButton.gameObject.SetActive(true);
+            tutorialPromptNoButton.interactable = true;
+        }
+
+        tutorialPromptYesButton.interactable = true;
+        ShowStatusMessage("Active session found. Choose Yes to end it and start a new one.", Color.yellow, 5f);
+    }
+
+    private void OnTutorialPromptNoClicked()
+    {
+        if (activePromptIntent != PromptIntent.SessionRecovery || isProcessingSessionRecovery)
+        {
+            if (tutorialPromptPanel != null)
+            {
+                tutorialPromptPanel.SetActive(false);
+            }
+            ConfigurePromptForTutorial();
+            return;
+        }
+
+        if (tutorialPromptPanel != null)
+        {
+            tutorialPromptPanel.SetActive(false);
+        }
+
+        activePromptIntent = PromptIntent.None;
+        pendingRecoverySessionId = 0;
+        ShowStatusMessage(sessionRecoveryDeclineMessage, Color.yellow, 4f);
+    }
+
+    private async Task HandleSessionRecoveryYesAsync()
+    {
+        if (isProcessingSessionRecovery || pendingRecoverySessionId <= 0)
+        {
+            return;
+        }
+
+        isProcessingSessionRecovery = true;
+        if (tutorialPromptYesButton != null)
+        {
+            tutorialPromptYesButton.interactable = false;
+        }
+        if (tutorialPromptNoButton != null)
+        {
+            tutorialPromptNoButton.interactable = false;
+        }
+
+        try
+        {
+            ShowStatusMessage("Ending previous session...", Color.yellow, 5f);
+            await GameAPIClient.Instance.ForceEndSession(pendingRecoverySessionId, 0);
+
+            if (tutorialPromptPanel != null)
+            {
+                tutorialPromptPanel.SetActive(false);
+            }
+
+            activePromptIntent = PromptIntent.None;
+            pendingRecoverySessionId = 0;
+
+            ShowStatusMessage("Previous session ended. Starting new session...", Color.green, 4f);
+            int retryDelayMs = Mathf.Max(0, Mathf.RoundToInt(sessionRecoveryRetryDelaySeconds * 1000f));
+            if (retryDelayMs > 0)
+            {
+                await Task.Delay(retryDelayMs);
+            }
+            if (SessionManager.Instance != null)
+            {
+                await SessionManager.Instance.StartGameSession();
+            }
+            else
+            {
+                ShowStatusMessage("Session manager missing", Color.red, 4f);
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"❌ Session recovery failed: {e.Message}");
+            ShowStatusMessage($"Failed to end previous session: {e.Message}", Color.red, 5f);
+        }
+        finally
+        {
+            isProcessingSessionRecovery = false;
+            if (tutorialPromptYesButton != null)
+            {
+                tutorialPromptYesButton.interactable = true;
+            }
+            if (tutorialPromptNoButton != null)
+            {
+                tutorialPromptNoButton.interactable = true;
+            }
+        }
     }
 
     // ============ Public Getters ============
