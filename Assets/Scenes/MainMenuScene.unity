@@ -21895,7 +21895,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b9ef7cff502034d27a507630028c426e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  apiEnvironment: 1
+  apiEnvironment: 0
   localBaseUrl: http://localhost:3000
   hostedBaseUrl: https://api-sushinads.cryptara.world
   customBaseUrl: 
@@ -32081,6 +32081,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _gameOverUI: {fileID: 0}
   pendingEventsTimeoutMs: 15000
+  heartbeatIntervalSeconds: 20
 --- !u!4 &1301030743
 Transform:
   m_ObjectHideFlags: 0
@@ -241188,7 +241189,7 @@ Camera:
     height: 1
   near clip plane: 0.3
   far clip plane: 1000
-  field of view: 37.52351
+  field of view: 37.523506
   orthographic: 0
   orthographic size: 5
   m_Depth: -1
