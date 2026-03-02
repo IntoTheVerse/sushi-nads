@@ -25,7 +25,8 @@ public class SessionManager : MonoBehaviour
     private bool isEndingSession = false;  // Blocks new events (set after draining pending)
     private bool isEndingInProgress = false;  // Re-entrancy guard (set at start)
     [SerializeField] private int pendingEventsTimeoutMs = 15000;
-
+    private const string PendingEndSessionKey = "pending_end_session_id";
+    private const string PendingEndReasonKey = "pending_end_reason";
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -50,13 +51,62 @@ public class SessionManager : MonoBehaviour
     private void Update()
     {
         // DEBUG: Press ESC to manually end session (testing only)
-        if (Input.GetKeyDown(KeyCode.Escape) && isSessionActive)
+        // if (Input.GetKeyDown(KeyCode.Escape) && isSessionActive)
+        // {
+        //     Debug.Log("🔑 ESC pressed - manually ending session...");
+        //     _ = EndGameSession();
+        // }
+    }
+    
+    private void ClearPendingEndFlag()
+    {
+        PlayerPrefs.DeleteKey(PendingEndSessionKey);
+        PlayerPrefs.DeleteKey(PendingEndReasonKey);
+        PlayerPrefs.Save();
+    }
+
+    public async Task RecoverPendingEndIfAny()
+    {
+        int pendingSessionId = PlayerPrefs.GetInt(PendingEndSessionKey, -1);
+        if (pendingSessionId <= 0) return;
+
+        try
         {
-            Debug.Log("🔑 ESC pressed - manually ending session...");
-            _ = EndGameSession();
+            // Best: call your backend "end session" endpoint for pendingSessionId
+            await GameAPIClient.Instance.EndSession(pendingSessionId, 0);
+        }
+        catch
+        {
+            // keep flag, retry next launch
+            return;
+        }
+
+        ClearPendingEndFlag();
+    }
+ private async Task TryEndSessionFromLifecycle(string reason)
+    {
+        if (!isSessionActive || isEndingInProgress) return;
+
+        // Save intent first in case process dies mid-request
+        PlayerPrefs.SetInt(PendingEndSessionKey, currentSessionId);
+        PlayerPrefs.SetString(PendingEndReasonKey, reason);
+        PlayerPrefs.Save();
+
+        try
+        {
+            await EndGameSession(); // your existing method
+            ClearPendingEndFlag();
+        }
+        catch
+        {
+            // keep pending flag for recovery on next launch
         }
     }
 
+    private async void OnApplicationFocus(bool hasFocus)
+    {
+        if (!hasFocus) await TryEndSessionFromLifecycle("APP_BACKGROUND");
+    }
     private void OnDestroy()
     {
         // End session when app/game closes
@@ -67,11 +117,12 @@ public class SessionManager : MonoBehaviour
         }
     }
 
-    private void OnApplicationQuit()
+    private async void OnApplicationQuit()
     {
         // Backup: end session when quitting
         if (isSessionActive)
-        {
+        {        await TryEndSessionFromLifecycle("APP_QUIT");
+
             Debug.Log("🚪 Quitting - ending active session...");
             _ = EndGameSession(); // Fire and forget
         }

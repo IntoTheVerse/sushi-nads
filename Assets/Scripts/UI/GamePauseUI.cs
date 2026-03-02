@@ -17,9 +17,7 @@ public class GamePauseUI : MonoBehaviour
         resumeButton.onClick.AddListener(() => {
             KitchenGameManager.Instance.TogglePauseGame();
         });
-        mainMenuButton.onClick.AddListener(() => {
-            Loader.Load(Loader.Scene.MainMenuScene);
-        });
+        mainMenuButton.onClick.AddListener(OnMainMenuButtonClicked);
         optionsButton.onClick.AddListener(() => {
             OptionsUI.Instance.Show();
         });
@@ -33,7 +31,21 @@ public class GamePauseUI : MonoBehaviour
         //KitchenGameManager.Instance.Resume();
         gameObject.SetActive(false);
     }
+private async void OnMainMenuButtonClicked() {
+    mainMenuButton.interactable = false;
 
+    try {
+        if (SessionManager.Instance != null && SessionManager.Instance.IsSessionActive()) {
+            await SessionManager.Instance.EndGameSession();
+        }
+    }
+    catch (Exception e) {
+        Debug.LogError($"Failed to end session before returning to main menu: {e.Message}");
+    }
+    finally {
+        Loader.Load(Loader.Scene.MainMenuScene);
+    }
+}
     private void Start() {
         instance = this;
         KitchenGameManager.Instance.OnGamePaused += KitchenGameManager_OnGamePaused;
