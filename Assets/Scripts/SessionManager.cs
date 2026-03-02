@@ -103,11 +103,6 @@ public class SessionManager : MonoBehaviour
         }
     }
 
-    private async void OnApplicationPause(bool paused)
-    {
-        if (paused) await TryEndSessionFromLifecycle("APP_PAUSED");
-    }
-
     private async void OnApplicationFocus(bool hasFocus)
     {
         if (!hasFocus) await TryEndSessionFromLifecycle("APP_BACKGROUND");
