@@ -5555,7 +5555,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dbc59b475c98e4ada9eb7872a3c75cc9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  gamePlayingTimerMax: 120
+  gamePlayingTimerMax: 480
   _playPause: {fileID: 465721196}
   _playSprite: {fileID: 21300000, guid: 154988151495e59419cf92e7ac968f01, type: 3}
   _pauseSprite: {fileID: 21300000, guid: f088a2b8388a2bb43b9495581e4d0c41, type: 3}
