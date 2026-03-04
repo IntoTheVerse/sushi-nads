@@ -4,12 +4,16 @@ import { queueTransaction } from '../services/transactionQueue.service.js';
 import { addSessionSignerToWallet, sendSponsoredTransaction } from '../services/privy.service.js';
 import { requireAuth } from '../middleware/auth.js';
 import { validateSessionId } from '../middleware/validation.js';
-import { setCachedSession, deleteCachedSession, clearLeaderboardCache } from '../services/cache.service.js';
+import { getCachedSession, setCachedSession, deleteCachedSession, clearLeaderboardCache } from '../services/cache.service.js';
 import { GAME_CONFIG } from '../config/constants.js';
 import { clearSessionQueue, queueEndSession } from './gameplay.routes.js';
 import { safePlayerHasChef, safeGetPlayerEnergy } from '../utils/contractHelpers.js';
 
 const router = express.Router();
+const SESSION_TIMEOUT_SECONDS = Number(process.env.SESSION_TIMEOUT_SECONDS || GAME_CONFIG.DURATION || 600);
+const SESSION_TIMEOUT_GRACE_SECONDS = Number(process.env.SESSION_TIMEOUT_GRACE_SECONDS || 60);
+const HEARTBEAT_STALE_SECONDS = Number(process.env.SESSION_HEARTBEAT_STALE_SECONDS || 90);
+const ENABLE_HEARTBEAT_RECOVERY = process.env.ENABLE_HEARTBEAT_RECOVERY === 'true';
 
 function formatSessionStats(session) {
     const recipesDelivered = Number(session.recipesDelivered);
@@ -29,6 +33,44 @@ function formatSessionStats(session) {
         efficiency: totalRecipes > 0 ? Math.round((recipesDelivered * 100) / totalRecipes) : 0,
         combo: Number(session.maxComboAchieved),
         currentStreak: Number(session.consecutivePerfectDeliveries)
+    };
+}
+
+function getSessionAgeSeconds(session) {
+    const startTime = Number(session.startTime || 0);
+    if (startTime <= 0) return 0;
+    return Math.max(0, Math.floor(Date.now() / 1000) - startTime);
+}
+
+async function resolveActiveSessionRecovery(sessionId, session) {
+    const ageSeconds = getSessionAgeSeconds(session);
+    const timeoutThreshold = SESSION_TIMEOUT_SECONDS + SESSION_TIMEOUT_GRACE_SECONDS;
+
+    if (ageSeconds >= timeoutThreshold) {
+        return {
+            canAutoEnd: true,
+            reason: 'AUTO_TIMEOUT',
+            ageSeconds
+        };
+    }
+
+    if (ENABLE_HEARTBEAT_RECOVERY) {
+        const cachedSession = await getCachedSession(Number(sessionId));
+        if (cachedSession?.lastHeartbeatAt) {
+            const heartbeatAgeSeconds = Math.floor((Date.now() - Number(cachedSession.lastHeartbeatAt)) / 1000);
+            if (heartbeatAgeSeconds >= HEARTBEAT_STALE_SECONDS && ageSeconds >= HEARTBEAT_STALE_SECONDS) {
+                return {
+                    canAutoEnd: true,
+                    reason: 'AUTO_HEARTBEAT_STALE',
+                    ageSeconds
+                };
+            }
+        }
+    }
+
+    return {
+        canAutoEnd: false,
+        ageSeconds
     };
 }
 
@@ -58,11 +100,25 @@ router.post('/start', requireAuth, async (req, res, next) => {
             try {
                 const existingSession = await gameCore.getSession(currentSessionId);
                 if (existingSession.isActive) {
-                    return res.status(400).json({ 
-                        error: 'Session already active',
-                        message: `You already have an active session (ID: ${currentSessionId}). Please end it first.`,
-                        sessionId: Number(currentSessionId)
-                    });
+                    const recovery = await resolveActiveSessionRecovery(currentSessionId, existingSession);
+                    if (recovery.canAutoEnd) {
+                        console.log(`⏰ Auto-ending stale session ${currentSessionId} (${recovery.reason}, age: ${recovery.ageSeconds}s)`);
+                        await queueEndSession(Number(currentSessionId), recovery.reason, playerAddress, Number(existingSession.moveCount || 0));
+                        await deleteCachedSession(Number(currentSessionId));
+                        try {
+                            await clearLeaderboardCache();
+                        } catch (cacheError) {
+                            console.warn(`⚠️ Failed to clear leaderboard cache after auto-ending session ${currentSessionId}:`, cacheError.message);
+                        }
+                    } else {
+                        return res.status(400).json({
+                            error: 'Session already active',
+                            message: `You already have an active session (ID: ${currentSessionId}). Resume or end it before starting a new one.`,
+                            sessionId: Number(currentSessionId),
+                            canResume: true,
+                            sessionAgeSeconds: recovery.ageSeconds
+                        });
+                    }
                 }
             } catch (err) {
                 // Session might not exist, continue
@@ -116,6 +172,7 @@ router.post('/start', requireAuth, async (req, res, next) => {
             sessionId,
             player: playerAddress,
             startTime,
+            lastHeartbeatAt: Date.now(),
             isActive: true,
             moveCount: 0,
             recipesDelivered: 0,
@@ -164,6 +221,45 @@ router.post('/start', requireAuth, async (req, res, next) => {
             // Pass other errors to error handler
             next(error);
         }
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
+ * POST /api/session/heartbeat
+ * Keep active session alive while app is running.
+ */
+router.post('/heartbeat', requireAuth, validateSessionId, async (req, res, next) => {
+    try {
+        const sessionId = req.sessionId;
+        const playerAddress = req.walletAddress;
+
+        const session = await gameCore.getSession(sessionId);
+        if (session.player.toLowerCase() !== playerAddress.toLowerCase()) {
+            return res.status(403).json({ error: 'Not your session' });
+        }
+
+        if (!session.isActive) {
+            return res.status(400).json({
+                error: 'Session already ended',
+                sessionId
+            });
+        }
+
+        await setCachedSession(sessionId, {
+            sessionId,
+            player: playerAddress,
+            isActive: true,
+            startTime: Number(session.startTime) * 1000,
+            lastHeartbeatAt: Date.now()
+        });
+
+        res.json({
+            success: true,
+            sessionId,
+            heartbeatAt: Date.now()
+        });
     } catch (error) {
         next(error);
     }
@@ -269,6 +365,52 @@ router.post('/end', requireAuth, validateSessionId, async (req, res, next) => {
             txHash: result.txHash,
             message: result.message,
             sessionStats
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
+ * POST /api/session/force-end
+ * Player-initiated recovery when a stale/blocked session prevents a new game.
+ */
+router.post('/force-end', requireAuth, validateSessionId, async (req, res, next) => {
+    try {
+        const sessionId = req.sessionId;
+        const playerAddress = req.walletAddress;
+        const { moveCount: clientMoveCount } = req.body || {};
+        const moveCount = Math.max(0, parseInt(clientMoveCount, 10) || 0);
+
+        const session = await gameCore.getSession(sessionId);
+        if (session.player.toLowerCase() !== playerAddress.toLowerCase()) {
+            return res.status(403).json({ error: 'Not your session' });
+        }
+
+        if (!session.isActive) {
+            await deleteCachedSession(sessionId);
+            return res.json({
+                success: true,
+                sessionId,
+                finalScore: Number(session.finalScore),
+                message: 'Session already ended'
+            });
+        }
+
+        const result = await queueEndSession(sessionId, 'PLAYER_FORCE_ENDED', playerAddress, moveCount);
+        await deleteCachedSession(sessionId);
+        try {
+            await clearLeaderboardCache();
+        } catch (cacheError) {
+            console.warn(`⚠️ Failed to clear leaderboard cache after force-ending session ${sessionId}:`, cacheError.message);
+        }
+
+        res.json({
+            success: true,
+            sessionId,
+            finalScore: result.finalScore,
+            txHash: result.txHash,
+            message: result.message || 'Session force-ended'
         });
     } catch (error) {
         next(error);

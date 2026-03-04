@@ -395,6 +395,18 @@ public class GameAPIClient : MonoBehaviour
         return await SendRequestAsync<CurrentSessionResponse>("/api/session/current", "GET");
     }
 
+    public async Task<HeartbeatResponse> HeartbeatSession(int sessionId)
+    {
+        var body = new { sessionId };
+        return await SendRequestAsync<HeartbeatResponse>("/api/session/heartbeat", "POST", body, timeoutSeconds: 15);
+    }
+
+    public async Task<ForceEndSessionResponse> ForceEndSession(int sessionId, int moveCount = 0)
+    {
+        var body = new { sessionId, moveCount };
+        return await SendRequestAsync<ForceEndSessionResponse>("/api/session/force-end", "POST", body, timeoutSeconds: 30);
+    }
+
     // ============ Gameplay APIs ============
 
     public async Task RecordMove(int sessionId)
@@ -614,6 +626,24 @@ public class CurrentSessionResponse
     public long startTime;
     public int moveCount;
     public int recipesDelivered;
+}
+
+[Serializable]
+public class HeartbeatResponse
+{
+    public bool success;
+    public int sessionId;
+    public long heartbeatAt;
+}
+
+[Serializable]
+public class ForceEndSessionResponse
+{
+    public bool success;
+    public int sessionId;
+    public int finalScore;
+    public string txHash;
+    public string message;
 }
 
 [Serializable]

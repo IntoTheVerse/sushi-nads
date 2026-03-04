@@ -25,6 +25,8 @@ public class SessionManager : MonoBehaviour
     private bool isEndingSession = false;  // Blocks new events (set after draining pending)
     private bool isEndingInProgress = false;  // Re-entrancy guard (set at start)
     [SerializeField] private int pendingEventsTimeoutMs = 15000;
+    [SerializeField] private float heartbeatIntervalSeconds = 20f;
+    private int heartbeatLoopVersion = 0;
     private const string PendingEndSessionKey = "pending_end_session_id";
     private const string PendingEndReasonKey = "pending_end_reason";
     private void Awake()
@@ -128,6 +130,40 @@ public class SessionManager : MonoBehaviour
         }
     }
 
+    private void StartHeartbeatLoop()
+    {
+        heartbeatLoopVersion++;
+        int loopVersion = heartbeatLoopVersion;
+        _ = RunHeartbeatLoopAsync(loopVersion);
+    }
+
+    private void StopHeartbeatLoop()
+    {
+        heartbeatLoopVersion++;
+    }
+
+    private async Task RunHeartbeatLoopAsync(int loopVersion)
+    {
+        float interval = Mathf.Max(5f, heartbeatIntervalSeconds);
+
+        while (isSessionActive && loopVersion == heartbeatLoopVersion)
+        {
+            if (!isEndingSession && !isEndingInProgress && currentSessionId > 0)
+            {
+                try
+                {
+                    await GameAPIClient.Instance.HeartbeatSession(currentSessionId);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning($"⚠️ Session heartbeat failed for {currentSessionId}: {ex.Message}");
+                }
+            }
+
+            await Task.Delay(TimeSpan.FromSeconds(interval));
+        }
+    }
+
     // ============ Start Session ============
     // Called by ChefManager when PlayButton is clicked
 
@@ -146,6 +182,7 @@ public class SessionManager : MonoBehaviour
                 currentSessionId = response.sessionId;
                 isSessionActive = true;
                 isEndingSession = false;
+                StartHeartbeatLoop();
 
                 // Reset local move count (off-chain) for this session
                 if (GameplayEventTracker.Instance != null)
@@ -247,6 +284,7 @@ public class SessionManager : MonoBehaviour
                         isSessionActive = false;
                         isEndingSession = false;
                         isEndingInProgress = false;
+                        StopHeartbeatLoop();
                         
                         Debug.Log($"✅ Session ended!");
                         Debug.Log($"   Final Score: {response.finalScore}");
@@ -295,6 +333,7 @@ public class SessionManager : MonoBehaviour
                             isSessionActive = false; // Mark as inactive locally
                             isEndingSession = false;
                             isEndingInProgress = false;
+                            StopHeartbeatLoop();
                             
                             // Show a simpler message (score will be 0, user can check later)
                             ShowScorePopup(0, "", CreateFallbackStats());
@@ -344,6 +383,11 @@ public class SessionManager : MonoBehaviour
         
         if (_gameOverUI != null)
         {
+            if (!_gameOverUI.gameObject.activeInHierarchy)
+            {
+                _gameOverUI.gameObject.SetActive(true);
+            }
+
             // Use the new DisplayScore method with animation
             var statsToUse = stats ?? CreateFallbackStats();
             _gameOverUI.DisplayScore(score, statsToUse);

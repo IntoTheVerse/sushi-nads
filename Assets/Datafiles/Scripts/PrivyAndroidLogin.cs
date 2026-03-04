@@ -36,6 +36,7 @@ public class PrivyAndroidLogin : MonoBehaviour
 
     private static bool _inited;
     private bool isLoggingOut = false;
+    private bool hasRequestedProfileForCurrentLogin = false;
 
     private void Awake()
     {
@@ -90,10 +91,15 @@ public class PrivyAndroidLogin : MonoBehaviour
         bool isLoggedIn = hasUser && !isLoggingOut;
         if (isLoggedIn)
         {
-            ChefManager.Instance?.CheckExistingChef();
+            if (!hasRequestedProfileForCurrentLogin)
+            {
+                hasRequestedProfileForCurrentLogin = true;
+                ChefManager.Instance?.CheckExistingChef();
+            }
         }
         else
         {
+            hasRequestedProfileForCurrentLogin = false;
             ChefManager.Instance?.ShowLoggedOutState();
         }
         if (managePanelsDirectly)
@@ -326,6 +332,7 @@ public class PrivyAndroidLogin : MonoBehaviour
     public async void Logout()
     {
         isLoggingOut = true;
+        hasRequestedProfileForCurrentLogin = false;
         try
         {
            PrivyManager.Instance.Logout();   // if your SDK is sync: PrivyManager.Instance.Logout();

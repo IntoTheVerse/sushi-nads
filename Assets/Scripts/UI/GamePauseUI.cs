@@ -31,21 +31,25 @@ public class GamePauseUI : MonoBehaviour
         //KitchenGameManager.Instance.Resume();
         gameObject.SetActive(false);
     }
-private async void OnMainMenuButtonClicked() {
-    mainMenuButton.interactable = false;
+    private async void OnMainMenuButtonClicked() {
+        mainMenuButton.interactable = false;
 
-    try {
-        if (SessionManager.Instance != null && SessionManager.Instance.IsSessionActive()) {
-            await SessionManager.Instance.EndGameSession();
+        // Ensure gameplay is unpaused before scene transition.
+        Time.timeScale = 1f;
+
+        try {
+            if (SessionManager.Instance != null && SessionManager.Instance.IsSessionActive()) {
+                await SessionManager.Instance.EndGameSession();
+            }
+        }
+        catch (Exception e) {
+            Debug.LogError($"Failed to end session before returning to main menu: {e.Message}");
+        }
+        finally {
+            Time.timeScale = 1f;
+            Loader.Load(Loader.Scene.MainMenuScene);
         }
     }
-    catch (Exception e) {
-        Debug.LogError($"Failed to end session before returning to main menu: {e.Message}");
-    }
-    finally {
-        Loader.Load(Loader.Scene.MainMenuScene);
-    }
-}
     private void Start() {
         instance = this;
         KitchenGameManager.Instance.OnGamePaused += KitchenGameManager_OnGamePaused;
