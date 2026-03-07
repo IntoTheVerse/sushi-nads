@@ -33,6 +33,8 @@ public class KitchenGameManager : MonoBehaviour
 
     private void Awake() {
         Instance = this;
+        Application.targetFrameRate = 60; // Or 30 for even cooler performance
+        QualitySettings.vSyncCount = 0; // Important: VSync must be 0 for targetFrameRate to work on mobile
         state = State.WaitingToStart;
     }
 

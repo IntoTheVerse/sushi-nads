@@ -41,6 +41,12 @@ public class ChefManager : MonoBehaviour
     [SerializeField] private Button refillEnergyUSDCButton; // USDC payment refill
     [SerializeField] private Button copyWABtn; // USDC payment refill
     [SerializeField] private Button tutorialBtn; // USDC payment refill
+    
+    [Header("Tutorial Confirmation")]
+    [SerializeField] private GameObject tutorialConfirmationPanel;
+    [SerializeField] private Button confirmTutorialYesBtn;
+    [SerializeField] private Button confirmTutorialNoBtn;
+
     [SerializeField] private Button tutorialPromptYesButton; // "Yes" button inside forced tutorial prompt
     [SerializeField] private bool enableTutorialGateDebug = true; // Verbose gate diagnostics in Console
     [SerializeField] private TMP_Text statusText;
@@ -141,10 +147,26 @@ public class ChefManager : MonoBehaviour
         if (copyWABtn != null)
         {
             copyWABtn.onClick.AddListener(CopyWalletAddress);
-        }if (tutorialBtn != null)
-        {
-            tutorialBtn.onClick.AddListener(OpenTutorial);
         }
+        
+        if (tutorialBtn != null)
+        {
+            tutorialBtn.onClick.AddListener(ShowTutorialConfirmationPanel);
+        }
+        if (confirmTutorialYesBtn != null)
+        {
+            confirmTutorialYesBtn.onClick.AddListener(OnTutorialConfirmYes);
+        }
+        if (confirmTutorialNoBtn != null)
+        {
+            confirmTutorialNoBtn.onClick.AddListener(OnTutorialConfirmNo);
+        }
+
+        if (tutorialConfirmationPanel != null)
+        {
+            tutorialConfirmationPanel.SetActive(false);
+        }
+
         // if (refillEnergyUSDCButton != null)
         // {
         //     refillEnergyUSDCButton.onClick.AddListener(OnRefillEnergyUSDCClicked);
@@ -588,6 +610,32 @@ public class ChefManager : MonoBehaviour
         }
     }    
     
+    private void ShowTutorialConfirmationPanel()
+    {
+        if (tutorialConfirmationPanel != null)
+        {
+            tutorialConfirmationPanel.SetActive(true);
+            tutorialConfirmationPanel.transform.SetAsLastSibling();
+        }
+    }
+
+    private void OnTutorialConfirmYes()
+    {
+        if (tutorialConfirmationPanel != null)
+        {
+            tutorialConfirmationPanel.SetActive(false);
+        }
+        OpenTutorial();
+    }
+
+    private void OnTutorialConfirmNo()
+    {
+        if (tutorialConfirmationPanel != null)
+        {
+            tutorialConfirmationPanel.SetActive(false);
+        }
+    }
+
     public void OpenTutorial()
     {
         LogTutorialGate("OpenTutorial", $"Starting tutorial launch. key={GetMandatoryTutorialKey()}");
