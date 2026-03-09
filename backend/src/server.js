@@ -7,7 +7,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 // Import configuration
-import { initializeFirebase } from './config/firebase.js';
+import { initializeFirebase, getDb } from './config/firebase.js';
 import { checkNetworkConnection, activeNetwork } from './services/blockchain.service.js';
 
 // Import middleware
@@ -34,6 +34,7 @@ checkNetworkConnection();
 // Create Express app
 const app = express();
 const PORT = process.env.PORT || 3000;
+const serverStartedAt = Date.now();
 
 // Security middleware
 app.use(helmet());
@@ -67,14 +68,74 @@ app.use((req, res, next) => {
     next();
 });
 
-// Health check
-app.get('/health', (req, res) => {
-    res.json({ 
-        status: 'ok', 
-        timestamp: new Date().toISOString(),
+// Health checks
+function buildBaseHealthPayload() {
+    return {
+        status: 'ok',
         service: 'sushi-bonks-api',
-        version: '1.0.0'
-    });
+        environment: process.env.NODE_ENV || 'development',
+        network: activeNetwork.name,
+        timestamp: new Date().toISOString(),
+        uptimeSeconds: Math.floor((Date.now() - serverStartedAt) / 1000),
+    };
+}
+
+async function buildDeepHealthPayload() {
+    const base = buildBaseHealthPayload();
+    const firebaseEnabled = Boolean(process.env.FIREBASE_PROJECT_ID);
+    const dependencies = {
+        firebase: {
+            enabled: firebaseEnabled,
+            status: firebaseEnabled
+                ? (getDb() ? 'ok' : 'unavailable')
+                : 'disabled',
+        },
+        blockchain: {
+            status: 'unknown',
+        },
+    };
+
+    const networkOk = await checkNetworkConnection();
+    dependencies.blockchain.status = networkOk ? 'ok' : 'error';
+
+    const firebaseOkOrDisabled =
+        dependencies.firebase.status === 'ok' ||
+        dependencies.firebase.status === 'disabled';
+
+    const overallOk =
+        dependencies.blockchain.status === 'ok' &&
+        firebaseOkOrDisabled;
+
+    return {
+        ...base,
+        status: overallOk ? 'ok' : 'degraded',
+        dependencies,
+    };
+}
+
+app.get('/api/health', async (req, res) => {
+    const deep = req.query.deep === '1' || req.query.deep === 'true';
+    if (!deep) {
+        return res.json(buildBaseHealthPayload());
+    }
+
+    try {
+        const payload = await buildDeepHealthPayload();
+        const statusCode = payload.status === 'ok' ? 200 : 503;
+        return res.status(statusCode).json(payload);
+    } catch (error) {
+        return res.status(503).json({
+            ...buildBaseHealthPayload(),
+            status: 'error',
+            error: 'Deep health check failed',
+            message: error.message,
+        });
+    }
+});
+
+// Backward-compatible alias for infra checks.
+app.get('/health', (req, res) => {
+    res.json(buildBaseHealthPayload());
 });
 
 // API Routes
