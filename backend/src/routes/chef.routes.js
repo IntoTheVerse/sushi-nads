@@ -1,5 +1,5 @@
 import express from 'express';
-import { chefNFT, gameCore } from '../services/blockchain.service.js';
+import { chefNFT, gameCore, leaderboard } from '../services/blockchain.service.js';
 import { addSessionSignerToWallet, sendSponsoredTransaction } from '../services/privy.service.js';
 import { requireAuth } from '../middleware/auth.js';
 import { validateMintChef, validateUpdateName } from '../middleware/validation.js';
@@ -76,20 +76,45 @@ router.get('/profile', requireAuth, async (req, res, next) => {
     try {
         const playerAddress = req.walletAddress;
         
-        // Try cache first
+        // Try cache first (but ensure new fields exist)
         const cached = await getCachedProfile(playerAddress);
-        if (cached) {
-            return res.json({ ...cached, cached: true });
+        if (cached && cached.globalStats && cached.player) {
+            const hasPersonalRecords = Boolean(cached.personalRecords);
+            const hasRecentSessions = Array.isArray(cached.recentSessions);
+            
+            if (hasPersonalRecords && hasRecentSessions) {
+                return res.json({ ...cached, cached: true });
+            }
         }
         
-        // Get chef info
-        const hasChef = await safePlayerHasChef(playerAddress);
+        // Get chef info (tolerate chains/contracts where calls might revert)
+        let hasChef = false;
+        try {
+            hasChef = await safePlayerHasChef(playerAddress);
+        } catch (chefCheckError) {
+            console.warn(
+                '⚠️  safePlayerHasChef reverted when building profile, treating as no-chef:',
+                chefCheckError.message
+            );
+            return res.status(404).json({ error: 'No chef NFT found. Please mint a chef first.' });
+        }
+        
         if (!hasChef) {
             return res.status(404).json({ error: 'No chef NFT found. Please mint a chef first.' });
         }
         
-        const tokenIdBigInt = await safeGetChefTokenId(playerAddress);
-        const tokenId = Number(tokenIdBigInt);
+        let tokenId = 0;
+        try {
+            const tokenIdBigInt = await safeGetChefTokenId(playerAddress);
+            tokenId = Number(tokenIdBigInt);
+        } catch (tokenError) {
+            console.warn(
+                '⚠️  safeGetChefTokenId reverted when building profile, treating as no-chef:',
+                tokenError.message
+            );
+            return res.status(404).json({ error: 'No chef NFT found. Please mint a chef first.' });
+        }
+        
         if (tokenId === 0) {
             return res.status(404).json({ error: 'No chef NFT found. Please mint a chef first.' });
         }
@@ -98,11 +123,136 @@ router.get('/profile', requireAuth, async (req, res, next) => {
         const energyBigInt = await safeGetPlayerEnergy(playerAddress);
         const energy = Number(energyBigInt);
         
-        // Get global stats from GameCore
-        const globalStats = await gameCore.getPlayerGlobalStats(playerAddress);
+        // Get global stats from GameCore (tolerate older contracts without this method)
+        let globalStatsRaw;
+        try {
+            globalStatsRaw = await gameCore.getPlayerGlobalStats(playerAddress);
+        } catch (statsError) {
+            console.warn(
+                '⚠️  getPlayerGlobalStats not available or reverted, falling back to zeros:',
+                statsError.message
+            );
+            globalStatsRaw = {
+                totalSessionsPlayed: 0n,
+                totalMoves: 0n,
+                totalRecipesSpawned: 0n,
+                totalRecipesDelivered: 0n,
+                totalRecipesDiscarded: 0n,
+                totalWellCooked: 0n,
+                totalOverCooked: 0n
+            };
+        }
+        
+        // Get session history to compute personal records and recent sessions
+        let sessionIdNumbers = [];
+        try {
+            const sessionIds = await gameCore.getPlayerSessionHistory(playerAddress);
+            sessionIdNumbers = sessionIds.map((id) => Number(id)).filter((id) => id > 0);
+        } catch (historyError) {
+            console.warn(
+                '⚠️  getPlayerSessionHistory not available or reverted, personal records will be empty:',
+                historyError.message
+            );
+            sessionIdNumbers = [];
+        }
+        
+        let highestScore = 0;
+        let bestCombo = 0;
+        let fastestTime = 0;
+        const recentSessions = [];
+        
+        if (sessionIdNumbers.length > 0) {
+            // Fetch all sessions once to avoid repeated RPC calls
+            const sessions = await Promise.all(
+                sessionIdNumbers.map(async (id) => {
+                    try {
+                        const s = await gameCore.getSession(id);
+                        return { id, session: s };
+                    } catch (sessionError) {
+                        console.warn(
+                            `⚠️  getSession(${id}) failed while building profile, skipping session:`,
+                            sessionError.message
+                        );
+                        return null;
+                    }
+                })
+            );
+            
+            for (const entry of sessions) {
+                if (!entry || !entry.session) continue;
+                const { session } = entry;
+                const score = Number(session.finalScore);
+                const combo = Number(session.maxComboAchieved);
+                const startTime = Number(session.startTime);
+                const endTime = Number(session.endTime);
+                const duration = endTime > 0 && startTime > 0 ? endTime - startTime : 0;
+                
+                if (score > highestScore) highestScore = score;
+                if (combo > bestCombo) bestCombo = combo;
+                if (duration > 0 && (fastestTime === 0 || duration < fastestTime)) {
+                    fastestTime = duration;
+                }
+            }
+            
+            // Build recent sessions list (last 3, newest first)
+            const newestFirst = [...sessionIdNumbers].sort((a, b) => b - a);
+            const recentIds = newestFirst.slice(0, 3);
+            const recentSessionDetails = await Promise.all(
+                recentIds.map(async (id) => {
+                    try {
+                        const s = await gameCore.getSession(id);
+                        const endTime = Number(s.endTime);
+                        const timestamp = endTime > 0 ? endTime * 1000 : Number(s.startTime) * 1000;
+                        return {
+                            sessionId: id,
+                            score: Number(s.finalScore),
+                            timestamp
+                        };
+                    } catch (recentSessionError) {
+                        console.warn(
+                            `⚠️  getSession(${id}) failed while building recent sessions, skipping entry:`,
+                            recentSessionError.message
+                        );
+                        return null;
+                    }
+                })
+            );
+            recentSessions.push(...recentSessionDetails.filter(Boolean));
+        }
+        
+        // Get current rank from leaderboard (safe fallbacks)
+        let currentRank = 0;
+        try {
+            const entry = await leaderboard.getPlayerEntry(playerAddress);
+            currentRank = Number(entry.rank || 0);
+        } catch (entryError) {
+            console.warn(
+                '⚠️  getPlayerEntry failed when building profile, falling back to getPlayerRank:',
+                entryError.message
+            );
+            try {
+                const rankRaw = await leaderboard.getPlayerRank(playerAddress);
+                currentRank = Number(rankRaw || 0);
+            } catch (rankError) {
+                console.warn(
+                    '⚠️  getPlayerRank also failed when building profile, defaulting rank to 0:',
+                    rankError.message
+                );
+                currentRank = 0;
+            }
+        }
         
         // Get current session if any
-        const currentSessionId = await gameCore.getCurrentSessionId(playerAddress);
+        let currentSessionId = 0;
+        try {
+            currentSessionId = Number(await gameCore.getCurrentSessionId(playerAddress));
+        } catch (currentSessionError) {
+            console.warn(
+                '⚠️  getCurrentSessionId failed when building profile, defaulting to 0:',
+                currentSessionError.message
+            );
+            currentSessionId = 0;
+        }
         
         const profile = {
             player: {
@@ -113,15 +263,22 @@ router.get('/profile', requireAuth, async (req, res, next) => {
                 maxEnergy: GAME_CONFIG.MAX_ENERGY
             },
             globalStats: {
-                totalSessionsPlayed: Number(globalStats.totalSessionsPlayed),
-                totalMoves: Number(globalStats.totalMoves),
-                totalRecipesSpawned: Number(globalStats.totalRecipesSpawned),
-                totalRecipesDelivered: Number(globalStats.totalRecipesDelivered),
-                totalRecipesDiscarded: Number(globalStats.totalRecipesDiscarded),
-                totalWellCooked: Number(globalStats.totalWellCooked),
-                totalOverCooked: Number(globalStats.totalOverCooked)
+                totalSessionsPlayed: Number(globalStatsRaw.totalSessionsPlayed ?? 0),
+                totalMoves: Number(globalStatsRaw.totalMoves ?? 0),
+                totalRecipesSpawned: Number(globalStatsRaw.totalRecipesSpawned ?? 0),
+                totalRecipesDelivered: Number(globalStatsRaw.totalRecipesDelivered ?? 0),
+                totalRecipesDiscarded: Number(globalStatsRaw.totalRecipesDiscarded ?? 0),
+                totalWellCooked: Number(globalStatsRaw.totalWellCooked ?? 0),
+                totalOverCooked: Number(globalStatsRaw.totalOverCooked ?? 0)
             },
-            currentSessionId: Number(currentSessionId),
+            personalRecords: {
+                highestScore,
+                bestCombo,
+                fastestTime,
+                currentRank
+            },
+            recentSessions,
+            currentSessionId,
             cached: false
         };
         
@@ -130,6 +287,79 @@ router.get('/profile', requireAuth, async (req, res, next) => {
         
         res.json(profile);
     } catch (error) {
+        const message = error?.message || '';
+        const code = error?.code || '';
+        
+        // If profile/stat methods are not available on the deployed contracts,
+        // still return a minimal profile when the user already owns a chef.
+        if (
+            code === 'CALL_EXCEPTION' ||
+            message.includes('CALL_EXCEPTION') ||
+            message.includes('missing revert data')
+        ) {
+            console.warn(
+                '⚠️  Profile blockchain stats call failed, attempting minimal profile fallback:',
+                message
+            );
+
+            try {
+                const playerAddress = req.walletAddress;
+                const hasChef = await safePlayerHasChef(playerAddress);
+                if (!hasChef) {
+                    return res.status(404).json({ error: 'No chef NFT found. Please mint a chef first.' });
+                }
+
+                const tokenId = Number(await safeGetChefTokenId(playerAddress));
+                if (!tokenId) {
+                    return res.status(404).json({ error: 'No chef NFT found. Please mint a chef first.' });
+                }
+
+                const name = await safeGetChefName(tokenId);
+                const energyBigInt = await safeGetPlayerEnergy(playerAddress);
+                const energy = Number(energyBigInt);
+
+                const fallbackProfile = {
+                    player: {
+                        address: playerAddress,
+                        name,
+                        tokenId,
+                        energy,
+                        maxEnergy: GAME_CONFIG.MAX_ENERGY
+                    },
+                    globalStats: {
+                        totalSessionsPlayed: 0,
+                        totalMoves: 0,
+                        totalRecipesSpawned: 0,
+                        totalRecipesDelivered: 0,
+                        totalRecipesDiscarded: 0,
+                        totalWellCooked: 0,
+                        totalOverCooked: 0
+                    },
+                    personalRecords: {
+                        highestScore: 0,
+                        bestCombo: 0,
+                        fastestTime: 0,
+                        currentRank: 0
+                    },
+                    recentSessions: [],
+                    currentSessionId: 0,
+                    profileSupported: false,
+                    cached: false
+                };
+
+                return res.json(fallbackProfile);
+            } catch (fallbackError) {
+                console.warn(
+                    '⚠️  Minimal profile fallback failed, returning unsupported profile response:',
+                    fallbackError.message
+                );
+                return res.status(404).json({
+                    error: 'No on-chain stats available for this player on the current network',
+                    message: 'The deployed GameCore contract does not support profile/statistics queries yet.'
+                });
+            }
+        }
+        
         next(error);
     }
 });
