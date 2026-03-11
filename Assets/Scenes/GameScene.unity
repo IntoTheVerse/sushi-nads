@@ -2053,9 +2053,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a8d156b2f3f74458fb48cd2ffa336f57, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  musicSource: {fileID: 0}
+  musicSource: {fileID: 157573954}
   playlist:
   - {fileID: 8300000, guid: 7a05dfef8ff133848b3b25408c74021c, type: 3}
+  - {fileID: 8300000, guid: 04685668e89b16341a0dcca0ae6aa9c1, type: 3}
+  - {fileID: 8300000, guid: 32edd03e3bb52f948aa64a9aecbd460b, type: 3}
+  - {fileID: 8300000, guid: 0e9f68d147de8394b879a3c029552f32, type: 3}
+  - {fileID: 8300000, guid: dbbaa39aa861f5049b94b452f167e66b, type: 3}
+  - {fileID: 8300000, guid: 2c19b1014479bfe409bd2d9ef357409e, type: 3}
   playOnStart: 1
 --- !u!1001 &167606657
 PrefabInstance:
@@ -2809,7 +2814,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &245939862
 RectTransform:
   m_ObjectHideFlags: 0
@@ -5339,8 +5344,8 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 1303315590}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 0}
+  m_AnchorMin: {x: 0.772, y: 0}
+  m_AnchorMax: {x: 0.772, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 48, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -8399,8 +8404,8 @@ RectTransform:
   - {fileID: 326078193}
   m_Father: {fileID: 445205736}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 0}
+  m_AnchorMin: {x: 0, y: 1}
+  m_AnchorMax: {x: 0, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 435, y: 128}
   m_Pivot: {x: 0, y: 1}
@@ -24143,8 +24148,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1007783563}
   serializedVersion: 2
-  m_LocalRotation: {x: -0.000000006741755, y: 0.9880345, z: -0.15423338, w: -0.00000004318836}
-  m_LocalPosition: {x: 0, y: 2.5, z: 0.97}
+  m_LocalRotation: {x: -0.15423338, y: -0.00000004318836, z: 0.000000006741755, w: -0.9880345}
+  m_LocalPosition: {x: 0, y: 2.5, z: -4.0299997}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -28552,8 +28557,8 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 1995325678}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 0}
+  m_AnchorMin: {x: 0.511, y: 0}
+  m_AnchorMax: {x: 0.511, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 48, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -35009,7 +35014,7 @@ RectTransform:
   m_Father: {fileID: 551948764}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 0}
+  m_AnchorMax: {x: 0.772, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 10, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -35084,7 +35089,7 @@ RectTransform:
   m_Father: {fileID: 143102817}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 0}
+  m_AnchorMax: {x: 0.511, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: -2, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -37422,7 +37427,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1975401301}
-  - component: {fileID: 1975401302}
   m_Layer: 5
   m_Name: OptionsUI
   m_TagString: Untagged
@@ -37452,26 +37456,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 1543.2307, y: 623}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &1975401302
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1975401300}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b9a7af6e970b349f789ab849263708a6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  sfxSlider: {fileID: 0}
-  sfxValueText: {fileID: 0}
-  musicSlider: {fileID: 0}
-  musicValueText: {fileID: 0}
-  prevTrackButton: {fileID: 0}
-  nextTrackButton: {fileID: 0}
-  trackNameText: {fileID: 0}
-  closeButton: {fileID: 220619208}
 --- !u!1 &1981551520
 GameObject:
   m_ObjectHideFlags: 0
@@ -38981,7 +38965,6 @@ MonoBehaviour:
   prevTrackButton: {fileID: 37224901}
   nextTrackButton: {fileID: 1477064901}
   trackNameText: {fileID: 499114689}
-  closeButton: {fileID: 0}
 --- !u!1 &2079172041
 GameObject:
   m_ObjectHideFlags: 0

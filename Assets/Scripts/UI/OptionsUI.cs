@@ -19,8 +19,8 @@ public class OptionsUI : MonoBehaviour
     [SerializeField] private Button nextTrackButton;
     [SerializeField] private TextMeshProUGUI trackNameText;
 
-    [Header("Misc")]
-    [SerializeField] private Button closeButton;
+    // [Header("Misc")]
+    //[SerializeField] private Button closeButton;
 
     private void Awake()
     {
@@ -49,7 +49,7 @@ public class OptionsUI : MonoBehaviour
         }
         if (prevTrackButton != null) prevTrackButton.onClick.AddListener(OnPrevTrack);
         if (nextTrackButton != null) nextTrackButton.onClick.AddListener(OnNextTrack);
-        if (closeButton != null) closeButton.onClick.AddListener(Hide);
+        //if (closeButton != null) closeButton.onClick.AddListener(Hide);
     }
 
     private void Start()
@@ -86,7 +86,7 @@ public class OptionsUI : MonoBehaviour
         if (musicSlider != null) musicSlider.onValueChanged.RemoveListener(OnMusicChanged);
         if (prevTrackButton != null) prevTrackButton.onClick.RemoveListener(OnPrevTrack);
         if (nextTrackButton != null) nextTrackButton.onClick.RemoveListener(OnNextTrack);
-        if (closeButton != null) closeButton.onClick.RemoveListener(Hide);
+        //if (closeButton != null) closeButton.onClick.RemoveListener(Hide);
     }
 
     private void EnsureReferences()
@@ -134,12 +134,12 @@ public class OptionsUI : MonoBehaviour
             nextTrackButton = buttons.FirstOrDefault(b => b.name.IndexOf("next", StringComparison.OrdinalIgnoreCase) >= 0);
         }
 
-        if (closeButton == null)
-        {
-            closeButton = buttons.FirstOrDefault(b => b.name.IndexOf("close", StringComparison.OrdinalIgnoreCase) >= 0
-                                                    || b.name.IndexOf("exit", StringComparison.OrdinalIgnoreCase) >= 0)
-                          ?? buttons.LastOrDefault();
-        }
+        // if (closeButton == null)
+        // {
+        //     closeButton = buttons.FirstOrDefault(b => b.name.IndexOf("close", StringComparison.OrdinalIgnoreCase) >= 0
+        //                                             || b.name.IndexOf("exit", StringComparison.OrdinalIgnoreCase) >= 0)
+        //                   ?? buttons.LastOrDefault();
+        // }
     }
 
     private void CacheTexts()
@@ -191,11 +191,11 @@ public class OptionsUI : MonoBehaviour
             valid = false;
         }
 
-        if (closeButton == null)
-        {
-            Debug.LogWarning("OptionsUI missing close button reference.", this);
-            valid = false;
-        }
+        // if (closeButton == null)
+        // {
+        //     Debug.LogWarning("OptionsUI missing close button reference.", this);
+        //     valid = false;
+        // }
 
         // Log which text fields are missing (these are optional)
         if (sfxValueText == null)
