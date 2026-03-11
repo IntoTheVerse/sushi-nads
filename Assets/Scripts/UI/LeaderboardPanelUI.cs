@@ -108,7 +108,15 @@ public class LeaderboardPanelUI : MonoBehaviour
             SetLoadingState(true, "Loading leaderboard...");
 
             var leaderboardResponse = await GameAPIClient.Instance.GetTopPlayers(fetchLimit);
-            var playerRankResponse = await GameAPIClient.Instance.GetPlayerRank();
+            PlayerRankResponse playerRankResponse = null;
+            try
+            {
+                playerRankResponse = await GameAPIClient.Instance.GetPlayerRank();
+            }
+            catch (Exception rankEx)
+            {
+                Debug.LogWarning($"LeaderboardPanelUI: player rank unavailable ({rankEx.Message}). Showing leaderboard without personal rank.");
+            }
 
             RenderHeader(leaderboardResponse);
             RenderStaticPlayerRow(leaderboardResponse, playerRankResponse, walletAddress);
@@ -172,47 +180,66 @@ public class LeaderboardPanelUI : MonoBehaviour
 
     private void RenderStaticPlayerRow(LeaderboardResponse response, PlayerRankResponse playerRank, string walletAddress)
     {
-        // Update the static player row at top (outside scroll view)
-        if (staticPlayerRow == null || playerRank == null || playerRank.rank <= 0)
+        if (staticPlayerRow == null)
         {
-            if (staticPlayerRow != null)
-            {
-                staticPlayerRow.gameObject.SetActive(false);
-            }
             return;
         }
 
-        // Try to find player's name from leaderboard response
-        string playerName = null;
+        // When player-rank API returns rank=0 (e.g. Monad rankSupported:false) but we have rankings,
+        // derive the player's entry from the top list so the green row still shows.
+        LeaderboardEntry resolvedEntry = null;
         if (response?.rankings != null && !string.IsNullOrEmpty(walletAddress))
         {
             var playerEntryInLeaderboard = response.rankings.FirstOrDefault(entry =>
                 entry != null &&
                 !string.IsNullOrEmpty(entry.player) &&
                 entry.player.Equals(walletAddress, System.StringComparison.OrdinalIgnoreCase));
-            
+
             if (playerEntryInLeaderboard != null)
             {
-                playerName = playerEntryInLeaderboard.playerName;
+                resolvedEntry = new LeaderboardEntry
+                {
+                    rank = playerEntryInLeaderboard.rank,
+                    player = playerEntryInLeaderboard.player,
+                    playerName = playerEntryInLeaderboard.playerName,
+                    score = playerEntryInLeaderboard.score,
+                    sessionId = playerEntryInLeaderboard.sessionId,
+                    lastUpdated = playerEntryInLeaderboard.lastUpdated
+                };
             }
         }
 
-        // Create entry for static player row
-        var playerEntry = new LeaderboardEntry
+        // Fallback: use player-rank response when it has valid rank (chain supports it)
+        if (resolvedEntry == null && playerRank != null && playerRank.rank > 0)
         {
-            rank = playerRank.rank,
-            player = walletAddress,
-            playerName = GetDisplayName(playerName, walletAddress),
-            score = playerRank.score,
-            sessionId = playerRank.sessionId,
-            lastUpdated = playerRank.lastUpdated
-        };
+            string playerName = null;
+            if (response?.rankings != null)
+            {
+                var e = response.rankings.FirstOrDefault(entry =>
+                    entry != null && !string.IsNullOrEmpty(entry.player) &&
+                    entry.player.Equals(walletAddress, System.StringComparison.OrdinalIgnoreCase));
+                if (e != null) playerName = e.playerName;
+            }
+            resolvedEntry = new LeaderboardEntry
+            {
+                rank = playerRank.rank,
+                player = walletAddress,
+                playerName = GetDisplayName(playerName, walletAddress),
+                score = playerRank.score,
+                sessionId = playerRank.sessionId,
+                lastUpdated = playerRank.lastUpdated
+            };
+        }
 
-        // Bind the static row
+        if (resolvedEntry == null)
+        {
+            staticPlayerRow.gameObject.SetActive(false);
+            return;
+        }
+
         staticPlayerRow.gameObject.SetActive(true);
-        staticPlayerRow.Bind(playerEntry, walletAddress, true);
-        
-        // Always use green box sprite for static player row
+        staticPlayerRow.Bind(resolvedEntry, walletAddress, true);
+
         if (greenBoxSprite != null)
         {
             staticPlayerRow.SetRankSprite(greenBoxSprite);
