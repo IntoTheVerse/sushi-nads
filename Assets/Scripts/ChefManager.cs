@@ -18,6 +18,9 @@ public class ChefManager : MonoBehaviour
 {
     public static ChefManager Instance { get; private set; }
 
+    /// <summary>Last profile from backend, used by ProfilePanelUI to populate stats when panel opens.</summary>
+    public static PlayerProfileResponse LastProfile { get; private set; }
+
     private enum MenuUiState
     {
         Loading,
@@ -56,6 +59,30 @@ public class ChefManager : MonoBehaviour
     [SerializeField] private Image energyFill;
     [SerializeField] private Image playerProfileenergyFill;
     [SerializeField] private int maxEnergy = 1000; 
+
+    [Header("Profile Stats UI")]
+    [SerializeField] private TMP_Text globalTotalSessionsText;
+    [SerializeField] private TMP_Text globalTotalMovesText;
+    [SerializeField] private TMP_Text globalRecipesSpawnedText;
+    [SerializeField] private TMP_Text globalRecipesDeliveredText;
+    [SerializeField] private TMP_Text globalRecipesDiscardedText;
+    [SerializeField] private TMP_Text globalDeliveryRateText;
+    [SerializeField] private TMP_Text globalPerfectlyCookedText;
+    [SerializeField] private TMP_Text globalOvercookedText;
+    [SerializeField] private TMP_Text globalCookingAccuracyText;
+
+    [Header("Personal Records UI")]
+    [SerializeField] private TMP_Text recordHighestScoreText;
+    [SerializeField] private TMP_Text recordBestComboText;
+    [SerializeField] private TMP_Text recordFastestTimeText;
+    [SerializeField] private TMP_Text recordCurrentRankText;
+
+    [Header("Recent Sessions UI")]
+    [SerializeField] private Transform recentSessionsContent;
+    [SerializeField] private GameObject recentSessionRowPrefab;
+    [SerializeField] private TMP_Text recentSessionLine1Text;
+    [SerializeField] private TMP_Text recentSessionLine2Text;
+    [SerializeField] private TMP_Text recentSessionLine3Text;
 
     private int energyVal;
 
@@ -418,6 +445,13 @@ public class ChefManager : MonoBehaviour
         }
     }
 
+    public void RefreshProfileUI(PlayerProfileResponse profile, Transform profileRoot = null)
+    {
+        if (profile == null || profile.player == null) return;
+        ResolveProfileUIReferences(profileRoot);
+        UpdateUI(profile);
+    }
+
     public async Task LoadPlayerProfile()
     {
         try
@@ -440,6 +474,11 @@ public class ChefManager : MonoBehaviour
 
     private void UpdateUI(PlayerProfileResponse profile)
     {
+        if (globalTotalSessionsText == null || recordHighestScoreText == null)
+        {
+            ResolveProfileUIReferences();
+        }
+
         UpdateEnergyUI(profile.player.energy);
         // Update energy display
         energyVal = profile.player.energy;
@@ -457,11 +496,126 @@ public class ChefManager : MonoBehaviour
         // Update wallet address display (in case it wasn't ready earlier)
         UpdateWalletDisplay();
         
-        Debug.Log("📊 Player Stats:");
-        Debug.Log($"   Energy: {profile.player.energy}");
-        Debug.Log($"   Sessions Played: {profile.globalStats.totalSessionsPlayed}");
-        Debug.Log($"   Recipes Delivered: {profile.globalStats.totalRecipesDelivered}");
-        Debug.Log($"   Well Cooked: {profile.globalStats.totalWellCooked}");
+        // Global statistics
+        if (profile.globalStats != null)
+        {
+            int totalSessions = profile.globalStats.totalSessionsPlayed;
+            int totalMoves = profile.globalStats.totalMoves;
+            int totalSpawned = profile.globalStats.totalRecipesSpawned;
+            int totalDelivered = profile.globalStats.totalRecipesDelivered;
+            int totalDiscarded = profile.globalStats.totalRecipesDiscarded;
+            int totalWellCooked = profile.globalStats.totalWellCooked;
+            int totalOverCooked = profile.globalStats.totalOverCooked;
+
+            if (globalTotalSessionsText != null)
+            {
+                globalTotalSessionsText.text = totalSessions.ToString("N0");
+            }
+            if (globalTotalMovesText != null)
+            {
+                globalTotalMovesText.text = totalMoves.ToString("N0");
+            }
+            if (globalRecipesSpawnedText != null)
+            {
+                globalRecipesSpawnedText.text = totalSpawned.ToString("N0");
+            }
+            if (globalRecipesDeliveredText != null)
+            {
+                globalRecipesDeliveredText.text = totalDelivered.ToString("N0");
+            }
+            if (globalRecipesDiscardedText != null)
+            {
+                globalRecipesDiscardedText.text = totalDiscarded.ToString("N0");
+            }
+
+            float deliveryRate = totalSpawned > 0 ? (totalDelivered / Mathf.Max(1f, totalSpawned)) * 100f : 0f;
+            if (globalDeliveryRateText != null)
+            {
+                globalDeliveryRateText.text = $"{deliveryRate:F1}%";
+            }
+
+            if (globalPerfectlyCookedText != null)
+            {
+                globalPerfectlyCookedText.text = totalWellCooked.ToString("N0");
+            }
+            if (globalOvercookedText != null)
+            {
+                globalOvercookedText.text = totalOverCooked.ToString("N0");
+            }
+
+            int totalCookEvents = totalWellCooked + totalOverCooked;
+            float cookingAccuracy = totalCookEvents > 0
+                ? (totalWellCooked / Mathf.Max(1f, (float)totalCookEvents)) * 100f
+                : 0f;
+            if (globalCookingAccuracyText != null)
+            {
+                globalCookingAccuracyText.text = $"{cookingAccuracy:F1}%";
+            }
+        }
+
+        // Personal records
+        if (profile.personalRecords != null)
+        {
+            if (recordHighestScoreText != null)
+            {
+                recordHighestScoreText.text = $"{profile.personalRecords.highestScore:N0} pts";
+            }
+            if (recordBestComboText != null)
+            {
+                recordBestComboText.text = $"{profile.personalRecords.bestCombo}x";
+            }
+            if (recordFastestTimeText != null)
+            {
+                int fastestSeconds = profile.personalRecords.fastestTime;
+                if (fastestSeconds > 0)
+                {
+                    int minutes = fastestSeconds / 60;
+                    int seconds = fastestSeconds % 60;
+                    recordFastestTimeText.text = $"{minutes}:{seconds:00} min";
+                }
+                else
+                {
+                    recordFastestTimeText.text = "—";
+                }
+            }
+            if (recordCurrentRankText != null)
+            {
+                int rank = profile.personalRecords.currentRank;
+                recordCurrentRankText.text = rank > 0 ? $"#{rank}" : "Unranked";
+            }
+        }
+
+        // Recent sessions (dynamic: prefab + Content, or fallback to fixed 3 lines)
+        if (profile.recentSessions != null && profile.recentSessions.Length > 0)
+        {
+            string FormatSessionLine(RecentSession s)
+            {
+                string sessionLabel = $"Session #{s.sessionId}";
+                string scoreLabel = $"{s.score:N0} pts";
+                string timeLabel = "—";
+                if (s.timestamp > 0)
+                {
+                    var eventTime = DateTimeOffset.FromUnixTimeMilliseconds(s.timestamp);
+                    var delta = DateTimeOffset.UtcNow - eventTime;
+                    if (delta.TotalMinutes < 1) timeLabel = "just now";
+                    else if (delta.TotalHours < 1) timeLabel = $"{Mathf.FloorToInt((float)delta.TotalMinutes)}m ago";
+                    else if (delta.TotalDays < 1) timeLabel = $"{Mathf.FloorToInt((float)delta.TotalHours)}h ago";
+                    else timeLabel = $"{Mathf.FloorToInt((float)delta.TotalDays)}d ago";
+                }
+                return $"{sessionLabel} | {scoreLabel} | {timeLabel}";
+            }
+
+            if (recentSessionsContent != null && recentSessionRowPrefab != null)
+            {
+                PopulateRecentSessionsDynamic(profile.recentSessions);
+            }
+            else
+            {
+                if (recentSessionLine1Text != null) recentSessionLine1Text.text = FormatSessionLine(profile.recentSessions[0]);
+                if (recentSessionLine2Text != null && profile.recentSessions.Length > 1) recentSessionLine2Text.text = FormatSessionLine(profile.recentSessions[1]);
+                if (recentSessionLine3Text != null && profile.recentSessions.Length > 2) recentSessionLine3Text.text = FormatSessionLine(profile.recentSessions[2]);
+            }
+        }
     }
 
     private void ShowStatusMessage(string message, Color color, float durationSeconds = 100f)
@@ -902,6 +1056,183 @@ public class ChefManager : MonoBehaviour
                 playPanel = play;
             }
         }
+
+        ResolveProfileUIReferences();
+    }
+
+    private void ResolveProfileUIReferences(Transform profileRootTransform = null)
+    {
+        GameObject profileRoot = null;
+        if (profileRootTransform != null)
+        {
+            profileRoot = profileRootTransform.gameObject;
+        }
+        if (profileRoot == null)
+        {
+            // GameObject.Find only finds ACTIVE objects; ProfilePanel starts inactive in prefab.
+            // Find ProfilePanelUI even when inactive so we can populate stats before panel is shown.
+            var pp = FindObjectOfType<ProfilePanelUI>(true);
+            if (pp != null)
+                profileRoot = pp.gameObject;
+            if (profileRoot == null)
+                profileRoot = GameObject.Find("ProfilePanel") ?? GameObject.Find("BGtwo");
+        }
+        if (profileRoot == null) return;
+
+        var texts = profileRoot.GetComponentsInChildren<TMP_Text>(true);
+        foreach (var t in texts)
+        {
+            if (t == null) continue;
+            var name = t.gameObject.name;
+            var nameLower = name.ToLowerInvariant();
+            var txt = t.text ?? "";
+            bool isValue = !txt.TrimEnd().EndsWith(":") && (txt == "0" || int.TryParse(txt.Replace(",", "").Replace(".", "").Trim(), out _) || txt.Contains("%"));
+
+            if (globalTotalSessionsText == null && (name.Contains("Total Session") && (name.Contains("(1)") || isValue) || nameLower.Contains("totalsessionsplayed")))
+                globalTotalSessionsText = t;
+            else if (globalTotalMovesText == null && (name.Contains("Total Moves") && (name.Contains("(1)") || isValue) || nameLower.Contains("totalmoves")))
+                globalTotalMovesText = t;
+            else if (globalRecipesSpawnedText == null && (name.Contains("Recipes Spawned") && (name.Contains("(1)") || isValue) || nameLower.Contains("totalrecipesspawned")))
+                globalRecipesSpawnedText = t;
+            else if (globalRecipesDeliveredText == null && (name.Contains("Recipes Delivered") && (name.Contains("(1)") || isValue) || nameLower.Contains("totalrecipesdelivered")))
+                globalRecipesDeliveredText = t;
+            else if (globalRecipesDiscardedText == null && (name.Contains("Recipes Discarded") && (name.Contains("(1)") || isValue) || nameLower.Contains("totalrecipesdiscarded")))
+                globalRecipesDiscardedText = t;
+            else if (globalDeliveryRateText == null && (name.Contains("Delivery Rate") && (name.Contains("(1)") || isValue) || nameLower.Contains("deliveryrate")))
+                globalDeliveryRateText = t;
+            else if (globalPerfectlyCookedText == null && (name.Contains("Perfectly Cooked") && (name.Contains("(1)") || isValue) || nameLower.Contains("totalwellcooked") || nameLower.Contains("wellcooked")))
+                globalPerfectlyCookedText = t;
+            else if (globalOvercookedText == null && (name.Contains("Overcooked") && (name.Contains("(1)") || isValue) || nameLower.Contains("totalovercooked") || nameLower.Contains("overcooked")))
+                globalOvercookedText = t;
+            else if (globalCookingAccuracyText == null && (name.Contains("Cooking Accuracy") && (name.Contains("(1)") || isValue) || nameLower.Contains("cookingaccuracy")))
+                globalCookingAccuracyText = t;
+        }
+
+        foreach (var t in texts)
+        {
+            if (t == null) continue;
+            var txt = t.text ?? "";
+            var rt = t.transform as RectTransform;
+            if (rt == null) continue;
+            var nl = (t.gameObject?.name ?? "").ToLowerInvariant();
+            bool isValue = !txt.TrimEnd().EndsWith(":") && (txt == "0" || int.TryParse(txt.Replace(",", "").Replace(".", "").Trim(), out _) || txt.Contains("%") || txt.Contains("pts") || txt.Contains("min") || txt.Contains("Unranked"));
+
+            if (recordHighestScoreText == null && (nl.Contains("highestscore") && isValue || (txt.Contains("Highest Score") && txt.TrimEnd().EndsWith(":"))))
+                recordHighestScoreText = nl.Contains("highestscore") && isValue ? t : FindValueSibling(texts, t, rt);
+            else if (recordBestComboText == null && (nl.Contains("bestcombo") && isValue || ((txt.Contains("Best Combo") || txt.Contains("Best Combo Streak")) && txt.TrimEnd().EndsWith(":"))))
+                recordBestComboText = nl.Contains("bestcombo") && isValue ? t : FindValueSibling(texts, t, rt);
+            else if (recordFastestTimeText == null && (nl.Contains("fastesttime") && isValue || (txt.Contains("Fastest Time") && txt.TrimEnd().EndsWith(":"))))
+                recordFastestTimeText = nl.Contains("fastesttime") && isValue ? t : FindValueSibling(texts, t, rt);
+            else if (recordCurrentRankText == null && (nl.Contains("currentrank") && isValue || (txt.Contains("Current Rank") && txt.TrimEnd().EndsWith(":"))))
+                recordCurrentRankText = nl.Contains("currentrank") && isValue ? t : FindValueSibling(texts, t, rt);
+        }
+
+        if (recentSessionsContent == null)
+        {
+            var scrollRects = profileRoot.GetComponentsInChildren<ScrollRect>(true);
+            foreach (var sr in scrollRects)
+            {
+                if (sr.content != null && IsUnderNamedParent(sr.content, "RecentPanel"))
+                {
+                    recentSessionsContent = sr.content;
+                    break;
+                }
+            }
+        }
+
+        if (recentSessionLine1Text == null || recentSessionLine2Text == null || recentSessionLine3Text == null)
+        {
+            var sessionTexts = new System.Collections.Generic.List<TMP_Text>();
+            foreach (var t in texts)
+            {
+                if (t == null) continue;
+                var n = (t.gameObject?.name ?? "").ToLowerInvariant();
+                var txt = t.text ?? "";
+                if (n.Contains("recentsessionline1")) { if (recentSessionLine1Text == null) recentSessionLine1Text = t; continue; }
+                if (n.Contains("recentsessionline2")) { if (recentSessionLine2Text == null) recentSessionLine2Text = t; continue; }
+                if (n.Contains("recentsessionline3")) { if (recentSessionLine3Text == null) recentSessionLine3Text = t; continue; }
+                if (txt.StartsWith("Session #")) sessionTexts.Add(t);
+            }
+            if (sessionTexts.Count >= 3)
+            {
+                if (recentSessionLine1Text == null) recentSessionLine1Text = sessionTexts[0];
+                if (recentSessionLine2Text == null) recentSessionLine2Text = sessionTexts[1];
+                if (recentSessionLine3Text == null) recentSessionLine3Text = sessionTexts[2];
+            }
+        }
+    }
+
+    private void PopulateRecentSessionsDynamic(RecentSession[] sessions)
+    {
+        if (recentSessionsContent == null || recentSessionRowPrefab == null) return;
+
+        foreach (Transform child in recentSessionsContent)
+        {
+            Destroy(child.gameObject);
+        }
+
+        foreach (var s in sessions)
+        {
+            string sessionLabel = $"Session #{s.sessionId}";
+            string scoreLabel = $"{s.score:N0} pts";
+            string timeLabel = "—";
+            if (s.timestamp > 0)
+            {
+                var eventTime = DateTimeOffset.FromUnixTimeMilliseconds(s.timestamp);
+                var delta = DateTimeOffset.UtcNow - eventTime;
+                if (delta.TotalMinutes < 1) timeLabel = "just now";
+                else if (delta.TotalHours < 1) timeLabel = $"{Mathf.FloorToInt((float)delta.TotalMinutes)}m ago";
+                else if (delta.TotalDays < 1) timeLabel = $"{Mathf.FloorToInt((float)delta.TotalHours)}h ago";
+                else timeLabel = $"{Mathf.FloorToInt((float)delta.TotalDays)}d ago";
+            }
+            string line = $"{sessionLabel} | {scoreLabel} | {timeLabel}";
+
+            var row = Instantiate(recentSessionRowPrefab, recentSessionsContent);
+            row.SetActive(true);
+            var tmp = row.GetComponentInChildren<TMP_Text>(true);
+            if (tmp != null) tmp.text = line;
+        }
+    }
+
+    private static bool IsUnderNamedParent(Transform t, string nameFragment)
+    {
+        while (t != null)
+        {
+            if ((t.name ?? "").IndexOf(nameFragment, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+            t = t.parent;
+        }
+        return false;
+    }
+
+    private static TMP_Text FindValueSibling(TMP_Text[] texts, TMP_Text label, RectTransform labelRect)
+    {
+        if (labelRect == null || labelRect.parent == null) return null;
+        Transform parent = labelRect.parent;
+        float labelY = labelRect.anchoredPosition.y;
+        float labelX = labelRect.anchoredPosition.x;
+        int labelIdx = labelRect.GetSiblingIndex();
+
+        foreach (var t in texts)
+        {
+            if (t == null || t == label) continue;
+            var rt = t.transform as RectTransform;
+            if (rt == null || rt.parent != parent) continue;
+            var txt = t.text ?? "";
+            if (txt.TrimEnd().EndsWith(":")) continue;
+
+            float dy = Mathf.Abs(rt.anchoredPosition.y - labelY);
+            float dx = rt.anchoredPosition.x - labelX;
+            if (dy < 10f && dx > 0) return t;
+            if (dy < 150f && rt.GetSiblingIndex() == labelIdx + 1) return t;
+        }
+        if (labelIdx + 1 < parent.childCount)
+        {
+            var next = parent.GetChild(labelIdx + 1);
+            var tmp = next.GetComponent<TMP_Text>();
+            if (tmp != null && !(tmp.text ?? "").TrimEnd().EndsWith(":"))
+                return tmp;
+        }
+        return null;
     }
 
     private void SetMenuUiState(MenuUiState state)
@@ -990,6 +1321,7 @@ public class ChefManager : MonoBehaviour
             return;
         }
 
+        LastProfile = profile;
         hasChef = true;
         chefName = profile.player.name;
         tokenId = profile.player.tokenId;
