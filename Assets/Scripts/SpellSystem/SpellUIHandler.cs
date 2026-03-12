@@ -84,7 +84,7 @@ public class SpellUIHandler : MonoBehaviour
         WireButton(plateCallButtonUI, OnPlateCallButtonClicked);
         WireButton(noriSwapButtonUI, OnNoriSwapButtonClicked);
         WireButton(magnetPlatingButtonUI, OnMagnetPlatingButtonClicked);
-        WireButton(spellPanelToggleButton, ShowPanel);
+        WireButton(spellPanelToggleButton, TogglePanel);
 
         SetupPanelPositions();
     }
@@ -163,6 +163,18 @@ public class SpellUIHandler : MonoBehaviour
     private void OnPlateCallButtonClicked() => TryCastSpell(() => SpellManager.Instance.ActivatePlateCall());
     private void OnNoriSwapButtonClicked() => TryCastSpell(() => SpellManager.Instance.ActivateNoriSwap());
     private void OnMagnetPlatingButtonClicked() => TryCastSpell(() => SpellManager.Instance.ActivateMagnetPlating());
+
+    private void TogglePanel()
+    {
+        if (isPanelVisible)
+        {
+            HidePanel();
+        }
+        else
+        {
+            ShowPanel();
+        }
+    }
 
     private void ShowPanel()
     {

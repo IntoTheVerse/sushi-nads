@@ -2053,10 +2053,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a8d156b2f3f74458fb48cd2ffa336f57, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  musicSource: {fileID: 0}
+  musicSource: {fileID: 157573954}
   playlist:
-  - {fileID: 8300000, guid: 7a05dfef8ff133848b3b25408c74021c, type: 3}
+  - {fileID: 8300000, guid: 14e03d8c81a3db44eb973a855f674e3c, type: 3}
+  - {fileID: 8300000, guid: 1df2440a852c6d34586de3c5248eb838, type: 3}
+  - {fileID: 8300000, guid: 2615db65f492f6d4ca06f27e3a23a95b, type: 3}
+  - {fileID: 8300000, guid: de0df1c20fb8cf6418c1dd6db9dabe03, type: 3}
+  - {fileID: 8300000, guid: 0d640475187195643989b1c6dfefd825, type: 3}
+  - {fileID: 8300000, guid: 622f13a16804b114eb15f618f6a06a1c, type: 3}
+  - {fileID: 8300000, guid: 1ba02450b0e9daa44a7fb00a440a609a, type: 3}
+  - {fileID: 8300000, guid: fb8a9f82607b341469b213f1dce1973c, type: 3}
+  - {fileID: 8300000, guid: 24f9af36fe1cc28479d21c04bf955aad, type: 3}
+  - {fileID: 8300000, guid: 11e9323979dad9049862890b6db721ed, type: 3}
   playOnStart: 1
+  gameScoreMusic: {fileID: 8300000, guid: 627d3caeab0e5014296f7412e55f8955, type: 3}
+  last12SecondsMusic: {fileID: 8300000, guid: 8be802f9e1a24774c91350ba3249bb82, type: 3}
 --- !u!1001 &167606657
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -5555,7 +5566,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dbc59b475c98e4ada9eb7872a3c75cc9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  gamePlayingTimerMax: 120
+  gamePlayingTimerMax: 480
   _playPause: {fileID: 465721196}
   _playSprite: {fileID: 21300000, guid: 154988151495e59419cf92e7ac968f01, type: 3}
   _pauseSprite: {fileID: 21300000, guid: f088a2b8388a2bb43b9495581e4d0c41, type: 3}
@@ -24143,8 +24154,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1007783563}
   serializedVersion: 2
-  m_LocalRotation: {x: -0.000000006741755, y: 0.9880345, z: -0.15423338, w: -0.00000004318836}
-  m_LocalPosition: {x: 0, y: 2.5, z: 0.97}
+  m_LocalRotation: {x: -0.15423338, y: -0.00000004318836, z: 0.000000006741755, w: -0.9880345}
+  m_LocalPosition: {x: 0, y: 2.5, z: -4.0299997}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -27485,7 +27496,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 1}
   m_AnchorMax: {x: 0.5, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 1100, y: 200}
+  m_SizeDelta: {x: 929.3669, y: 239.9921}
   m_Pivot: {x: 0.5, y: 1}
 --- !u!114 &1249669507
 MonoBehaviour:
@@ -37422,7 +37433,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1975401301}
-  - component: {fileID: 1975401302}
   m_Layer: 5
   m_Name: OptionsUI
   m_TagString: Untagged
@@ -37452,26 +37462,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 1543.2307, y: 623}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &1975401302
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1975401300}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b9a7af6e970b349f789ab849263708a6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  sfxSlider: {fileID: 0}
-  sfxValueText: {fileID: 0}
-  musicSlider: {fileID: 0}
-  musicValueText: {fileID: 0}
-  prevTrackButton: {fileID: 0}
-  nextTrackButton: {fileID: 0}
-  trackNameText: {fileID: 0}
-  closeButton: {fileID: 220619208}
 --- !u!1 &1981551520
 GameObject:
   m_ObjectHideFlags: 0
@@ -38981,7 +38971,6 @@ MonoBehaviour:
   prevTrackButton: {fileID: 37224901}
   nextTrackButton: {fileID: 1477064901}
   trackNameText: {fileID: 499114689}
-  closeButton: {fileID: 0}
 --- !u!1 &2079172041
 GameObject:
   m_ObjectHideFlags: 0
@@ -42907,6 +42896,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _gameOverUI: {fileID: 0}
   pendingEventsTimeoutMs: 15000
+  heartbeatIntervalSeconds: 20
 --- !u!23 &2849972158413506261
 MeshRenderer:
   m_ObjectHideFlags: 0

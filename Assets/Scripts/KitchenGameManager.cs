@@ -29,10 +29,13 @@ public class KitchenGameManager : MonoBehaviour
     public Sprite _playSprite;
     public Sprite _pauseSprite;
     private bool isPaused = false;
+    private bool played12SecondsMusic = false;
 
 
     private void Awake() {
         Instance = this;
+        Application.targetFrameRate = 60; // Or 30 for even cooler performance
+        QualitySettings.vSyncCount = 0; // Important: VSync must be 0 for targetFrameRate to work on mobile
         state = State.WaitingToStart;
     }
 
@@ -63,15 +66,28 @@ public class KitchenGameManager : MonoBehaviour
                 if (countdownToStartTimer < 0f) {
                     state = State.GamePlaying;
                     gamePlayingTimer = gamePlayingTimerMax;
+                    played12SecondsMusic = false;
                     OnStateChanged?.Invoke(this, EventArgs.Empty);
                 }
                 break;
             case State.GamePlaying:
                 gamePlayingTimer -= Time.deltaTime;
+
+                if (gamePlayingTimer <= 12f && !played12SecondsMusic) {
+                    played12SecondsMusic = true;
+                    if (MusicManager.Instance != null) {
+                        MusicManager.Instance.PlayLast12SecondsMusic();
+                    }
+                }
+
                 if (gamePlayingTimer < 0f) {
                     state = State.GameOver;
                     OnStateChanged?.Invoke(this, EventArgs.Empty);
                     
+                    if (MusicManager.Instance != null) {
+                        MusicManager.Instance.StopMainMusic();
+                    }
+
                     // End blockchain session when game timer hits 0
                     if (SessionManager.Instance != null && SessionManager.Instance.IsSessionActive())
                     {
