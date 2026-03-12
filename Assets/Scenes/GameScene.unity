@@ -2066,6 +2066,8 @@ MonoBehaviour:
   - {fileID: 8300000, guid: 24f9af36fe1cc28479d21c04bf955aad, type: 3}
   - {fileID: 8300000, guid: 11e9323979dad9049862890b6db721ed, type: 3}
   playOnStart: 1
+  gameScoreMusic: {fileID: 8300000, guid: 627d3caeab0e5014296f7412e55f8955, type: 3}
+  last12SecondsMusic: {fileID: 8300000, guid: 8be802f9e1a24774c91350ba3249bb82, type: 3}
 --- !u!1001 &167606657
 PrefabInstance:
   m_ObjectHideFlags: 0

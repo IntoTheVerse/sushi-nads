@@ -93,8 +93,18 @@ public class GameOverUI : MonoBehaviour
             }
             // Start with loading state
             ShowLoadingState();
-            // Show recipes delivered immediately (local count)
-            recipesDeliveredText.text = DeliveryManager.Instance.GetSuccessfulRecipesAmount().ToString();
+            
+            // Initialization: Set all texts to zero so they don't pop with previous values during the loading screen
+            if (recipesDeliveredText != null) recipesDeliveredText.text = "0";
+            if (recipesDiscardedText != null) recipesDiscardedText.text = "0";
+            if (wellCookedText != null) wellCookedText.text = "0";
+            if (overCookedText != null) overCookedText.text = "0";
+            if (movesText != null) movesText.text = "0";
+            if (comboText != null) comboText.text = "0";
+            if (streakText != null) streakText.text = "0";
+            if (efficiencyText != null) efficiencyText.text = "0%";
+            if (durationText != null) durationText.text = "00:00";
+            if (scroreTxt != null) scroreTxt.text = "0";
         } else {
             Hide();
         }
@@ -225,35 +235,53 @@ public class GameOverUI : MonoBehaviour
         
         // Step 2: Display stats one by one with animation
         yield return new WaitForSeconds(statDisplayDelay);
+        float betweenDelay = 0.2f;
         
         if (latestStats != null) {
-            if (recipesDeliveredText != null) {
-                yield return StartCoroutine(AnimateStatText(recipesDeliveredText, latestStats.recipesDelivered.ToString()));
-            }
-            if (recipesDiscardedText != null) {
-                yield return StartCoroutine(AnimateStatText(recipesDiscardedText, latestStats.recipesDiscarded.ToString()));
-            }
-            if (wellCookedText != null) {
-                yield return StartCoroutine(AnimateStatText(wellCookedText, latestStats.wellCooked.ToString()));
-            }
-            if (overCookedText != null) {
-                yield return StartCoroutine(AnimateStatText(overCookedText, latestStats.overCooked.ToString()));
-            }
-            if (movesText != null) {
-                yield return StartCoroutine(AnimateStatText(movesText, latestStats.moves.ToString()));
-            }
-            if (comboText != null) {
-                yield return StartCoroutine(AnimateStatText(comboText, latestStats.combo.ToString()));
-            }
-            if (streakText != null) {
-                yield return StartCoroutine(AnimateStatText(streakText, latestStats.currentStreak.ToString()));
-            }
-            if (efficiencyText != null) {
-                yield return StartCoroutine(AnimateStatText(efficiencyText, $"{latestStats.efficiency}%"));
-            }
-            if (durationText != null) {
-                yield return StartCoroutine(AnimateStatText(durationText, FormatDuration(latestStats.duration)));
-            }
+            if (recipesDeliveredText != null && latestStats.recipesDelivered > 0) {
+                yield return StartCoroutine(AnimateStat(recipesDeliveredText, latestStats.recipesDelivered));
+                yield return new WaitForSeconds(betweenDelay);
+            } else if (recipesDeliveredText != null) recipesDeliveredText.text = "0";
+
+            if (recipesDiscardedText != null && latestStats.recipesDiscarded > 0) {
+                yield return StartCoroutine(AnimateStat(recipesDiscardedText, latestStats.recipesDiscarded));
+                yield return new WaitForSeconds(betweenDelay);
+            } else if (recipesDiscardedText != null) recipesDiscardedText.text = "0";
+
+            if (wellCookedText != null && latestStats.wellCooked > 0) {
+                yield return StartCoroutine(AnimateStat(wellCookedText, latestStats.wellCooked));
+                yield return new WaitForSeconds(betweenDelay);
+            } else if (wellCookedText != null) wellCookedText.text = "0";
+
+            if (overCookedText != null && latestStats.overCooked > 0) {
+                yield return StartCoroutine(AnimateStat(overCookedText, latestStats.overCooked));
+                yield return new WaitForSeconds(betweenDelay);
+            } else if (overCookedText != null) overCookedText.text = "0";
+
+            if (movesText != null && latestStats.moves > 0) {
+                yield return StartCoroutine(AnimateStat(movesText, latestStats.moves));
+                yield return new WaitForSeconds(betweenDelay);
+            } else if (movesText != null) movesText.text = "0";
+
+            if (comboText != null && latestStats.combo > 0) {
+                yield return StartCoroutine(AnimateStat(comboText, latestStats.combo));
+                yield return new WaitForSeconds(betweenDelay);
+            } else if (comboText != null) comboText.text = "0";
+
+            if (streakText != null && latestStats.currentStreak > 0) {
+                yield return StartCoroutine(AnimateStat(streakText, latestStats.currentStreak));
+                yield return new WaitForSeconds(betweenDelay);
+            } else if (streakText != null) streakText.text = "0";
+
+            if (efficiencyText != null && latestStats.efficiency > 0) {
+                yield return StartCoroutine(AnimateStat(efficiencyText, latestStats.efficiency, "0", "%"));
+                yield return new WaitForSeconds(betweenDelay);
+            } else if (efficiencyText != null) efficiencyText.text = "0%";
+
+            if (durationText != null && latestStats.duration > 0) {
+                yield return StartCoroutine(AnimateDurationStat(durationText, latestStats.duration));
+                yield return new WaitForSeconds(betweenDelay);
+            } else if (durationText != null) durationText.text = "00:00";
         }
         
         isAnimating = false;
@@ -265,6 +293,8 @@ public class GameOverUI : MonoBehaviour
     private IEnumerator CountUpScore(int targetScore) {
         if (scroreTxt == null) yield break;
         
+        if (MusicManager.Instance != null && targetScore > 0) MusicManager.Instance.ResumeGameScoreMusic();
+
         float elapsed = 0f;
         int startScore = 0;
         currentScore = startScore;
@@ -282,6 +312,8 @@ public class GameOverUI : MonoBehaviour
             yield return null;
         }
         
+        if (MusicManager.Instance != null) MusicManager.Instance.PauseGameScoreMusic();
+
         // Ensure final value is set
         currentScore = targetScore;
         scroreTxt.text = currentScore.ToString();
@@ -290,13 +322,14 @@ public class GameOverUI : MonoBehaviour
     /// <summary>
     /// Animate a stat text with scale/pop effect
     /// </summary>
-    private IEnumerator AnimateStatText(TextMeshProUGUI textComponent, string finalValue) {
+    private IEnumerator AnimateStat(TextMeshProUGUI textComponent, float targetValue, string format = "0", string suffix = "") {
         if (textComponent == null) yield break;
+        
+        if (MusicManager.Instance != null) MusicManager.Instance.ResumeGameScoreMusic();
         
         RectTransform rectTransform = textComponent.rectTransform;
         Vector3 originalScale = rectTransform.localScale;
         
-        // Pop animation
         float elapsed = 0f;
         while (elapsed < statAnimationDuration) {
             elapsed += Time.deltaTime;
@@ -306,12 +339,45 @@ public class GameOverUI : MonoBehaviour
             float scale = 1f + Mathf.Sin(progress * Mathf.PI) * 0.3f;
             rectTransform.localScale = originalScale * scale;
             
+            float currentVal = Mathf.Lerp(0, targetValue, progress);
+            textComponent.text = currentVal.ToString(format) + suffix;
+            
             yield return null;
         }
         
+        if (MusicManager.Instance != null) MusicManager.Instance.PauseGameScoreMusic();
+        
         // Reset scale
         rectTransform.localScale = originalScale;
-        textComponent.text = finalValue;
+        textComponent.text = targetValue.ToString(format) + suffix;
+    }
+
+    private IEnumerator AnimateDurationStat(TextMeshProUGUI textComponent, int targetSeconds) {
+        if (textComponent == null) yield break;
+        
+        if (MusicManager.Instance != null) MusicManager.Instance.ResumeGameScoreMusic();
+        
+        RectTransform rectTransform = textComponent.rectTransform;
+        Vector3 originalScale = rectTransform.localScale;
+        
+        float elapsed = 0f;
+        while (elapsed < statAnimationDuration) {
+            elapsed += Time.deltaTime;
+            float progress = elapsed / statAnimationDuration;
+            
+            float scale = 1f + Mathf.Sin(progress * Mathf.PI) * 0.3f;
+            rectTransform.localScale = originalScale * scale;
+            
+            int currentSeconds = Mathf.RoundToInt(Mathf.Lerp(0, targetSeconds, progress));
+            textComponent.text = FormatDuration(currentSeconds);
+            
+            yield return null;
+        }
+        
+        if (MusicManager.Instance != null) MusicManager.Instance.PauseGameScoreMusic();
+        
+        rectTransform.localScale = originalScale;
+        textComponent.text = FormatDuration(targetSeconds);
     }
 
     private bool IsTutorialSession() {
