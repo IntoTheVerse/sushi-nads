@@ -179,29 +179,75 @@ router.get('/player-rank', optionalAuth, async (req, res, next) => {
             return res.status(400).json({ error: 'address parameter or auth required' });
         }
         
-        const currentSeason = await leaderboard.currentSeason();
-        const season = parseInt(req.query.season) || Number(currentSeason);
+        let currentSeason = 0;
+        let totalPlayers = 0;
+        try {
+            currentSeason = Number(await leaderboard.currentSeason());
+            totalPlayers = Number(await leaderboard.getTotalPlayers());
+        } catch (e) {
+            console.warn('⚠️  Leaderboard currentSeason/getTotalPlayers failed, using defaults:', e.message);
+        }
         
-        let entry;
+        const season = parseInt(req.query.season) || currentSeason;
+        
+        let entry = null;
         try {
             entry = await leaderboard.getPlayerEntry(playerAddress);
         } catch (entryError) {
-            console.warn(`⚠️  Failed to fetch detailed player entry for ${playerAddress}:`, entryError.message);
+            console.warn(`⚠️  getPlayerEntry failed for ${playerAddress}:`, entryError.message);
         }
         
-        const rank = entry ? Number(entry.rank || 0) : Number(await leaderboard.getPlayerRank(playerAddress));
-        const score = entry ? Number(entry.highScore || 0) : Number(await leaderboard.getPlayerHighScore(playerAddress));
-        const sessionId = entry ? Number(entry.sessionId || 0) : 0;
-        const lastUpdated = entry ? Number(entry.timestamp || 0) * 1000 : 0;
-        const totalPlayers = await leaderboard.getTotalPlayers();
+        let rank = 0;
+        let score = 0;
+        let sessionId = 0;
+        let lastUpdated = 0;
         
+        if (entry) {
+            rank = Number(entry.rank || 0);
+            score = Number(entry.highScore || 0);
+            sessionId = Number(entry.sessionId || 0);
+            lastUpdated = Number(entry.timestamp || 0) * 1000;
+        } else {
+            try {
+                rank = Number(await leaderboard.getPlayerRank(playerAddress));
+            } catch (rankErr) {
+                console.warn(`⚠️  getPlayerRank failed for ${playerAddress}:`, rankErr.message);
+            }
+            try {
+                score = Number(await leaderboard.getPlayerHighScore(playerAddress));
+            } catch (scoreErr) {
+                console.warn(`⚠️  getPlayerHighScore failed for ${playerAddress}:`, scoreErr.message);
+            }
+        }
+
+        // Fallback: when chain doesn't support rank (e.g. Monad), derive from top rankings
+        let rankSupported = entry != null;
+        const addr = (playerAddress || '').trim().toLowerCase();
+        if (rank <= 0 && addr) {
+            const cached = await getCachedLeaderboard(season, 100);
+            if (cached && Array.isArray(cached)) {
+                const found = cached.findIndex(
+                    (r) => r && (r.player || '').toLowerCase() === addr
+                );
+                if (found >= 0) {
+                    const e = cached[found];
+                    rank = Number(e.rank || found + 1);
+                    if (score <= 0 && e.score != null) score = Number(e.score);
+                    if (sessionId <= 0 && e.sessionId != null) sessionId = Number(e.sessionId);
+                    if (lastUpdated <= 0 && e.lastUpdated != null) lastUpdated = Number(e.lastUpdated);
+                    rankSupported = true;
+                }
+            }
+        }
+
         res.json({
             rank: Number(rank),
             score: Number(score),
             sessionId,
             lastUpdated,
-            totalPlayers: Number(totalPlayers),
-            season
+            totalPlayers,
+            season,
+            rankSupported
         });
     } catch (error) {
         next(error);

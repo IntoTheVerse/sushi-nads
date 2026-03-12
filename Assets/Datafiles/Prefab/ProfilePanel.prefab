@@ -6508,6 +6508,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 6780624511345844802}
+  - component: {fileID: 8887776665554443332}
   m_Layer: 5
   m_Name: ProfilePanel
   m_TagString: Untagged
@@ -6538,6 +6539,21 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &8887776665554443332
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8081261802646178001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1b2c3d4e5f6789012345678abcdef01, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  globalStatisticsBtn: {fileID: 0}
+  personalRecordsBtn: {fileID: 0}
+  recentSessionsBtn: {fileID: 0}
 --- !u!1 &8090320076178867643
 GameObject:
   m_ObjectHideFlags: 0

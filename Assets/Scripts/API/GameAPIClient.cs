@@ -232,9 +232,14 @@ public class GameAPIClient : MonoBehaviour
                     continue;
                 }
 
-                if ((request.result == UnityWebRequest.Result.ConnectionError ||
-                     request.result == UnityWebRequest.Result.ProtocolError) &&
-                    attempt < maxRequestAttempts)
+                if (IsUnsupportedProfileStatsResponse(endpoint, statusCode, errorText))
+                {
+                    // Expected on networks/contracts that do not expose profile stats yet.
+                    Debug.Log($"ℹ️ Profile stats unavailable on current network ({endpoint}): {errorText}");
+                    throw new Exception(errorText);
+                }
+
+                if (attempt < maxRequestAttempts && IsTransientRequestError(request.result, statusCode))
                 {
                     int backoffSeconds = Mathf.Clamp(attempt * 2, 1, 10);
                     Debug.LogWarning($"⚠️ API error ({endpoint}): {errorText}. Retrying in {backoffSeconds}s (attempt {attempt}/{maxRequestAttempts})");
@@ -326,6 +331,44 @@ public class GameAPIClient : MonoBehaviour
         }
 
         return defaultDelay;
+    }
+
+    private bool IsTransientRequestError(UnityWebRequest.Result result, int statusCode)
+    {
+        if (result == UnityWebRequest.Result.ConnectionError ||
+            result == UnityWebRequest.Result.DataProcessingError)
+        {
+            return true;
+        }
+
+        // 429 is already handled with Retry-After above.
+        if (statusCode == 408 || statusCode == 425 || statusCode >= 500)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool IsUnsupportedProfileStatsResponse(string endpoint, int statusCode, string errorText)
+    {
+        if (string.IsNullOrEmpty(endpoint) || string.IsNullOrEmpty(errorText))
+        {
+            return false;
+        }
+
+        if (!endpoint.Equals("/api/chef/profile", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (statusCode != 404 && statusCode != 400)
+        {
+            return false;
+        }
+
+        return errorText.IndexOf("No on-chain stats available", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               errorText.IndexOf("does not support profile/statistics queries yet", StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     private bool IsSessionInactiveResponse(string endpoint, int statusCode, string errorText)
@@ -546,6 +589,8 @@ public class PlayerProfileResponse
 {
     public PlayerInfo player;
     public GlobalStats globalStats;
+    public PersonalRecords personalRecords;
+    public RecentSession[] recentSessions;
     public int currentSessionId;
 }
 
@@ -569,6 +614,23 @@ public class GlobalStats
     public int totalRecipesDiscarded;
     public int totalWellCooked;
     public int totalOverCooked;
+}
+
+[Serializable]
+public class PersonalRecords
+{
+    public int highestScore;
+    public int bestCombo;
+    public int fastestTime; // seconds
+    public int currentRank;
+}
+
+[Serializable]
+public class RecentSession
+{
+    public int sessionId;
+    public int score;
+    public long timestamp; // unix ms
 }
 
 [Serializable]
