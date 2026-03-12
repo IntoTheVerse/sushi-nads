@@ -33,8 +33,7 @@ public class OptionsUI : MonoBehaviour
 
         if (!ValidateBindings())
         {
-            enabled = false;
-            return;
+            Debug.LogWarning("[OptionsUI] Some bindings were missing. The script will continue, but some features may not work.");
         }
 
         if (sfxSlider != null)
@@ -74,7 +73,6 @@ public class OptionsUI : MonoBehaviour
         }
 
         UpdateVisual();
-        Hide();
     }
 
     private void OnDestroy()

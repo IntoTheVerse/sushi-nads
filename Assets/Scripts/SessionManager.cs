@@ -105,10 +105,12 @@ public class SessionManager : MonoBehaviour
         }
     }
 
+#if !UNITY_EDITOR
     private async void OnApplicationFocus(bool hasFocus)
     {
         if (!hasFocus) await TryEndSessionFromLifecycle("APP_BACKGROUND");
     }
+#endif
     private void OnDestroy()
     {
         // End session when app/game closes

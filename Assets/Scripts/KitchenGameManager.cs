@@ -85,7 +85,7 @@ public class KitchenGameManager : MonoBehaviour
                     OnStateChanged?.Invoke(this, EventArgs.Empty);
                     
                     if (MusicManager.Instance != null) {
-                        MusicManager.Instance.PlayGameScoreMusic();
+                        MusicManager.Instance.StopMainMusic();
                     }
 
                     // End blockchain session when game timer hits 0

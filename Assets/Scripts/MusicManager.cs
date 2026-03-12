@@ -87,19 +87,18 @@ public class MusicManager : MonoBehaviour
             if (musicSource != null && musicSource.isPlaying) musicSource.Stop();
             if (specialMusicSource != null)
             {
-                if (specialMusicSource.clip != gameScoreMusic)
-                {
-                    specialMusicSource.clip = gameScoreMusic;
-                    specialMusicSource.loop = true;
-                    specialMusicSource.Play();
-                }
-                else
-                {
-                    if (!specialMusicSource.isPlaying) specialMusicSource.UnPause();
-                    if (!specialMusicSource.isPlaying) specialMusicSource.Play(); // Fallback
-                }
+                specialMusicSource.clip = gameScoreMusic;
+                specialMusicSource.loop = true;
+                specialMusicSource.time = 0f; // Start from beginning for each stat
+                specialMusicSource.Play();
             }
         }
+    }
+
+    public void StopMainMusic()
+    {
+        if (musicSource != null) musicSource.Stop();
+        if (specialMusicSource != null) specialMusicSource.Stop();
     }
 
     public void PlayLast12SecondsMusic()
