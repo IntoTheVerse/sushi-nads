@@ -23,7 +23,7 @@ public class KitchenGameManager : MonoBehaviour
     private float waitingToStartTimer = 1f;
     private float countdownToStartTimer = 3f;
     private float gamePlayingTimer;
-    [SerializeField] private float gamePlayingTimerMax = 120f; // 2 minutes
+    [SerializeField] private float gamePlayingTimerMax = 480f; // 8 minutes
     private bool isGamePaused = false;
     public Button _playPause;
     public Sprite _playSprite;
