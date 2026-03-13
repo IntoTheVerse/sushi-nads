@@ -162,7 +162,7 @@ router.get('/profile', requireAuth, async (req, res, next) => {
         const recentSessions = [];
         
         if (sessionIdNumbers.length > 0) {
-            // Fetch all sessions once to avoid repeated RPC calls
+            // Fetch all sessions once (reuse for both personal records and recent sessions)
             const sessions = await Promise.all(
                 sessionIdNumbers.map(async (id) => {
                     try {
@@ -177,47 +177,38 @@ router.get('/profile', requireAuth, async (req, res, next) => {
                     }
                 })
             );
-            
+
+            const sessionMap = new Map();
             for (const entry of sessions) {
                 if (!entry || !entry.session) continue;
+                sessionMap.set(entry.id, entry.session);
                 const { session } = entry;
                 const score = Number(session.finalScore);
                 const combo = Number(session.maxComboAchieved);
                 const startTime = Number(session.startTime);
                 const endTime = Number(session.endTime);
                 const duration = endTime > 0 && startTime > 0 ? endTime - startTime : 0;
-                
+
                 if (score > highestScore) highestScore = score;
                 if (combo > bestCombo) bestCombo = combo;
                 if (duration > 0 && (fastestTime === 0 || duration < fastestTime)) {
                     fastestTime = duration;
                 }
             }
-            
-            // Build recent sessions list (last 3, newest first)
-            const newestFirst = [...sessionIdNumbers].sort((a, b) => b - a);
-            const recentIds = newestFirst.slice(0, 3);
-            const recentSessionDetails = await Promise.all(
-                recentIds.map(async (id) => {
-                    try {
-                        const s = await gameCore.getSession(id);
-                        const endTime = Number(s.endTime);
-                        const timestamp = endTime > 0 ? endTime * 1000 : Number(s.startTime) * 1000;
-                        return {
-                            sessionId: id,
-                            score: Number(s.finalScore),
-                            timestamp
-                        };
-                    } catch (recentSessionError) {
-                        console.warn(
-                            `⚠️  getSession(${id}) failed while building recent sessions, skipping entry:`,
-                            recentSessionError.message
-                        );
-                        return null;
-                    }
-                })
-            );
-            recentSessions.push(...recentSessionDetails.filter(Boolean));
+
+            // Build recent sessions from successfully fetched data (use 3 newest we have)
+            const fetchedIds = [...sessionMap.keys()].sort((a, b) => b - a).slice(0, 3);
+            for (const id of fetchedIds) {
+                const session = sessionMap.get(id);
+                if (!session) continue;
+                const endTime = Number(session.endTime);
+                const timestamp = endTime > 0 ? endTime * 1000 : Number(session.startTime) * 1000;
+                recentSessions.push({
+                    sessionId: id,
+                    score: Number(session.finalScore),
+                    timestamp
+                });
+            }
         }
         
         // Get current rank from leaderboard (safe fallbacks)
