@@ -24,8 +24,8 @@ public class GameAPIClient : MonoBehaviour
     }
 
     [Header("API Configuration")]
-    [SerializeField] private ApiEnvironment apiEnvironment = ApiEnvironment.Hosted;
-    [SerializeField] private string localBaseUrl = "http://localhost:3000";
+    [SerializeField] private ApiEnvironment apiEnvironment = ApiEnvironment.Local;
+    [SerializeField] private string localBaseUrl = "http://localhost:3001";
     [SerializeField] private string hostedBaseUrl = "https://api-sushinads.cryptara.world";
     [SerializeField] private string customBaseUrl = string.Empty;
     [SerializeField] private string baseUrl = "https://api-sushinads.cryptara.world";
@@ -222,6 +222,10 @@ public class GameAPIClient : MonoBehaviour
                 }
 
                 string errorText = request.downloadHandler?.text ?? request.error;
+                if (string.IsNullOrEmpty(errorText))
+                {
+                    errorText = $"{request.result} (code: {(int)request.responseCode})";
+                }
                 int statusCode = (int)request.responseCode;
 
                 if (statusCode == 429 && attempt < maxRequestAttempts)
@@ -251,6 +255,24 @@ public class GameAPIClient : MonoBehaviour
                 {
                     Debug.Log($"⚠️ Session not active for {endpoint}. Skipping request.");
                     throw new SessionInactiveException(errorText ?? "Session not active");
+                }
+
+                if (IsHtml404Response(errorText))
+                {
+                    Debug.LogError($"❌ API Error ({endpoint}): Got HTML 404 instead of JSON. You may be hitting the wrong server!");
+                    Debug.LogError($"   Current baseUrl: {baseUrl}");
+                    Debug.LogError($"   For local dev: Set Api Environment = Local. If using pm2: Local Base Url = http://localhost:3001 (port 3001 avoids conflict with other apps on 3000)");
+                    Debug.LogError($"   Ensure sushi-bonks backend is running (e.g. pm2 start sushi-bonks-api)");
+                    throw new Exception($"Wrong server (HTML 404). Check GameAPIClient baseUrl matches your backend port.");
+                }
+
+                if (request.result == UnityWebRequest.Result.ConnectionError && string.IsNullOrEmpty(request.downloadHandler?.text))
+                {
+                    Debug.LogError($"❌ API Error ({endpoint}): Connection failed - {errorText}");
+                    Debug.LogError($"   baseUrl: {baseUrl}");
+                    Debug.LogError($"   If on Android device/emulator: localhost = the device. Use 10.0.2.2:3001 (emulator) or your PC IP (e.g. 192.168.1.x:3001) in Local Base Url.");
+                    Debug.LogError($"   Ensure backend is running: pm2 start ecosystem.config.cjs");
+                    throw new Exception($"Connection failed to {baseUrl}. Check backend is running and baseUrl is correct for your platform.");
                 }
 
                 Debug.LogError($"❌ API Error ({endpoint}): {errorText}");
@@ -369,6 +391,16 @@ public class GameAPIClient : MonoBehaviour
 
         return errorText.IndexOf("No on-chain stats available", StringComparison.OrdinalIgnoreCase) >= 0 ||
                errorText.IndexOf("does not support profile/statistics queries yet", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private bool IsHtml404Response(string errorText)
+    {
+        if (string.IsNullOrEmpty(errorText)) return false;
+        var trimmed = errorText.TrimStart();
+        return (trimmed.StartsWith("<!DOCTYPE", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.StartsWith("<html", StringComparison.OrdinalIgnoreCase)) &&
+               (errorText.IndexOf("404", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                errorText.IndexOf("page could not be found", StringComparison.OrdinalIgnoreCase) >= 0);
     }
 
     private bool IsSessionInactiveResponse(string endpoint, int statusCode, string errorText)
