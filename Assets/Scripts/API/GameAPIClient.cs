@@ -24,8 +24,8 @@ public class GameAPIClient : MonoBehaviour
     }
 
     [Header("API Configuration")]
-    [SerializeField] private ApiEnvironment apiEnvironment = ApiEnvironment.Hosted;
-    [SerializeField] private string localBaseUrl = "http://localhost:3000";
+    [SerializeField] private ApiEnvironment apiEnvironment = ApiEnvironment.Local;
+    [SerializeField] private string localBaseUrl = "http://localhost:3001";
     [SerializeField] private string hostedBaseUrl = "https://api-sushinads.cryptara.world";
     [SerializeField] private string customBaseUrl = string.Empty;
     [SerializeField] private string baseUrl = "https://api-sushinads.cryptara.world";
