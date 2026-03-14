@@ -124,7 +124,7 @@ Place all variables in `.env` in the backend directory. See `env.example.txt` fo
 | `FIREBASE_PROJECT_ID` | ✅ | Firebase project ID |
 | `FIREBASE_CREDENTIALS` | ✅ | Service account JSON (required on self-hosted) |
 | `ALLOWED_ORIGINS` | ✅ | Comma-separated origins (Unity, itch.io) |
-| `PORT` | Optional | Default 3000 (must match Nginx proxy_pass) |
+| `PORT` | Optional | Default 8081 (must match Nginx proxy_pass) |
 
 ### Firebase on self-hosted
 

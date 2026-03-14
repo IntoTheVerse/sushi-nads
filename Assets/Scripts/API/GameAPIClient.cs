@@ -25,7 +25,7 @@ public class GameAPIClient : MonoBehaviour
 
     [Header("API Configuration")]
     [SerializeField] private ApiEnvironment apiEnvironment = ApiEnvironment.Local;
-    [SerializeField] private string localBaseUrl = "http://localhost:3001";
+    [SerializeField] private string localBaseUrl = "http://localhost:8081";
     [SerializeField] private string hostedBaseUrl = "https://api-sushinads.cryptara.world";
     [SerializeField] private string customBaseUrl = string.Empty;
     [SerializeField] private string baseUrl = "https://api-sushinads.cryptara.world";
@@ -243,6 +243,14 @@ public class GameAPIClient : MonoBehaviour
                     throw new Exception(errorText);
                 }
 
+                if (IsHtml502BadGatewayResponse(statusCode, errorText))
+                {
+                    Debug.LogError($"❌ API Error ({endpoint}): 502 Bad Gateway - the hosted backend is down or misconfigured.");
+                    Debug.LogError($"   baseUrl: {baseUrl}");
+                    Debug.LogError($"   Check on the server: pm2 list, pm2 logs sushi-bonks-api. Ensure Nginx proxy_pass port matches backend PORT.");
+                    throw new Exception($"502 Bad Gateway. Hosted backend at {baseUrl} is not responding. Server admin must check backend and Nginx.");
+                }
+
                 if (attempt < maxRequestAttempts && IsTransientRequestError(request.result, statusCode))
                 {
                     int backoffSeconds = Mathf.Clamp(attempt * 2, 1, 10);
@@ -261,7 +269,7 @@ public class GameAPIClient : MonoBehaviour
                 {
                     Debug.LogError($"❌ API Error ({endpoint}): Got HTML 404 instead of JSON. You may be hitting the wrong server!");
                     Debug.LogError($"   Current baseUrl: {baseUrl}");
-                    Debug.LogError($"   For local dev: Set Api Environment = Local. If using pm2: Local Base Url = http://localhost:3001 (port 3001 avoids conflict with other apps on 3000)");
+                    Debug.LogError($"   For local dev: Set Api Environment = Local. If using pm2: Local Base Url = http://localhost:8081");
                     Debug.LogError($"   Ensure sushi-bonks backend is running (e.g. pm2 start sushi-bonks-api)");
                     throw new Exception($"Wrong server (HTML 404). Check GameAPIClient baseUrl matches your backend port.");
                 }
@@ -270,7 +278,7 @@ public class GameAPIClient : MonoBehaviour
                 {
                     Debug.LogError($"❌ API Error ({endpoint}): Connection failed - {errorText}");
                     Debug.LogError($"   baseUrl: {baseUrl}");
-                    Debug.LogError($"   If on Android device/emulator: localhost = the device. Use 10.0.2.2:3001 (emulator) or your PC IP (e.g. 192.168.1.x:3001) in Local Base Url.");
+                    Debug.LogError($"   If on Android device/emulator: localhost = the device. Use 10.0.2.2:8081 (emulator) or your PC IP (e.g. 192.168.1.x:8081) in Local Base Url.");
                     Debug.LogError($"   Ensure backend is running: pm2 start ecosystem.config.cjs");
                     throw new Exception($"Connection failed to {baseUrl}. Check backend is running and baseUrl is correct for your platform.");
                 }
@@ -391,6 +399,15 @@ public class GameAPIClient : MonoBehaviour
 
         return errorText.IndexOf("No on-chain stats available", StringComparison.OrdinalIgnoreCase) >= 0 ||
                errorText.IndexOf("does not support profile/statistics queries yet", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private bool IsHtml502BadGatewayResponse(int statusCode, string errorText)
+    {
+        if (statusCode != 502 && statusCode != 503) return false;
+        if (string.IsNullOrEmpty(errorText)) return true; // 502/503 with no body
+        var trimmed = errorText.TrimStart();
+        return trimmed.StartsWith("<!DOCTYPE", StringComparison.OrdinalIgnoreCase) ||
+               trimmed.StartsWith("<html", StringComparison.OrdinalIgnoreCase);
     }
 
     private bool IsHtml404Response(string errorText)

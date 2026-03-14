@@ -22613,11 +22613,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b9ef7cff502034d27a507630028c426e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  apiEnvironment: 0
-  localBaseUrl: http://localhost:3001
+  apiEnvironment: 1
+  localBaseUrl: http://localhost:8081
   hostedBaseUrl: https://api-sushinads.cryptara.world
   customBaseUrl: 
-  baseUrl: http://localhost:3001
+  baseUrl: http://localhost:8081
   requestsPerMinuteBudget: 90
   maxRequestAttempts: 4
 --- !u!4 &867919701
