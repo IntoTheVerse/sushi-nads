@@ -13,7 +13,7 @@ public class PrivyAndroidLogin : MonoBehaviour
     [Header("Privy Dashboard")]
     [SerializeField] private string appId = "YOUR_APP_ID";
     [SerializeField] private string clientId = "YOUR_CLIENT_ID";
-    private const string PRIVY_REDIRECT = "sushibonks://";
+    private const string PRIVY_REDIRECT = "sushinads://";
 
     [Header("UI")]
     [SerializeField] private Button playButton;
