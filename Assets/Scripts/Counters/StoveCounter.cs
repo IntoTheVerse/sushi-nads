@@ -5,6 +5,7 @@ public class StoveCounter : BaseCounter, IHasProgress
 {
     public event EventHandler<IHasProgress.OnProgressChangedEventArgs> OnProgressChanged;
     public event EventHandler<OnStateChangedEventArgs> OnStateChanged;
+    public static event EventHandler OnAnyStoveFried;
     public StoveCounter.State GetState() => state;
     public bool HasItemOnTop() => HasKitchenObject();
     public bool IsCooking() => state == State.Frying;
@@ -25,6 +26,11 @@ public class StoveCounter : BaseCounter, IHasProgress
     private float burningTimer;
     private FryingRecipeSO fryingRecipeSO;
     private BurningRecipeSO burningRecipeSO;
+
+    new public static void ResetStaticData()
+    {
+        OnAnyStoveFried = null;
+    }
 
     private void Start() {
         state = State.Idle;
@@ -62,6 +68,7 @@ public class StoveCounter : BaseCounter, IHasProgress
                         {
                             state = state
                         });
+                        OnAnyStoveFried?.Invoke(this, EventArgs.Empty);
                         burningTimer = 0f;
                         var cookedObject = GetKitchenObject();
                         burningRecipeSO = cookedObject != null

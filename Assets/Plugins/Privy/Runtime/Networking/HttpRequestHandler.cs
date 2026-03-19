@@ -62,10 +62,23 @@ namespace Privy
                 string clientAnalyticsId = _clientAnalyticsIdRepository.LoadClientId();
                 request.SetRequestHeader(Constants.PRIVY_CLIENT_ANALYTICS_ID_HEADER, clientAnalyticsId);
 
-                // Need to add native app bundle ID here
-                if (_appIdentifier != null)
+                // Only send native app identifier on actual native builds (Android/iOS).
+                // Skip for WebGL (causes invalid_native_app_id) and Editor (same package ID, no valid origin).
+                bool isNativeBuild = Application.platform == RuntimePlatform.Android
+                    || Application.platform == RuntimePlatform.IPhonePlayer;
+                if (_appIdentifier != null && isNativeBuild)
                 {
                     request.SetRequestHeader(Constants.PRIVY_NATIVE_APP_IDENTIFIER, _appIdentifier);
+                }
+                else
+                {
+                    // Non-native (Editor/WebGL): Privy requires Origin header. Use page URL origin when
+                    // available (WebGL), else fallback for Editor testing (must be in Privy allowed origins).
+                    string origin = GetOriginForRequest();
+                    if (!string.IsNullOrEmpty(origin))
+                    {
+                        request.SetRequestHeader("Origin", origin);
+                    }
                 }
 
                 if (customHeaders != null)
@@ -107,5 +120,29 @@ namespace Privy
         }
 
         public string GetFullUrl(string path) => $"{_baseUrl}/{path}";
+
+        /// <summary>
+        /// Gets the Origin value for non-native requests. WebGL uses the page URL; Editor uses a fallback.
+        /// </summary>
+        private static string GetOriginForRequest()
+        {
+            string url = Application.absoluteURL;
+            if (!string.IsNullOrEmpty(url))
+            {
+                try
+                {
+                    var uri = new Uri(url);
+                    int port = uri.Port;
+                    bool defaultPort = (uri.Scheme == "https" && port == 443) || (uri.Scheme == "http" && port == 80);
+                    string origin = defaultPort
+                        ? $"{uri.Scheme}://{uri.Host}"
+                        : $"{uri.Scheme}://{uri.Host}:{port}";
+                    return origin;
+                }
+                catch { /* fall through to fallback */ }
+            }
+            // Editor fallback: use localhost:8080 (must be in Privy Web allowed origins)
+            return "http://localhost:8080";
+        }
     }
 }

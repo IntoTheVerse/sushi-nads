@@ -55,4 +55,9 @@ public class SoundManager : MonoBehaviour
     {
         float v = sfxVolume + 0.1f; if (v > 1f) v = 0f; SetVolume(v);
     }
+
+    public void PlayCelebrateSound()
+    {
+        PlaySound(audioClipRefsSO.celebrate, Camera.main != null ? Camera.main.transform.position : transform.position);
+    }
 }

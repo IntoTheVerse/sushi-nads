@@ -82,6 +82,19 @@ public class GameAPIClient : MonoBehaviour
                 break;
         }
 
+        // Runtime override: when served from localhost:8080 (local WebGL testing), use local backend
+#if UNITY_WEBGL && !UNITY_EDITOR
+        string pageUrl = Application.absoluteURL ?? "";
+        if (pageUrl.StartsWith("http://localhost:8080", StringComparison.OrdinalIgnoreCase) ||
+            pageUrl.StartsWith("http://127.0.0.1:8080", StringComparison.OrdinalIgnoreCase))
+        {
+            baseUrl = localBaseUrl;
+            Debug.Log($"🌐 Local WebGL (localhost:8080) → Base URL: {baseUrl}");
+            baseUrl = baseUrl.TrimEnd('/');
+            return;
+        }
+#endif
+
         baseUrl = baseUrl.TrimEnd('/');
         Debug.Log($"🌐 API environment: {apiEnvironment} | Base URL: {baseUrl}");
     }
@@ -93,11 +106,7 @@ public class GameAPIClient : MonoBehaviour
             request.timeout = 15;
             request.SetRequestHeader("Content-Type", "application/json");
 
-            var operation = request.SendWebRequest();
-            while (!operation.isDone)
-            {
-                await Task.Yield();
-            }
+            await SendWebRequestAsync(request);
 
             if (request.result == UnityWebRequest.Result.Success)
             {
@@ -162,6 +171,19 @@ public class GameAPIClient : MonoBehaviour
         public SessionInactiveException(string message) : base(message) { }
     }
 
+    private Task SendWebRequestAsync(UnityWebRequest request)
+    {
+        var tcs = new TaskCompletionSource<bool>();
+        StartCoroutine(SendWebRequestCoroutine(request, tcs));
+        return tcs.Task;
+    }
+
+    private System.Collections.IEnumerator SendWebRequestCoroutine(UnityWebRequest request, TaskCompletionSource<bool> tcs)
+    {
+        yield return request.SendWebRequest();
+        tcs.TrySetResult(true);
+    }
+
     private async Task<T> SendRequestAsync<T>(string endpoint, string method, object body = null, int timeoutSeconds = 30)
     {
         // HACKATHON MODE: Add wallet address to all requests (wait if Privy still initializing)
@@ -208,11 +230,7 @@ public class GameAPIClient : MonoBehaviour
                 request.downloadHandler = new DownloadHandlerBuffer();
                 request.SetRequestHeader("Content-Type", "application/json");
 
-                var operation = request.SendWebRequest();
-                while (!operation.isDone)
-                {
-                    await Task.Yield();
-                }
+                await SendWebRequestAsync(request);
 
                 if (request.result == UnityWebRequest.Result.Success)
                 {
@@ -567,11 +585,7 @@ public class GameAPIClient : MonoBehaviour
                 request.timeout = 10;
                 request.SetRequestHeader("Content-Type", "application/json");
                 
-                var operation = request.SendWebRequest();
-                while (!operation.isDone)
-                {
-                    await Task.Yield();
-                }
+                await SendWebRequestAsync(request);
                 
                 if (request.result == UnityWebRequest.Result.Success)
                 {

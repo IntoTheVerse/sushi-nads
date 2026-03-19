@@ -84,7 +84,6 @@ public class MusicManager : MonoBehaviour
     {
         if (gameScoreMusic != null)
         {
-            if (musicSource != null && musicSource.isPlaying) musicSource.Stop();
             if (specialMusicSource != null)
             {
                 specialMusicSource.clip = gameScoreMusic;
@@ -111,8 +110,17 @@ public class MusicManager : MonoBehaviour
                 specialMusicSource.clip = last12SecondsMusic;
                 specialMusicSource.loop = false;
                 specialMusicSource.Play();
+                
+                // Restart the main playlist after the 12 second clip finishes
+                StartCoroutine(RestartPlaylistAfterDelay(last12SecondsMusic.length));
             }
         }
+    }
+
+    private System.Collections.IEnumerator RestartPlaylistAfterDelay(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        PlayCurrent();
     }
 
     public void NextTrack()
