@@ -123,20 +123,22 @@ sudo certbot --nginx -d game.yourdomain.com
 Add your WebGL game URL to `ALLOWED_ORIGINS` in `backend/.env`:
 
 ```
-ALLOWED_ORIGINS=https://game.yourdomain.com,https://your-game.itch.io,https://sushinads.cryptara.world
+ALLOWED_ORIGINS=https://game.yourdomain.com,https://your-game.itch.io,https://sushinads.cryptara.world,http://localhost:8080
 ```
 
-Restart the backend after changing `.env`.
+Include `http://localhost:8080` for local testing. Restart the backend after changing `.env`.
 
 ---
 
 ## 5. Privy Web client
 
-In the Privy dashboard, add your WebGL origin to **Allowed origins** for the Web client:
+In the Privy dashboard (Web tab), add your WebGL origin to **Allowed origins**:
 
 - `https://game.yourdomain.com`
 - `https://your-game.itch.io`
-- `http://localhost:8080` (for local testing)
+- `http://localhost:8080` (for local testing and Unity Editor Play mode)
+
+**Important:** Configure this before testing. The Privy SDK sends an Origin header for WebGL and Editor; the value must match an allowed origin exactly (including scheme and port).
 
 ---
 
@@ -151,7 +153,9 @@ npx serve -l 8080
 ```
 
 3. Open `http://localhost:8080` in a browser.
-4. Ensure the backend is running and `ALLOWED_ORIGINS` includes `http://localhost:8080`.
+4. Ensure:
+   - Backend is running and `ALLOWED_ORIGINS` includes `http://localhost:8080`
+   - Privy **Allowed origins** includes `http://localhost:8080`
 
 ---
 
@@ -160,6 +164,8 @@ npx serve -l 8080
 | Issue | Fix |
 |-------|-----|
 | CORS errors | Add the game URL to `ALLOWED_ORIGINS` and restart the backend |
-| Privy login fails | Add the game URL to Privy **Allowed origins** |
+| Privy login fails | Add the game URL (or `http://localhost:8080` for local) to Privy **Web > Allowed origins** |
+| `invalid_native_app_id` | Fixed in project: Privy SDK skips native app ID on WebGL/Editor. Rebuild if using an old build. |
+| `missing_origin` | Fixed in project: Origin header is sent for WebGL/Editor. Ensure origin is in Privy allowed list. |
 | Blank screen | Check browser console; ensure API base URL is correct |
 | Build fails | Switch to WebGL in Build Settings first; check for compile errors |
