@@ -82,6 +82,19 @@ public class GameAPIClient : MonoBehaviour
                 break;
         }
 
+        // Runtime override: when served from localhost:8080 (local WebGL testing), use local backend
+#if UNITY_WEBGL && !UNITY_EDITOR
+        string pageUrl = Application.absoluteURL ?? "";
+        if (pageUrl.StartsWith("http://localhost:8080", StringComparison.OrdinalIgnoreCase) ||
+            pageUrl.StartsWith("http://127.0.0.1:8080", StringComparison.OrdinalIgnoreCase))
+        {
+            baseUrl = localBaseUrl;
+            Debug.Log($"🌐 Local WebGL (localhost:8080) → Base URL: {baseUrl}");
+            baseUrl = baseUrl.TrimEnd('/');
+            return;
+        }
+#endif
+
         baseUrl = baseUrl.TrimEnd('/');
         Debug.Log($"🌐 API environment: {apiEnvironment} | Base URL: {baseUrl}");
     }
