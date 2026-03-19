@@ -53,11 +53,6 @@ public class LeaderboardPanelUI : MonoBehaviour
         // Hide content panel initially until data loads
         SetContentPanelVisible(false);
         RefreshLeaderboard();
-
-        if (MainMenuMusicManager.Instance != null)
-        {
-            MainMenuMusicManager.Instance.PlayLeaderboardMusic();
-        }
     }
 
     private void OnDisable()
@@ -69,11 +64,6 @@ public class LeaderboardPanelUI : MonoBehaviour
 
         StopLoadingRotation(); // Stop rotation when panel is disabled
         ClearRows();
-
-        if (MainMenuMusicManager.Instance != null)
-        {
-            MainMenuMusicManager.Instance.PlayIdleMusic();
-        }
     }
 
     public void RefreshLeaderboard()

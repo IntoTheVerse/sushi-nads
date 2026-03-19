@@ -36,7 +36,7 @@ public class GameOverUI : MonoBehaviour
     [Header("Tutorial Timeout Flow")]
     [SerializeField] private float tutorialRedirectDelaySeconds = 5f;
     [SerializeField] private string tutorialTimeoutMessage = "Well done! Redirecting to main menu...";
-    
+
     // Catchy loading phrases (Overcooked-style)
     private readonly string[] loadingPhrases = {
         "Calculating your culinary score...",
@@ -284,6 +284,12 @@ public class GameOverUI : MonoBehaviour
             } else if (durationText != null) durationText.text = "00:00";
         }
         
+        // Play Yay Sound Effect from AudioClipRefsSO
+        if (SoundManager.Instance != null)
+        {
+            SoundManager.Instance.PlayCelebrateSound();
+        }
+
         isAnimating = false;
     }
     
