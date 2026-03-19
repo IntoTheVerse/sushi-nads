@@ -26,7 +26,7 @@ Useful files to inspect before editing
 Testing & local workflows
 - Backend: `cd backend && npm install && cp .env.example .env && npm run dev` for development (uses `nodemon`). Use `npm test` for backend tests.
 - Contracts: `cd blockchain && npm install && cp env.example.txt .env && npm run compile && npm test`.
-- Unity: open project in Unity Hub (2022.3 LTS), set `GameAPIClient` Api Environment to Local and Local Base Url to `http://localhost:3001` when running backend locally (e.g. `pm2 start sushi-bonks-api` or `pm2 start ecosystem.config.cjs`).
+- Unity: open project in Unity Hub (2022.3 LTS), set `GameAPIClient` Api Environment to Local and Local Base Url to `http://localhost:8081` when running backend locally (e.g. `pm2 start sushi-bonks-api` or `pm2 start ecosystem.config.cjs`).
 
 Agent behavior rules (specific)
 - Do not modify Unity binary assets (`*.unity`, `*.prefab`) except when the change is strictly tied to the C# code you add and you verify in the Editor.

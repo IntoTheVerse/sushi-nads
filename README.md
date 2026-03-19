@@ -395,7 +395,7 @@ For full deployment details and troubleshooting, use [backend/DEPLOYMENT.md](bac
 4. **Configure Unity**
 - Open GameScene
 - Ensure GameplayEventTracker exists in hierarchy
-- Set GameAPIClient Api Environment = Local and Local Base Url = `http://localhost:3001` (ecosystem.config.cjs uses 3001 to avoid conflict with other apps on 3000)
+- Set GameAPIClient Api Environment = Local and Local Base Url = `http://localhost:8081` (ecosystem.config.cjs uses 8081)
 
 5. **Play!**
 - Press Play in Unity Editor

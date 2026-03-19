@@ -101,3 +101,7 @@ docs/
 WebglBuid/
 WebGLBuild/
 WebGLBuilds/
+
+
+#misc
+.DS_Store

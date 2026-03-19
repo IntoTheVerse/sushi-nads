@@ -66,7 +66,7 @@ pm2 startup   # Follow the command it prints to enable auto-start on reboot
 ## 🏥 Health Check
 
 ```bash
-curl http://localhost:3000/health
+curl http://localhost:8081/health
 ```
 
 Expected response:
@@ -74,7 +74,7 @@ Expected response:
 {"status":"ok","timestamp":"...","service":"sushi-bonks-api","version":"1.0.0"}
 ```
 
-Server runs on `http://localhost:3000` – set this as the API base URL in Unity.
+Server runs on `http://localhost:8081` – set this as the API base URL in Unity.
 
 ---
 
@@ -138,7 +138,7 @@ GET    /api/leaderboard/global-stats  # Get global stats
 ### With Privy Token
 ```bash
 # Get profile
-curl http://localhost:3000/api/chef/profile \
+curl http://localhost:8081/api/chef/profile \
   -H "Authorization: Bearer YOUR_PRIVY_TOKEN"
 ```
 
@@ -215,7 +215,7 @@ pm2 save && pm2 startup
 
 **Nginx reverse proxy** (production server only – not needed for local dev):
 
-`nginx/sushi-bonks.conf.example` configures Nginx to listen on port 80 and forward requests to your Node app on port 3000.
+`nginx/sushi-bonks.conf.example` configures Nginx to listen on port 80 and forward requests to your Node app on port 8081.
 
 **How to use it:**
 
