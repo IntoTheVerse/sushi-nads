@@ -145,17 +145,23 @@ In the Privy dashboard (Web tab), add your WebGL origin to **Allowed origins**:
 ## 6. Local testing
 
 1. Build WebGL to `WebGLBuild`.
-2. Serve the folder locally:
+2. Start the backend locally (e.g. `pm2 start ecosystem.config.cjs` in `backend/`).
+3. Serve the WebGL folder:
 
 ```bash
 cd WebGLBuild
 npx serve -l 8080
 ```
 
-3. Open `http://localhost:8080` in a browser.
-4. Ensure:
-   - Backend is running and `ALLOWED_ORIGINS` includes `http://localhost:8080`
+4. Open **`http://localhost:8080`** in a browser (not your LAN IP).
+5. Ensure:
+   - Backend `.env` has `ALLOWED_ORIGINS` including `http://localhost:8080`
    - Privy **Allowed origins** includes `http://localhost:8080`
+   - Restart backend after changing `.env` (`pm2 restart sushi-bonks-api`)
+
+**Runtime override:** When the game is served from `http://localhost:8080`, `GameAPIClient` automatically uses the local backend (`http://localhost:8081`), so you can use a Hosted build for local testing without rebuilding.
+
+**Accessing via LAN IP (e.g. `http://192.168.0.103:8080`):** The browser sends that as the Origin. Add it to Privy **Allowed origins** and `ALLOWED_ORIGINS`, or use `localhost` instead.
 
 ---
 
@@ -163,9 +169,11 @@ npx serve -l 8080
 
 | Issue | Fix |
 |-------|-----|
-| CORS errors | Add the game URL to `ALLOWED_ORIGINS` and restart the backend |
+| CORS errors | Add the game URL to `ALLOWED_ORIGINS` and restart the backend. For local testing: add `http://localhost:8080` to the **deployed** backend’s env (e.g. on api-sushinads.cryptara.world). |
 | Privy login fails | Add the game URL (or `http://localhost:8080` for local) to Privy **Web > Allowed origins** |
 | `invalid_native_app_id` | Fixed in project: Privy SDK skips native app ID on WebGL/Editor. Rebuild if using an old build. |
 | `missing_origin` | Fixed in project: Origin header is sent for WebGL/Editor. Ensure origin is in Privy allowed list. |
+| `invalid_origin` / Privy 403 | The URL you use (e.g. `http://192.168.0.103:8080`) must be in Privy **Allowed origins**. Use `http://localhost:8080` or add your LAN IP. |
+| Privy iframe blocked (CSP) | Same as above: add your access URL to Privy allowed origins. |
 | Blank screen | Check browser console; ensure API base URL is correct |
 | Build fails | Switch to WebGL in Build Settings first; check for compile errors |
