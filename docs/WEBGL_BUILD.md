@@ -159,7 +159,7 @@ npx serve -l 8080
    - Privy **Allowed origins** includes `http://localhost:8080`
    - Restart backend after changing `.env` (`pm2 restart sushi-bonks-api`)
 
-**Runtime override:** When the game is served from `http://localhost:8080`, `GameAPIClient` automatically uses the local backend (`http://localhost:8081`), so you can use a Hosted build for local testing without rebuilding.
+**Runtime override:** When `Auto Use Local Backend When On Localhost` is enabled (default), the game served from `http://localhost:8080` uses the local backend (`http://localhost:8081`). Disable it if you want a Hosted build to always use the hosted API when testing locally (the hosted backend must allow `http://localhost:8080` in CORS).
 
 **Accessing via LAN IP (e.g. `http://192.168.0.103:8080`):** The browser sends that as the Origin. Add it to Privy **Allowed origins** and `ALLOWED_ORIGINS`, or use `localhost` instead.
 

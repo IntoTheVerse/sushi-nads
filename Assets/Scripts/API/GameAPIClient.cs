@@ -29,6 +29,8 @@ public class GameAPIClient : MonoBehaviour
     [SerializeField] private string hostedBaseUrl = "https://api-sushinads.cryptara.world";
     [SerializeField] private string customBaseUrl = string.Empty;
     [SerializeField] private string baseUrl = "https://api-sushinads.cryptara.world";
+    [Tooltip("When true (default): served from localhost:8080 uses local backend. When false: hosted build always uses hosted API (hosted backend must allow localhost:8080 in CORS).")]
+    [SerializeField] private bool autoUseLocalBackendWhenOnLocalhost = true;
 
     private string cachedWalletAddress = string.Empty;
 
@@ -82,16 +84,19 @@ public class GameAPIClient : MonoBehaviour
                 break;
         }
 
-        // Runtime override: when served from localhost:8080 (local WebGL testing), use local backend
+        // Runtime override: when served from localhost:8080, optionally use local backend (avoids CORS)
 #if UNITY_WEBGL && !UNITY_EDITOR
-        string pageUrl = Application.absoluteURL ?? "";
-        if (pageUrl.StartsWith("http://localhost:8080", StringComparison.OrdinalIgnoreCase) ||
-            pageUrl.StartsWith("http://127.0.0.1:8080", StringComparison.OrdinalIgnoreCase))
+        if (autoUseLocalBackendWhenOnLocalhost)
         {
-            baseUrl = localBaseUrl;
-            Debug.Log($"🌐 Local WebGL (localhost:8080) → Base URL: {baseUrl}");
-            baseUrl = baseUrl.TrimEnd('/');
-            return;
+            string pageUrl = Application.absoluteURL ?? "";
+            if (pageUrl.StartsWith("http://localhost:8080", StringComparison.OrdinalIgnoreCase) ||
+                pageUrl.StartsWith("http://127.0.0.1:8080", StringComparison.OrdinalIgnoreCase))
+            {
+                baseUrl = localBaseUrl;
+                Debug.Log($"🌐 Local WebGL (localhost:8080) → Base URL: {baseUrl}");
+                baseUrl = baseUrl.TrimEnd('/');
+                return;
+            }
         }
 #endif
 
