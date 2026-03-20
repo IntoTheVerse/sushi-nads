@@ -729,9 +729,9 @@ public class ChefManager : MonoBehaviour
                     UpdateEnergyUI(currentEnergy);
                 }
                 
-                // Get explorer URL from backend (Base Sepolia or Monad)
+                // Get explorer URL from backend (Monad Testnet)
                 string explorerUrl = await GameAPIClient.Instance.GetExplorerUrl();
-                string explorerName = explorerUrl.Contains("basescan") ? "Basescan" : "MonVision";
+                string explorerName = explorerUrl.Contains("monadexplorer") ? "MonVision" : "Explorer";
                 string txUrl = $"{explorerUrl}/tx/{response.txHash}";
                 
                 ShowStatusMessage(

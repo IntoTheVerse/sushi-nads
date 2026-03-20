@@ -11,17 +11,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const NETWORKS = {
-    base: {
-        name: 'Base Sepolia',
-        chainId: 84532,
-        rpcUrl: process.env.BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org',
-        explorerUrl: 'https://sepolia.basescan.org',
-        contracts: {
-            chefNFT: process.env.CHEFNFT_ADDRESS,
-            gameCore: process.env.GAMECORE_ADDRESS,
-            leaderboard: process.env.LEADERBOARD_ADDRESS,
-        },
-    },
     monad: {
         name: 'Monad Testnet',
         chainId: 10143,
@@ -36,9 +25,9 @@ const NETWORKS = {
 };
 
 const targetNetwork =
-    (process.env.TARGET_NETWORK || 'base').toLowerCase() in NETWORKS
-        ? (process.env.TARGET_NETWORK || 'base').toLowerCase()
-        : 'base';
+    (process.env.TARGET_NETWORK || 'monad').toLowerCase() in NETWORKS
+        ? (process.env.TARGET_NETWORK || 'monad').toLowerCase()
+        : 'monad';
 
 // Load ABIs per network
 const loadABI = (contractName) => {

@@ -199,6 +199,22 @@ export async function setCachedProfile(address, profile) {
     }
 }
 
+/**
+ * Invalidate cached profile for a player (e.g. when session ends).
+ * Next profile fetch will hit blockchain for fresh recentSessions.
+ */
+export async function deleteCachedProfile(address) {
+    const db = getDb();
+    if (!db) return; // Firebase not initialized
+    
+    try {
+        await db.collection('profiles').doc(address).delete();
+        console.log(`🧹 Cleared profile cache for ${address}`);
+    } catch (error) {
+        console.error('Delete cached profile error:', error);
+    }
+}
+
 export default {
     getCachedEnergy,
     setCachedEnergy,
@@ -210,5 +226,6 @@ export default {
     clearLeaderboardCache,
     getCachedProfile,
     setCachedProfile,
+    deleteCachedProfile,
 };
 

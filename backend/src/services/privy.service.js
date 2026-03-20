@@ -117,7 +117,7 @@ export async function sendSponsoredTransaction(walletId, txParams) {
         // Chain ID is dynamically determined from TARGET_NETWORK env variable
         const caip2 = `eip155:${activeNetwork.chainId}`;
         const response = await privy.wallets().ethereum().sendTransaction(walletId, {
-            caip2, // Dynamic chain ID based on TARGET_NETWORK (84532 for Base, 10143 for Monad)
+            caip2, // Chain ID for Monad Testnet (10143)
             params: {
                 transaction: {
                     to: txParams.to,
