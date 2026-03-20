@@ -14,7 +14,7 @@
     "blockchain",
     "game",
     "privy",
-    "base"
+    "monad"
   ],
   "author": "Sushi Bonks Team",
   "license": "MIT",

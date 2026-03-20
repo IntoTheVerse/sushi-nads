@@ -602,14 +602,13 @@ public class GameAPIClient : MonoBehaviour
                 }
                 else
                 {
-                    Debug.LogWarning($"⚠️ Failed to fetch network config, using default Basescan URL");
-                    // Return default Base Sepolia config as fallback
+                    Debug.LogWarning($"⚠️ Failed to fetch network config, using default Monad explorer URL");
                     return new NetworkConfigResponse
                     {
                         success = false,
                         network = new NetworkInfo
                         {
-                            explorerUrl = "https://sepolia.basescan.org"
+                            explorerUrl = "https://testnet.monadexplorer.com"
                         }
                     };
                 }
@@ -617,14 +616,13 @@ public class GameAPIClient : MonoBehaviour
         }
         catch (Exception e)
         {
-            Debug.LogWarning($"⚠️ Error fetching network config: {e.Message}, using default Basescan URL");
-            // Return default Base Sepolia config as fallback
+            Debug.LogWarning($"⚠️ Error fetching network config: {e.Message}, using default Monad explorer URL");
             return new NetworkConfigResponse
             {
                 success = false,
                 network = new NetworkInfo
                 {
-                    explorerUrl = "https://sepolia.basescan.org"
+                    explorerUrl = "https://testnet.monadexplorer.com"
                 }
             };
         }
@@ -636,7 +634,7 @@ public class GameAPIClient : MonoBehaviour
     public async Task<string> GetExplorerUrl()
     {
         var config = await GetNetworkConfig();
-        return config?.network?.explorerUrl ?? "https://sepolia.basescan.org";
+        return config?.network?.explorerUrl ?? "https://testnet.monadexplorer.com";
     }
 }
 

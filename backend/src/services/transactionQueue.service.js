@@ -212,7 +212,7 @@ export async function sendParallelTransactions(transactions, signer, batchSize =
                         gasLimit: gasLimit,
                         nonce: Number(explicitNonce), // Convert BigInt to number for nonce
                         chainId: chainId, // Explicitly set chain ID
-                        type: 2, // Explicitly set to EIP-1559 (Base doesn't support blob transactions)
+                        type: 2, // Explicitly set to EIP-1559 (Monad testnet)
                         // Explicitly set EIP-1559 fee fields to prevent blob transaction creation
                         maxFeePerGas: maxFeePerGas || 0n,
                         maxPriorityFeePerGas: maxPriorityFeePerGas || 0n

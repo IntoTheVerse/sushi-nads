@@ -408,18 +408,18 @@ public class SessionManager : MonoBehaviour
             try
             {
                 string explorerUrl = await GameAPIClient.Instance.GetExplorerUrl();
-                string explorerName = explorerUrl.Contains("basescan") ? "Basescan" : "MonVision";
+                string explorerName = explorerUrl.Contains("monadexplorer") ? "MonVision" : "Explorer";
                 string txUrl = $"{explorerUrl}/tx/{txHash}";
                 Debug.Log($"🔗 Score transaction on {explorerName}: {txUrl}");
                 // Application.OpenURL(txUrl);
             }
             catch (Exception e)
             {
-                // Fallback to Basescan if network config fetch fails
-                Debug.LogWarning($"⚠️ Failed to get explorer URL, using default Basescan: {e.Message}");
-            string basescanUrl = $"https://sepolia.basescan.org/tx/{txHash}";
-            Debug.Log($"🔗 Score transaction: {basescanUrl}");
-            // Application.OpenURL(basescanUrl);
+                // Fallback to Monad explorer if network config fetch fails
+                Debug.LogWarning($"⚠️ Failed to get explorer URL, using default Monad explorer: {e.Message}");
+            string explorerUrl = $"https://testnet.monadexplorer.com/tx/{txHash}";
+            Debug.Log($"🔗 Score transaction: {explorerUrl}");
+            // Application.OpenURL(explorerUrl);
             }
         }
     }

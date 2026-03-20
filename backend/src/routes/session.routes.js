@@ -4,7 +4,7 @@ import { queueTransaction } from '../services/transactionQueue.service.js';
 import { addSessionSignerToWallet, sendSponsoredTransaction } from '../services/privy.service.js';
 import { requireAuth } from '../middleware/auth.js';
 import { validateSessionId } from '../middleware/validation.js';
-import { getCachedSession, setCachedSession, deleteCachedSession, clearLeaderboardCache } from '../services/cache.service.js';
+import { getCachedSession, setCachedSession, deleteCachedSession, clearLeaderboardCache, deleteCachedProfile } from '../services/cache.service.js';
 import { GAME_CONFIG } from '../config/constants.js';
 import { clearSessionQueue, queueEndSession } from './gameplay.routes.js';
 import { safePlayerHasChef, safeGetPlayerEnergy } from '../utils/contractHelpers.js';
@@ -105,6 +105,7 @@ router.post('/start', requireAuth, async (req, res, next) => {
                         console.log(`⏰ Auto-ending stale session ${currentSessionId} (${recovery.reason}, age: ${recovery.ageSeconds}s)`);
                         await queueEndSession(Number(currentSessionId), recovery.reason, playerAddress, Number(existingSession.moveCount || 0));
                         await deleteCachedSession(Number(currentSessionId));
+                        await deleteCachedProfile(playerAddress);
                         try {
                             await clearLeaderboardCache();
                         } catch (cacheError) {
@@ -294,8 +295,9 @@ router.post('/end', requireAuth, validateSessionId, async (req, res, next) => {
             // Clear any pending move queues for this session
             await clearSessionQueue(sessionId);
             
-            // Delete cached session
+            // Delete cached session and profile (so recent sessions refresh)
             await deleteCachedSession(sessionId);
+            await deleteCachedProfile(playerAddress);
             try {
                 await clearLeaderboardCache();
             } catch (cacheError) {
@@ -328,8 +330,9 @@ router.post('/end', requireAuth, validateSessionId, async (req, res, next) => {
                 const updatedSession = await gameCore.getSession(sessionId);
                 const sessionStats = formatSessionStats(updatedSession);
                 
-                // Delete cached session
+                // Delete cached session and profile
                 await deleteCachedSession(sessionId);
+                await deleteCachedProfile(playerAddress);
                 try {
                     await clearLeaderboardCache();
                 } catch (cacheError) {
@@ -348,8 +351,9 @@ router.post('/end', requireAuth, validateSessionId, async (req, res, next) => {
             throw error;
         }
         
-        // Delete cached session
+        // Delete cached session and profile (so recent sessions refresh)
         await deleteCachedSession(sessionId);
+        await deleteCachedProfile(playerAddress);
         try {
             await clearLeaderboardCache();
         } catch (cacheError) {
@@ -399,6 +403,7 @@ router.post('/force-end', requireAuth, validateSessionId, async (req, res, next)
 
         const result = await queueEndSession(sessionId, 'PLAYER_FORCE_ENDED', playerAddress, moveCount);
         await deleteCachedSession(sessionId);
+        await deleteCachedProfile(playerAddress);
         try {
             await clearLeaderboardCache();
         } catch (cacheError) {

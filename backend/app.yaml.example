@@ -28,13 +28,13 @@ env_variables:
   PRIVY_BACKEND_AUTH_KEY_ID: ''
   PRIVY_BACKEND_AUTH_PRIVATE_KEY: ''
 
-  # Blockchain
-  TARGET_NETWORK: 'base'
-  BASE_SEPOLIA_RPC_URL: 'https://sepolia.base.org'
+  # Blockchain (Monad Testnet)
+  TARGET_NETWORK: 'monad'
+  MONAD_RPC_URL: 'https://testnet-rpc.monad.xyz'
   BACKEND_PRIVATE_KEY: ''
-  CHEFNFT_ADDRESS: ''
-  GAMECORE_ADDRESS: ''
-  LEADERBOARD_ADDRESS: ''
+  MONAD_CHEFNFT_ADDRESS: ''
+  MONAD_GAMECORE_ADDRESS: ''
+  MONAD_LEADERBOARD_ADDRESS: ''
 
   # Firebase (if not using Application Default Credentials)
   FIREBASE_PROJECT_ID: ''

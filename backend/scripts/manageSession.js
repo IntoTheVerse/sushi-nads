@@ -1,5 +1,5 @@
 // Complete session management CLI tool
-import { gameCore } from '../src/services/blockchain.service.js';
+import { gameCore, activeNetwork } from '../src/services/blockchain.service.js';
 import { queueTransaction } from '../src/services/transactionQueue.service.js';
 
 const PLAYER_ADDRESS = '0x5c2c4baaF9b61A46880e08D408201E4b2c945f92';
@@ -186,8 +186,8 @@ async function endSession(sessionId) {
         console.log(`         FINAL SCORE: ${colors.bright}${updatedSession.finalScore}${colors.reset}`);
         console.log('═══════════════════════════════════════════════\n');
         
-        console.log(`🔗 View on Basescan:`);
-        console.log(`   https://sepolia.basescan.org/tx/${receipt.hash}\n`);
+        console.log(`🔗 View on ${activeNetwork.name}:`);
+        console.log(`   ${activeNetwork.explorerUrl}/tx/${receipt.hash}\n`);
         
         return receipt;
         
