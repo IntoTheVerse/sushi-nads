@@ -6,6 +6,8 @@ public class StoveCounter : BaseCounter, IHasProgress
     public event EventHandler<IHasProgress.OnProgressChangedEventArgs> OnProgressChanged;
     public event EventHandler<OnStateChangedEventArgs> OnStateChanged;
     public static event EventHandler OnAnyStoveFried;
+    public static event EventHandler OnAnyStoveBurned;
+    public static event EventHandler OnAnyStoveWarning;
     public StoveCounter.State GetState() => state;
     public bool HasItemOnTop() => HasKitchenObject();
     public bool IsCooking() => state == State.Frying;
@@ -24,12 +26,15 @@ public class StoveCounter : BaseCounter, IHasProgress
     [SerializeField] private BurningRecipeSO[] burningRecipeSOArray;
     private float fryingTimer;
     private float burningTimer;
+    private bool hasFiredWarning;
     private FryingRecipeSO fryingRecipeSO;
     private BurningRecipeSO burningRecipeSO;
 
     new public static void ResetStaticData()
     {
         OnAnyStoveFried = null;
+        OnAnyStoveBurned = null;
+        OnAnyStoveWarning = null;
     }
 
     private void Start() {
@@ -70,6 +75,7 @@ public class StoveCounter : BaseCounter, IHasProgress
                         });
                         OnAnyStoveFried?.Invoke(this, EventArgs.Empty);
                         burningTimer = 0f;
+                        hasFiredWarning = false;
                         var cookedObject = GetKitchenObject();
                         burningRecipeSO = cookedObject != null
                             ? GetBurningRecipeSOWithInput(cookedObject.GetKitchenObjectSO())
@@ -108,6 +114,13 @@ public class StoveCounter : BaseCounter, IHasProgress
                     }
 
                     burningTimer += Time.deltaTime;
+
+                    // Fire warning if over 70% burnt
+                    if (!hasFiredWarning && burningTimer / burningRecipeSO.burningTimerMax > 0.7f) {
+                        hasFiredWarning = true;
+                        OnAnyStoveWarning?.Invoke(this, EventArgs.Empty);
+                    }
+
                     OnProgressChanged?.Invoke(this, new IHasProgress.OnProgressChangedEventArgs {
                         progressNormalized = burningTimer / burningRecipeSO.burningTimerMax
                     });
@@ -119,6 +132,7 @@ public class StoveCounter : BaseCounter, IHasProgress
                         OnStateChanged?.Invoke(this, new OnStateChangedEventArgs {
                             state = state
                         });
+                        OnAnyStoveBurned?.Invoke(this, EventArgs.Empty);
 
                         OnProgressChanged?.Invoke(this, new IHasProgress.OnProgressChangedEventArgs {
                             progressNormalized = 0f
@@ -143,6 +157,7 @@ public class StoveCounter : BaseCounter, IHasProgress
         state = State.Idle;
         burningTimer = 0f;
         fryingTimer = 0f;
+        hasFiredWarning = false;
         fryingRecipeSO = null;
         burningRecipeSO = null;
         OnStateChanged?.Invoke(this, new OnStateChangedEventArgs { state = state });

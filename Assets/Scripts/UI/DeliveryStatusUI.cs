@@ -6,28 +6,43 @@ using System;
 public class DeliveryStatusUI : MonoBehaviour
 {
     [Header("UI References")]
-    [SerializeField] private Image checkmarkImage;
+    [SerializeField] private TMPro.TextMeshProUGUI statusText;
+    [SerializeField] private UnityEngine.UI.Image bgImage;
 
     [Header("Animation Settings")]
     [SerializeField] private float displayDuration = 1.0f;
     [SerializeField] private float fadeDuration = 0.2f;
 
+    [Header("Prompt Background Sprites")]
+    [SerializeField] private Sprite successSprite;
+    [SerializeField] private Sprite errorSprite;
+    [SerializeField] private Sprite warningSprite;
+
+    [Header("Screen Shake Options")]
+    [SerializeField] private RectTransform screenShakeTarget;
+    [SerializeField] private float shakeIntensity = 5f;
+
     private Coroutine currentAnimationCoroutine;
 
     private void Start()
     {
-        if (checkmarkImage != null)
+        if (statusText != null && bgImage != null)
         {
-            checkmarkImage.enabled = false;
+            statusText.enabled = false;
+            bgImage.enabled = false;
             
-            // Ensure alpha is 0 to start
-            Color c = checkmarkImage.color;
-            c.a = 0f;
-            checkmarkImage.color = c;
+            // Ensure alphas are 0 to start
+            Color textColor = statusText.color;
+            textColor.a = 0f;
+            statusText.color = textColor;
+
+            Color bgColor = bgImage.color;
+            bgColor.a = 0f;
+            bgImage.color = bgColor;
         }
         else
         {
-            Debug.LogWarning("DeliveryStatusUI requires a checkmark Image component to be assigned in the Inspector.");
+            Debug.LogWarning("DeliveryStatusUI requires both a TextMeshProUGUI and an Image component assigned in the Inspector.");
         }
 
         SubscribeToEvents();
@@ -35,16 +50,15 @@ public class DeliveryStatusUI : MonoBehaviour
 
     private void SubscribeToEvents()
     {
-        // 1. Listen for successful deliveries
         if (DeliveryManager.Instance != null)
         {
             DeliveryManager.Instance.OnRecipeSuccess += DeliveryManager_OnRecipeSuccess;
+            DeliveryManager.Instance.OnRecipeFailed += DeliveryManager_OnRecipeFailed;
         }
 
-        // 2. Listen for fully cooked items on the stove
         StoveCounter.OnAnyStoveFried += StoveCounter_OnAnyStoveFried;
-
-        // 3. Listen for discarded items in the trash
+        StoveCounter.OnAnyStoveBurned += StoveCounter_OnAnyStoveBurned;
+        StoveCounter.OnAnyStoveWarning += StoveCounter_OnAnyStoveWarning;
         TrashCounter.OnAnyObjectTrashed += TrashCounter_OnAnyObjectTrashed;
     }
 
@@ -53,48 +67,80 @@ public class DeliveryStatusUI : MonoBehaviour
         if (DeliveryManager.Instance != null)
         {
             DeliveryManager.Instance.OnRecipeSuccess -= DeliveryManager_OnRecipeSuccess;
+            DeliveryManager.Instance.OnRecipeFailed -= DeliveryManager_OnRecipeFailed;
         }
 
         StoveCounter.OnAnyStoveFried -= StoveCounter_OnAnyStoveFried;
+        StoveCounter.OnAnyStoveBurned -= StoveCounter_OnAnyStoveBurned;
+        StoveCounter.OnAnyStoveWarning -= StoveCounter_OnAnyStoveWarning;
         TrashCounter.OnAnyObjectTrashed -= TrashCounter_OnAnyObjectTrashed;
     }
 
     private void DeliveryManager_OnRecipeSuccess(object sender, EventArgs e)
     {
-        TriggerStatusPopup();
+        TriggerStatusPopup("PERFECT PLATE!! 🍣", successSprite);
+    }
+    
+    private void DeliveryManager_OnRecipeFailed(object sender, EventArgs e)
+    {
+        TriggerStatusPopup("ORDER LOST!!", errorSprite);
     }
 
     private void StoveCounter_OnAnyStoveFried(object sender, EventArgs e)
     {
-        TriggerStatusPopup();
+        TriggerStatusPopup("PERFECT PLATE!! 🍣", successSprite);
+    }
+
+    private void StoveCounter_OnAnyStoveBurned(object sender, EventArgs e)
+    {
+        TriggerStatusPopup("OVERCOOKED!!", errorSprite);
+    }
+
+    private void StoveCounter_OnAnyStoveWarning(object sender, EventArgs e)
+    {
+        TriggerStatusPopup("WATCH THE HEAT!", warningSprite);
     }
 
     private void TrashCounter_OnAnyObjectTrashed(object sender, EventArgs e)
     {
-        TriggerStatusPopup();
+        TriggerStatusPopup("ORDER LOST!!", errorSprite);
     }
 
-    private void TriggerStatusPopup()
+    private void TriggerStatusPopup(string message, Sprite bgSpriteAsset)
     {
-        if (checkmarkImage == null) return;
+        if (statusText == null || bgImage == null) return;
 
         if (currentAnimationCoroutine != null)
         {
             StopCoroutine(currentAnimationCoroutine);
         }
 
-        currentAnimationCoroutine = StartCoroutine(AnimateCheckmark());
+        currentAnimationCoroutine = StartCoroutine(AnimatePopup(message, bgSpriteAsset));
     }
 
-    private IEnumerator AnimateCheckmark()
+    private IEnumerator AnimatePopup(string message, Sprite bgSpriteAsset)
     {
-        checkmarkImage.enabled = true;
+        statusText.text = message;
+        statusText.enabled = true;
+
+        if (bgSpriteAsset != null)
+        {
+            bgImage.sprite = bgSpriteAsset;
+        }
+        bgImage.enabled = true;
 
         // Reset scale and alpha
-        checkmarkImage.transform.localScale = Vector3.one * 0.5f; // Start a bit smaller
-        Color c = checkmarkImage.color;
-        c.a = 0f;
-        checkmarkImage.color = c;
+        Vector3 initialScale = Vector3.one * 0.5f;
+        statusText.transform.localScale = initialScale;
+        bgImage.transform.localScale = initialScale;
+
+        Color textColor = statusText.color;
+        textColor.a = 0f;
+        statusText.color = textColor;
+
+        Color bgColor = bgImage.color;
+        bgColor.a = 0f;
+        bgImage.color = bgColor;
 
         // 1. Fade / Pop In
         float timer = 0f;
@@ -103,24 +149,54 @@ public class DeliveryStatusUI : MonoBehaviour
             timer += Time.deltaTime;
             float progress = timer / fadeDuration;
 
-            // Fade in
-            c.a = Mathf.Lerp(0f, 1f, progress);
-            checkmarkImage.color = c;
+            // Fade in alpha
+            float currentAlpha = Mathf.Lerp(0f, 1f, progress);
+            textColor.a = currentAlpha;
+            statusText.color = textColor;
+            bgColor.a = currentAlpha;
+            bgImage.color = bgColor;
 
             // Bounce scale
             float scale = Mathf.Lerp(0.5f, 1.2f, Mathf.Sin(progress * Mathf.PI / 2f)); // Ease out
-            checkmarkImage.transform.localScale = Vector3.one * scale;
+            Vector3 targetScale = Vector3.one * scale;
+            statusText.transform.localScale = targetScale;
+            bgImage.transform.localScale = targetScale;
 
             yield return null;
         }
 
         // Snap to final loaded state
-        c.a = 1f;
-        checkmarkImage.color = c;
-        checkmarkImage.transform.localScale = Vector3.one;
+        textColor.a = 1f;
+        statusText.color = textColor;
+        bgColor.a = 1f;
+        bgImage.color = bgColor;
 
-        // 2. Wait
-        yield return new WaitForSeconds(displayDuration);
+        statusText.transform.localScale = Vector3.one;
+        bgImage.transform.localScale = Vector3.one;
+
+        // 2. Wait (with optional screen shake for errors)
+        bool isError = (bgSpriteAsset == errorSprite && errorSprite != null);
+        float waitTimer = 0f;
+        Vector3 defaultShakePos = screenShakeTarget != null ? screenShakeTarget.localPosition : Vector3.zero;
+
+        while (waitTimer < displayDuration)
+        {
+            waitTimer += Time.deltaTime;
+            
+            if (isError && screenShakeTarget != null)
+            {
+                float shakeOffsetX = UnityEngine.Random.Range(-shakeIntensity, shakeIntensity);
+                float shakeOffsetY = UnityEngine.Random.Range(-shakeIntensity, shakeIntensity);
+                screenShakeTarget.localPosition = defaultShakePos + new Vector3(shakeOffsetX, shakeOffsetY, 0);
+            }
+            
+            yield return null;
+        }
+
+        if (isError && screenShakeTarget != null)
+        {
+            screenShakeTarget.localPosition = defaultShakePos;
+        }
 
         // 3. Fade Out
         timer = 0f;
@@ -129,15 +205,19 @@ public class DeliveryStatusUI : MonoBehaviour
             timer += Time.deltaTime;
             float progress = timer / fadeDuration;
 
-            // Fade out
-            c.a = Mathf.Lerp(1f, 0f, progress);
-            checkmarkImage.color = c;
+            // Fade out alpha
+            float currentAlpha = Mathf.Lerp(1f, 0f, progress);
+            textColor.a = currentAlpha;
+            statusText.color = textColor;
+            bgColor.a = currentAlpha;
+            bgImage.color = bgColor;
 
             yield return null;
         }
 
         // Hide completely
-        checkmarkImage.enabled = false;
+        statusText.enabled = false;
+        bgImage.enabled = false;
         currentAnimationCoroutine = null;
     }
 
