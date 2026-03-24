@@ -105,7 +105,7 @@ public class SessionManager : MonoBehaviour
         }
     }
 
-#if !UNITY_EDITOR
+#if !UNITY_EDITOR && !UNITY_WEBGL
     private async void OnApplicationFocus(bool hasFocus)
     {
         if (!hasFocus) await TryEndSessionFromLifecycle("APP_BACKGROUND");
@@ -373,9 +373,14 @@ public class SessionManager : MonoBehaviour
             ? DeliveryManager.Instance.GetSuccessfulRecipesAmount()
             : 0;
 
+        int gameDuration = KitchenGameManager.Instance != null
+            ? KitchenGameManager.Instance.GetGameTimerMax()
+            : 480; // Default 8 minutes
+
         return new SessionStats
         {
-            recipesDelivered = delivered
+            recipesDelivered = delivered,
+            duration = gameDuration
         };
     }
 
@@ -392,6 +397,19 @@ public class SessionManager : MonoBehaviour
 
             // Use the new DisplayScore method with animation
             var statsToUse = stats ?? CreateFallbackStats();
+
+            // Always set duration to the known game timer max.
+            // The backend computes duration from wall-clock time which includes
+            // loading screens and API wait time, so it will be longer than the
+            // actual 480s gameplay. Override it with the authoritative frontend value.
+            int correctDuration = KitchenGameManager.Instance != null
+                ? KitchenGameManager.Instance.GetGameTimerMax()
+                : 480;
+            if (statsToUse.duration <= 0 || statsToUse.duration > correctDuration + 60)
+            {
+                statsToUse.duration = correctDuration;
+            }
+
             _gameOverUI.DisplayScore(score, statsToUse);
         }
         else
