@@ -121,6 +121,13 @@ public class ChefManager : MonoBehaviour
     [SerializeField] private string sessionRecoveryDeclineMessage = "Previous session kept active. Try again later after timeout.";
     [SerializeField] private float sessionRecoveryRetryDelaySeconds = 5f;
 
+    [Header("Session Recovery Panel (Independent)")]
+    [SerializeField] private GameObject sessionRecoveryPanel;
+    [SerializeField] private Button sessionRecoveryYesButton;
+    [SerializeField] private Button sessionRecoveryNoButton;
+    [SerializeField] private TMP_Text sessionRecoveryPromptText;
+    [SerializeField] private TMP_Text sessionRecoveryTitleText;
+
     private PromptIntent activePromptIntent = PromptIntent.None;
     private int pendingRecoverySessionId = 0;
     private bool isProcessingSessionRecovery = false;
@@ -171,6 +178,19 @@ public class ChefManager : MonoBehaviour
         if (tutorialPromptNoButton != null)
         {
             tutorialPromptNoButton.onClick.AddListener(OnTutorialPromptNoClicked);
+        }
+        // Bind dedicated session recovery panel buttons
+        if (sessionRecoveryYesButton != null)
+        {
+            sessionRecoveryYesButton.onClick.AddListener(OnSessionRecoveryYesClicked);
+        }
+        if (sessionRecoveryNoButton != null)
+        {
+            sessionRecoveryNoButton.onClick.AddListener(OnSessionRecoveryNoClicked);
+        }
+        if (sessionRecoveryPanel != null)
+        {
+            sessionRecoveryPanel.SetActive(false);
         }
         if (copyWABtn != null)
         {
@@ -1665,6 +1685,29 @@ public class ChefManager : MonoBehaviour
 
     private void ShowSessionRecoveryPrompt(int sessionId)
     {
+        // Use the dedicated session recovery panel if it is assigned;
+        // otherwise fall back to the old tutorial panel so nothing breaks.
+        if (sessionRecoveryPanel != null)
+        {
+            activePromptIntent = PromptIntent.SessionRecovery;
+            pendingRecoverySessionId = sessionId;
+            isProcessingSessionRecovery = false;
+
+            if (sessionRecoveryPromptText != null)
+            {
+                sessionRecoveryPromptText.text = sessionRecoveryPromptMessage;
+            }
+
+            if (sessionRecoveryYesButton != null) sessionRecoveryYesButton.interactable = true;
+            if (sessionRecoveryNoButton != null) sessionRecoveryNoButton.interactable = true;
+
+            sessionRecoveryPanel.SetActive(true);
+            sessionRecoveryPanel.transform.SetAsLastSibling();
+            ShowStatusMessage("Active session found. Choose Yes to end it and start a new one.", Color.yellow, 5f);
+            return;
+        }
+
+        // ---- Legacy fallback (tutorial panel reuse) ----
         if (tutorialPromptPanel == null || tutorialPromptYesButton == null)
         {
             ShowStatusMessage("Active session detected. Please wait for timeout or contact support.", Color.yellow, 5f);
@@ -1716,6 +1759,24 @@ public class ChefManager : MonoBehaviour
         ShowStatusMessage(sessionRecoveryDeclineMessage, Color.yellow, 4f);
     }
 
+    // ---- Dedicated session recovery panel handlers ----
+
+    private void OnSessionRecoveryYesClicked()
+    {
+        _ = HandleSessionRecoveryYesAsync();
+    }
+
+    private void OnSessionRecoveryNoClicked()
+    {
+        if (sessionRecoveryPanel != null)
+        {
+            sessionRecoveryPanel.SetActive(false);
+        }
+        activePromptIntent = PromptIntent.None;
+        pendingRecoverySessionId = 0;
+        ShowStatusMessage(sessionRecoveryDeclineMessage, Color.yellow, 4f);
+    }
+
     private async Task HandleSessionRecoveryYesAsync()
     {
         if (isProcessingSessionRecovery || pendingRecoverySessionId <= 0)
@@ -1724,13 +1785,18 @@ public class ChefManager : MonoBehaviour
         }
 
         isProcessingSessionRecovery = true;
-        if (tutorialPromptYesButton != null)
+
+        // Disable buttons on whichever panel is currently showing
+        bool usingDedicatedPanel = sessionRecoveryPanel != null && sessionRecoveryPanel.activeSelf;
+        if (usingDedicatedPanel)
         {
-            tutorialPromptYesButton.interactable = false;
+            if (sessionRecoveryYesButton != null) sessionRecoveryYesButton.interactable = false;
+            if (sessionRecoveryNoButton != null) sessionRecoveryNoButton.interactable = false;
         }
-        if (tutorialPromptNoButton != null)
+        else
         {
-            tutorialPromptNoButton.interactable = false;
+            if (tutorialPromptYesButton != null) tutorialPromptYesButton.interactable = false;
+            if (tutorialPromptNoButton != null) tutorialPromptNoButton.interactable = false;
         }
 
         try
@@ -1738,9 +1804,13 @@ public class ChefManager : MonoBehaviour
             ShowStatusMessage("Ending previous session...", Color.yellow, 5f);
             await GameAPIClient.Instance.ForceEndSession(pendingRecoverySessionId, 0);
 
-            if (tutorialPromptPanel != null)
+            if (usingDedicatedPanel)
             {
-                tutorialPromptPanel.SetActive(false);
+                if (sessionRecoveryPanel != null) sessionRecoveryPanel.SetActive(false);
+            }
+            else
+            {
+                if (tutorialPromptPanel != null) tutorialPromptPanel.SetActive(false);
             }
 
             activePromptIntent = PromptIntent.None;
@@ -1769,13 +1839,16 @@ public class ChefManager : MonoBehaviour
         finally
         {
             isProcessingSessionRecovery = false;
-            if (tutorialPromptYesButton != null)
+            // Re-enable buttons
+            if (usingDedicatedPanel)
             {
-                tutorialPromptYesButton.interactable = true;
+                if (sessionRecoveryYesButton != null) sessionRecoveryYesButton.interactable = true;
+                if (sessionRecoveryNoButton != null) sessionRecoveryNoButton.interactable = true;
             }
-            if (tutorialPromptNoButton != null)
+            else
             {
-                tutorialPromptNoButton.interactable = true;
+                if (tutorialPromptYesButton != null) tutorialPromptYesButton.interactable = true;
+                if (tutorialPromptNoButton != null) tutorialPromptNoButton.interactable = true;
             }
         }
     }

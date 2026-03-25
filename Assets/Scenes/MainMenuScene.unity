@@ -13068,7 +13068,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 1, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -900, y: -30}
+  m_AnchoredPosition: {x: -610, y: -30}
   m_SizeDelta: {x: 280, y: 96}
   m_Pivot: {x: 1, y: 1}
 --- !u!114 &426623533
@@ -16199,11 +16199,11 @@ RectTransform:
   - {fileID: 1765631158}
   m_Father: {fileID: 302758959}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 0}
-  m_AnchoredPosition: {x: 130, y: 50}
+  m_AnchorMin: {x: 1, y: 1}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: -25, y: -250}
   m_SizeDelta: {x: 941, y: 116}
-  m_Pivot: {x: 0, y: 0}
+  m_Pivot: {x: 1, y: 1}
 --- !u!114 &553126149
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -27780,7 +27780,7 @@ GameObject:
   - component: {fileID: 890230732}
   - component: {fileID: 890230731}
   m_Layer: 5
-  m_Name: MusicBtn
+  m_Name: SettingBtn
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -27802,7 +27802,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 1, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -410, y: -25}
+  m_AnchoredPosition: {x: -150, y: -25}
   m_SizeDelta: {x: 104, y: 114}
   m_Pivot: {x: 1, y: 1}
 --- !u!114 &890230731
@@ -29108,12 +29108,17 @@ MonoBehaviour:
   recentSessionLine1Text: {fileID: 1940919863}
   recentSessionLine2Text: {fileID: 782078501}
   recentSessionLine3Text: {fileID: 599862215}
-  tutorialPromptNoButton: {fileID: 1937941654}
-  tutorialPromptText: {fileID: 1970549255}
+  tutorialPromptNoButton: {fileID: 2135793328}
+  tutorialPromptText: {fileID: 1926882891}
   sessionRecoveryPromptMessage: End previous session to proceed to next?
   sessionRecoveryDeclineMessage: Previous session kept active. Try again later after
     timeout.
   sessionRecoveryRetryDelaySeconds: 5
+  sessionRecoveryPanel: {fileID: 1814716983}
+  sessionRecoveryYesButton: {fileID: 1710479880}
+  sessionRecoveryNoButton: {fileID: 2135793328}
+  sessionRecoveryPromptText: {fileID: 1926882891}
+  sessionRecoveryTitleText: {fileID: 92205470}
 --- !u!4 &927003774
 Transform:
   m_ObjectHideFlags: 0
@@ -39102,11 +39107,11 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 1349771385}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 1, y: 1}
-  m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -160, y: -25}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 20, y: 20}
   m_SizeDelta: {x: 104, y: 114}
-  m_Pivot: {x: 1, y: 1}
+  m_Pivot: {x: 0, y: 0}
 --- !u!114 &1261883422
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -50517,7 +50522,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 1, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -550, y: -25}
+  m_AnchoredPosition: {x: -270, y: -25}
   m_SizeDelta: {x: 321, y: 108}
   m_Pivot: {x: 1, y: 1}
 --- !u!114 &1627194966
@@ -63149,7 +63154,7 @@ GameObject:
   - component: {fileID: 2060331050}
   - component: {fileID: 2060331049}
   m_Layer: 5
-  m_Name: TutorialBtn (1)
+  m_Name: 'TutorialBtn '
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -63251,11 +63256,11 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 1349771385}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 1, y: 1}
-  m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -290, y: -25}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 150, y: 20}
   m_SizeDelta: {x: 104, y: 114}
-  m_Pivot: {x: 1, y: 1}
+  m_Pivot: {x: 0, y: 0}
 --- !u!1 &2063076083
 GameObject:
   m_ObjectHideFlags: 0
