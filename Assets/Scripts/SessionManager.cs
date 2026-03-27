@@ -171,6 +171,7 @@ public class SessionManager : MonoBehaviour
 
     public async Task StartGameSession()
     {
+        LoadingManager.Instance?.Show();
         try
         {
             Debug.Log("🎮 Starting blockchain session...");
@@ -213,6 +214,7 @@ public class SessionManager : MonoBehaviour
         catch (Exception e)
         {
             Debug.LogError($"❌ Start session error: {e.Message}");
+            LoadingManager.Instance?.Hide();
             
             // Check if it's an energy error
             if (e.Message.Contains("Insufficient energy"))
@@ -226,6 +228,7 @@ public class SessionManager : MonoBehaviour
             
             throw; // Re-throw so ChefManager can handle
         }
+        // Note: no finally Hide() here — spinner stays visible until scene transition completes.
     }
 
     // ============ End Session ============

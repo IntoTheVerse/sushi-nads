@@ -35,7 +35,8 @@ public class ChefManager : MonoBehaviour
     [SerializeField] private GameObject playPanel; // Panel to show/hide based on chef status
     [SerializeField] private GameObject tutorialPromptPanel; // Forced tutorial prompt for first-time users
     [SerializeField] private GameObject GetEnergyPanel; // Panel to show/hide based on chef status
-    [SerializeField] private GameObject StatusPanel; 
+    [SerializeField] private GameObject StatusPanel;
+    [SerializeField] private GameObject loadingIndicator; // Spinner shown during API calls
     [SerializeField] private Button playButton; // Play/Start Game button
 
     [SerializeField] private TMP_InputField chefNameInput;
@@ -147,6 +148,9 @@ public class ChefManager : MonoBehaviour
         TouchScreenKeyboard.hideInput = true;
 
         Instance = this;
+        // Wire the loading indicator to the singleton
+        if (LoadingManager.Instance != null)
+            LoadingManager.Instance.SetLoadingObject(loadingIndicator);
         ResolvePanelReferences();
         SetMenuUiState(MenuUiState.Loading);
         
@@ -327,6 +331,7 @@ public class ChefManager : MonoBehaviour
 
     private async Task RefreshProfileInternalAsync(bool showStatus, string source)
     {
+        LoadingManager.Instance?.Show();
         try
         {
             if (showStatus)
@@ -387,6 +392,10 @@ public class ChefManager : MonoBehaviour
             }
             if (mintChefButton != null) mintChefButton.interactable = true;
         }
+        finally
+        {
+            LoadingManager.Instance?.Hide();
+        }
     }
 
     private async void OnMintChefClicked()
@@ -418,6 +427,7 @@ public class ChefManager : MonoBehaviour
 
     public async Task MintChef(string playerName)
     {
+        LoadingManager.Instance?.Show();
         try
         {
             ShowStatusMessage("Minting your chef NFT...", Color.yellow);
@@ -485,6 +495,10 @@ public class ChefManager : MonoBehaviour
             
             if (mintChefButton != null) mintChefButton.interactable = true;
             if (chefNameInput != null) chefNameInput.interactable = true;
+        }
+        finally
+        {
+            LoadingManager.Instance?.Hide();
         }
     }
 
@@ -718,6 +732,7 @@ public class ChefManager : MonoBehaviour
     
     public async Task RefillEnergy()
     {
+        LoadingManager.Instance?.Show();
         try
         {
             ShowStatusMessage("Refilling energy...", Color.yellow, 6f);
@@ -782,6 +797,10 @@ public class ChefManager : MonoBehaviour
             ShowStatusMessage($"Error: {e.Message}", Color.red);
             
             if (refillEnergyButton != null) refillEnergyButton.interactable = true;
+        }
+        finally
+        {
+            LoadingManager.Instance?.Hide();
         }
     }    
     
@@ -1254,14 +1273,32 @@ public class ChefManager : MonoBehaviour
                 else if (delta.TotalDays < 1) timeLabel = $"{Mathf.FloorToInt((float)delta.TotalHours)}h ago";
                 else timeLabel = $"{Mathf.FloorToInt((float)delta.TotalDays)}d ago";
             }
-            string line = $"{sessionLabel} | {scoreLabel} | {timeLabel}";
 
             var row = Instantiate(recentSessionRowPrefab, recentSessionsContent);
             row.SetActive(true);
-            var tmp = row.GetComponentInChildren<TMP_Text>(true);
-            if (tmp != null) tmp.text = line;
+
+            // Try to populate three separate named text components
+            var allTexts = row.GetComponentsInChildren<TMP_Text>(true);
+            TMP_Text sessionIdTxt  = System.Array.Find(allTexts, t => t.name.Equals("SessionIdText",  System.StringComparison.OrdinalIgnoreCase));
+            TMP_Text scoreTxt      = System.Array.Find(allTexts, t => t.name.Equals("ScoreText",       System.StringComparison.OrdinalIgnoreCase));
+            TMP_Text timestampTxt  = System.Array.Find(allTexts, t => t.name.Equals("TimestampText",   System.StringComparison.OrdinalIgnoreCase));
+
+            if (sessionIdTxt != null && scoreTxt != null && timestampTxt != null)
+            {
+                sessionIdTxt.text = sessionLabel;
+                scoreTxt.text     = scoreLabel;
+                timestampTxt.text = timeLabel;
+            }
+            else
+            {
+                // Fallback: write combined text into the first text found
+                var fallback = allTexts.Length > 0 ? allTexts[0] : null;
+                if (fallback != null)
+                    fallback.text = $"{sessionLabel} | {scoreLabel} | {timeLabel}";
+            }
         }
     }
+
 
     private static bool IsUnderNamedParent(Transform t, string nameFragment)
     {
@@ -1785,6 +1822,7 @@ public class ChefManager : MonoBehaviour
         }
 
         isProcessingSessionRecovery = true;
+        LoadingManager.Instance?.Show();
 
         // Disable buttons on whichever panel is currently showing
         bool usingDedicatedPanel = sessionRecoveryPanel != null && sessionRecoveryPanel.activeSelf;
@@ -1839,6 +1877,7 @@ public class ChefManager : MonoBehaviour
         finally
         {
             isProcessingSessionRecovery = false;
+            LoadingManager.Instance?.Hide();
             // Re-enable buttons
             if (usingDedicatedPanel)
             {
