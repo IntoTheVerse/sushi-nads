@@ -114,6 +114,14 @@ public class TutorialManager : MonoBehaviour
     private bool hasHandBaseScale;
     private bool hasBuiltVariantOutputMap;
 
+#if UNITY_WEBGL || UNITY_STANDALONE || UNITY_EDITOR
+    private const string PCText_Interact = " (Press E)";
+    private const string PCText_Cut = " (Press E to pick/place, then press F to cut)";
+#else
+    private const string PCText_Interact = "";
+    private const string PCText_Cut = "";
+#endif
+
     private void Awake()
     {
         GameSceneLaunchMode launchMode = GameSceneLaunchContext.ConsumeMode();
@@ -247,6 +255,14 @@ public class TutorialManager : MonoBehaviour
         steps.Clear();
         trackedPlateCounter = null;
 
+#if UNITY_WEBGL || UNITY_STANDALONE || UNITY_EDITOR
+        AddUIStep(
+            "Use W, A, S, D to move your chef around the kitchen.",
+            null,
+            introStepDurationSeconds
+        );
+#endif
+
         AddUIStep(
             "Priority orders appear here. Complete the top order first, then the next order becomes priority.",
             priorityOrderTargetUI,
@@ -320,7 +336,7 @@ public class TutorialManager : MonoBehaviour
         if (plateCounter != null)
         {
             AddWorldStep(
-                "Pick a plate from this plate counter.",
+                "Pick a plate from this plate counter." + PCText_Interact,
                 plateCounter.transform,
                 plateCounter,
                 StepCompletionMode.HoldPlate,
@@ -331,7 +347,7 @@ public class TutorialManager : MonoBehaviour
         {
             steps.Add(new TutorialStep
             {
-                Prompt = "Pick a plate from the plate counter.",
+                Prompt = "Pick a plate from the plate counter." + PCText_Interact,
                 TargetType = StepTargetType.None,
                 CompletionMode = StepCompletionMode.HoldPlate
             });
@@ -340,7 +356,7 @@ public class TutorialManager : MonoBehaviour
         if (emptyCounter != null)
         {
             AddWorldStep(
-                "Place the plate on this empty counter.",
+                "Place the plate on this empty counter." + PCText_Interact,
                 emptyCounter.transform,
                 emptyCounter,
                 StepCompletionMode.PlacePlateOnCounter,
@@ -351,7 +367,7 @@ public class TutorialManager : MonoBehaviour
         {
             steps.Add(new TutorialStep
             {
-                Prompt = "Place the plate on an empty counter.",
+                Prompt = "Place the plate on an empty counter." + PCText_Interact,
                 TargetType = StepTargetType.None,
                 CompletionMode = StepCompletionMode.PlacePlateOnCounter
             });
@@ -365,7 +381,7 @@ public class TutorialManager : MonoBehaviour
         {
             steps.Add(new TutorialStep
             {
-                Prompt = "Now assemble all prepared ingredients on a plate. Add the base first (Nori Roll or Cone).",
+                Prompt = "Now assemble all prepared ingredients on a plate. Add the base first (Nori Roll or Cone)." + PCText_Interact,
                 TargetType = StepTargetType.None,
                 CompletionMode = StepCompletionMode.AssembleRecipeOnPlate,
                 RequiredRecipe = priorityRecipe
@@ -375,7 +391,7 @@ public class TutorialManager : MonoBehaviour
         }
 
         AddWorldStep(
-            "Now assemble all prepared ingredients on a plate. Add the base first (Nori Roll or Cone).",
+            "Now assemble all prepared ingredients on a plate. Add the base first (Nori Roll or Cone)." + PCText_Interact,
             platesCounter.transform,
             platesCounter,
             StepCompletionMode.AssembleRecipeOnPlate,
@@ -394,7 +410,7 @@ public class TutorialManager : MonoBehaviour
         {
             steps.Add(new TutorialStep
             {
-                Prompt = "Great! Now deliver the completed plate at the delivery counter.",
+                Prompt = "Great! Now deliver the completed plate at the delivery counter." + PCText_Interact,
                 TargetType = StepTargetType.None,
                 CompletionMode = StepCompletionMode.DeliverRecipe,
                 RequiredRecipe = priorityRecipe
@@ -403,7 +419,7 @@ public class TutorialManager : MonoBehaviour
         }
 
         AddWorldStep(
-            "Great! Now deliver the completed plate at this delivery counter.",
+            "Great! Now deliver the completed plate at this delivery counter." + PCText_Interact,
             deliveryCounter.transform,
             deliveryCounter,
             StepCompletionMode.DeliverRecipe,
@@ -425,7 +441,7 @@ public class TutorialManager : MonoBehaviour
             if (rawCounter != null)
             {
                 AddWorldStep(
-                    $"Ingredient {ingredientIndex}/{ingredientCount}: Take {GetDisplayName(rawIngredient)} from this counter.",
+                    $"Ingredient {ingredientIndex}/{ingredientCount}: Take {GetDisplayName(rawIngredient)} from this counter." + PCText_Interact,
                     rawCounter.transform,
                     rawCounter,
                     StepCompletionMode.HoldIngredient,
@@ -444,7 +460,7 @@ public class TutorialManager : MonoBehaviour
                 if (link.StepType == ProcessStepType.Cook)
                 {
                     AddWorldStep(
-                        $"Cook {GetDisplayName(link.Input)} here to make {GetDisplayName(link.Output)}.",
+                        $"Cook {GetDisplayName(link.Input)} here to make {GetDisplayName(link.Output)}." + PCText_Interact,
                         link.Counter.transform,
                         link.Counter,
                         StepCompletionMode.ProduceIngredient,
@@ -455,7 +471,7 @@ public class TutorialManager : MonoBehaviour
                 else
                 {
                     AddWorldStep(
-                        $"Cut {GetDisplayName(link.Input)} here to make {GetDisplayName(link.Output)}.",
+                        $"Cut {GetDisplayName(link.Input)} here to make {GetDisplayName(link.Output)}." + PCText_Cut,
                         link.Counter.transform,
                         link.Counter,
                         StepCompletionMode.ProduceIngredient,

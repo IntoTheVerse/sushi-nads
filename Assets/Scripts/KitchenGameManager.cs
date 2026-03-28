@@ -115,6 +115,10 @@ public class KitchenGameManager : MonoBehaviour
         return 1 - (gamePlayingTimer / gamePlayingTimerMax);
     }
 
+    public int GetGameTimerMax() {
+        return Mathf.RoundToInt(gamePlayingTimerMax);
+    }
+
     public void TogglePauseGame()
     {
         isGamePaused = !isGamePaused;

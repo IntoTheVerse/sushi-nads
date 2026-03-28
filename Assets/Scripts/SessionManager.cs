@@ -105,7 +105,7 @@ public class SessionManager : MonoBehaviour
         }
     }
 
-#if !UNITY_EDITOR
+#if !UNITY_EDITOR && !UNITY_WEBGL
     private async void OnApplicationFocus(bool hasFocus)
     {
         if (!hasFocus) await TryEndSessionFromLifecycle("APP_BACKGROUND");
@@ -171,6 +171,7 @@ public class SessionManager : MonoBehaviour
 
     public async Task StartGameSession()
     {
+        LoadingManager.Instance?.Show();
         try
         {
             Debug.Log("🎮 Starting blockchain session...");
@@ -213,6 +214,7 @@ public class SessionManager : MonoBehaviour
         catch (Exception e)
         {
             Debug.LogError($"❌ Start session error: {e.Message}");
+            LoadingManager.Instance?.Hide();
             
             // Check if it's an energy error
             if (e.Message.Contains("Insufficient energy"))
@@ -226,6 +228,7 @@ public class SessionManager : MonoBehaviour
             
             throw; // Re-throw so ChefManager can handle
         }
+        // Note: no finally Hide() here — spinner stays visible until scene transition completes.
     }
 
     // ============ End Session ============
@@ -373,9 +376,14 @@ public class SessionManager : MonoBehaviour
             ? DeliveryManager.Instance.GetSuccessfulRecipesAmount()
             : 0;
 
+        int gameDuration = KitchenGameManager.Instance != null
+            ? KitchenGameManager.Instance.GetGameTimerMax()
+            : 480; // Default 8 minutes
+
         return new SessionStats
         {
-            recipesDelivered = delivered
+            recipesDelivered = delivered,
+            duration = gameDuration
         };
     }
 
@@ -392,6 +400,19 @@ public class SessionManager : MonoBehaviour
 
             // Use the new DisplayScore method with animation
             var statsToUse = stats ?? CreateFallbackStats();
+
+            // Always set duration to the known game timer max.
+            // The backend computes duration from wall-clock time which includes
+            // loading screens and API wait time, so it will be longer than the
+            // actual 480s gameplay. Override it with the authoritative frontend value.
+            int correctDuration = KitchenGameManager.Instance != null
+                ? KitchenGameManager.Instance.GetGameTimerMax()
+                : 480;
+            if (statsToUse.duration <= 0 || statsToUse.duration > correctDuration + 60)
+            {
+                statsToUse.duration = correctDuration;
+            }
+
             _gameOverUI.DisplayScore(score, statsToUse);
         }
         else

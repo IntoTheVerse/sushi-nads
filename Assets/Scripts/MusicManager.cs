@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections;
 using System.Collections.Generic;
 
 public class MusicManager : MonoBehaviour
@@ -6,137 +7,163 @@ public class MusicManager : MonoBehaviour
     public static MusicManager Instance { get; private set; }
 
     [Header("Main Playlist")]
-    [SerializeField] private AudioSource musicSource;     // non-spatial
     [SerializeField] private List<AudioClip> playlist = new();
     [SerializeField] private bool playOnStart = true;
+    [SerializeField] private bool shufflePlaylist = false;
+
+    [Header("Crossfade")]
+    [SerializeField] [Range(0.5f, 5f)] private float crossfadeDuration = 2f;
 
     [Header("Special Tracks")]
     [SerializeField] private AudioClip gameScoreMusic;
     [SerializeField] private AudioClip last12SecondsMusic;
-    private AudioSource specialMusicSource;
 
     private const string MUSIC_VOL_KEY = "MUSIC_VOLUME";
     private const string MUSIC_IDX_KEY = "MUSIC_TRACK_INDEX";
 
-    private float musicVolume = 1f;   // 0..1
+    // Two AudioSources that ping-pong as "active" and "incoming"
+    private AudioSource[] sources = new AudioSource[2];
+    private int activeSrc = 0;
+    private AudioSource specialMusicSource;
+
+    private float musicVolume = 1f;
     private int currentIndex = 0;
+    private bool isCrossfading = false;
+    private bool specialTrackPlaying = false;
 
     private void Awake()
     {
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
 
-        if (!musicSource) musicSource = gameObject.AddComponent<AudioSource>();
-        musicSource.loop = true;
-        musicSource.playOnAwake = false;
-        musicSource.spatialBlend = 0f;
+        for (int i = 0; i < 2; i++)
+        {
+            sources[i] = gameObject.AddComponent<AudioSource>();
+            sources[i].loop = false;
+            sources[i].playOnAwake = false;
+            sources[i].spatialBlend = 0f;
+        }
 
-        // Initialize secondary audio source for special music tracks
         specialMusicSource = gameObject.AddComponent<AudioSource>();
         specialMusicSource.loop = false;
         specialMusicSource.playOnAwake = false;
         specialMusicSource.spatialBlend = 0f;
 
         musicVolume = Mathf.Clamp01(PlayerPrefs.GetFloat(MUSIC_VOL_KEY, 1f));
-        currentIndex = Mathf.Clamp(PlayerPrefs.GetInt(MUSIC_IDX_KEY, 0), 0, Mathf.Max(0, playlist.Count - 1));
-        
-        musicSource.volume = musicVolume;
+        currentIndex = Mathf.Clamp(PlayerPrefs.GetInt(MUSIC_IDX_KEY, 0),
+                                   0, Mathf.Max(0, playlist.Count - 1));
+
+        sources[0].volume = musicVolume;
+        sources[1].volume = 0f;
         specialMusicSource.volume = musicVolume;
 
         if (playOnStart) PlayCurrent();
     }
+
+    private void Update()
+    {
+        if (specialTrackPlaying || isCrossfading || playlist.Count == 0) return;
+
+        AudioSource active = sources[activeSrc];
+        if (active.clip == null || !active.isPlaying) return;
+
+        float remaining = active.clip.length - active.time;
+        if (remaining <= crossfadeDuration)
+        {
+            AdvanceIndex();
+            StartCoroutine(CrossfadeToNext(playlist[currentIndex]));
+        }
+    }
+
+    private IEnumerator CrossfadeToNext(AudioClip nextClip)
+    {
+        if (nextClip == null) yield break;
+        isCrossfading = true;
+
+        int incoming = 1 - activeSrc;
+        AudioSource fadeOut = sources[activeSrc];
+        AudioSource fadeIn = sources[incoming];
+
+        fadeIn.clip = nextClip;
+        fadeIn.volume = 0f;
+        fadeIn.Play();
+
+        float elapsed = 0f;
+        float startVol = fadeOut.volume;
+
+        while (elapsed < crossfadeDuration)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float t = Mathf.Clamp01(elapsed / crossfadeDuration);
+            fadeOut.volume = Mathf.Lerp(startVol, 0f, t);
+            fadeIn.volume = Mathf.Lerp(0f, musicVolume, t);
+            yield return null;
+        }
+
+        fadeOut.Stop();
+        fadeOut.volume = 0f;
+        activeSrc = incoming;
+        isCrossfading = false;
+        PlayerPrefs.SetInt(MUSIC_IDX_KEY, currentIndex);
+    }
+
+    private void AdvanceIndex()
+    {
+        if (shufflePlaylist)
+        {
+            int next;
+            do { next = Random.Range(0, playlist.Count); }
+            while (playlist.Count > 1 && next == currentIndex);
+            currentIndex = next;
+        }
+        else
+        {
+            currentIndex = (currentIndex + 1) % playlist.Count;
+        }
+    }
+
+    private void PlayCurrent()
+    {
+        if (playlist == null || playlist.Count == 0) return;
+        var clip = playlist[currentIndex];
+        if (!clip) return;
+        sources[activeSrc].clip = clip;
+        sources[activeSrc].volume = musicVolume;
+        sources[activeSrc].Play();
+    }
+
+    // ── Public API ──
 
     public float GetVolume() => musicVolume;
 
     public void SetVolume(float v)
     {
         musicVolume = Mathf.Clamp01(v);
-        
-        if (musicSource != null) musicSource.volume = musicVolume;
-        if (specialMusicSource != null) specialMusicSource.volume = musicVolume;
-        
+        sources[activeSrc].volume = musicVolume;
+        specialMusicSource.volume = musicVolume;
         PlayerPrefs.SetFloat(MUSIC_VOL_KEY, musicVolume);
-    }
-
-    public void PlayGameScoreMusic()
-    {
-        if (gameScoreMusic != null)
-        {
-            if (musicSource != null) musicSource.Stop();
-            if (specialMusicSource != null)
-            {
-                specialMusicSource.clip = gameScoreMusic;
-                specialMusicSource.loop = true;
-                specialMusicSource.Play();
-            }
-        }
-    }
-
-    public void PauseGameScoreMusic()
-    {
-        if (specialMusicSource != null && specialMusicSource.clip == gameScoreMusic && specialMusicSource.isPlaying)
-        {
-            specialMusicSource.Pause();
-        }
-    }
-
-    public void ResumeGameScoreMusic()
-    {
-        if (gameScoreMusic != null)
-        {
-            if (specialMusicSource != null)
-            {
-                specialMusicSource.clip = gameScoreMusic;
-                specialMusicSource.loop = true;
-                specialMusicSource.time = 0f; // Start from beginning for each stat
-                specialMusicSource.Play();
-            }
-        }
-    }
-
-    public void StopMainMusic()
-    {
-        if (musicSource != null) musicSource.Stop();
-        if (specialMusicSource != null) specialMusicSource.Stop();
-    }
-
-    public void PlayLast12SecondsMusic()
-    {
-        if (last12SecondsMusic != null)
-        {
-            if (musicSource != null) musicSource.Stop();
-            if (specialMusicSource != null)
-            {
-                specialMusicSource.clip = last12SecondsMusic;
-                specialMusicSource.loop = false;
-                specialMusicSource.Play();
-                
-                // Restart the main playlist after the 12 second clip finishes
-                StartCoroutine(RestartPlaylistAfterDelay(last12SecondsMusic.length));
-            }
-        }
-    }
-
-    private System.Collections.IEnumerator RestartPlaylistAfterDelay(float delay)
-    {
-        yield return new WaitForSeconds(delay);
-        PlayCurrent();
     }
 
     public void NextTrack()
     {
         if (playlist == null || playlist.Count == 0) return;
-        currentIndex = (currentIndex + 1) % playlist.Count;
-        PlayerPrefs.SetInt(MUSIC_IDX_KEY, currentIndex);
+        AdvanceIndex();
+        StopAllCoroutines();
+        isCrossfading = false;
+        sources[1 - activeSrc].Stop();
         PlayCurrent();
+        PlayerPrefs.SetInt(MUSIC_IDX_KEY, currentIndex);
     }
 
     public void PrevTrack()
     {
         if (playlist == null || playlist.Count == 0) return;
         currentIndex = (currentIndex - 1 + playlist.Count) % playlist.Count;
-        PlayerPrefs.SetInt(MUSIC_IDX_KEY, currentIndex);
+        StopAllCoroutines();
+        isCrossfading = false;
+        sources[1 - activeSrc].Stop();
         PlayCurrent();
+        PlayerPrefs.SetInt(MUSIC_IDX_KEY, currentIndex);
     }
 
     public int GetCurrentTrackIndex() => currentIndex;
@@ -148,11 +175,66 @@ public class MusicManager : MonoBehaviour
         return clip ? clip.name : $"Music {currentIndex + 1}";
     }
 
-    private void PlayCurrent()
+    // ── Special tracks ──
+
+    public void PlayGameScoreMusic()
     {
-        if (playlist == null || playlist.Count == 0) return;
-        var clip = playlist[currentIndex]; if (!clip) return;
-        musicSource.clip = clip;
-        musicSource.Play();
+        if (gameScoreMusic == null) return;
+        StopMainSources();
+        specialMusicSource.clip = gameScoreMusic;
+        specialMusicSource.loop = true;
+        specialMusicSource.Play();
+        specialTrackPlaying = true;
+    }
+
+    public void PauseGameScoreMusic()
+    {
+        if (specialMusicSource != null && specialMusicSource.isPlaying)
+            specialMusicSource.Pause();
+    }
+
+    public void ResumeGameScoreMusic()
+    {
+        if (gameScoreMusic == null) return;
+        specialMusicSource.clip = gameScoreMusic;
+        specialMusicSource.loop = true;
+        specialMusicSource.time = 0f;
+        specialMusicSource.Play();
+        specialTrackPlaying = true;
+    }
+
+    public void StopMainMusic()
+    {
+        StopAllCoroutines();
+        isCrossfading = false;
+        StopMainSources();
+        specialMusicSource.Stop();
+        specialTrackPlaying = false;
+    }
+
+    public void PlayLast12SecondsMusic()
+    {
+        if (last12SecondsMusic == null) return;
+        StopMainSources();
+        specialMusicSource.clip = last12SecondsMusic;
+        specialMusicSource.loop = false;
+        specialMusicSource.Play();
+        specialTrackPlaying = true;
+        StartCoroutine(RestartPlaylistAfterDelay(last12SecondsMusic.length));
+    }
+
+    private IEnumerator RestartPlaylistAfterDelay(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        specialTrackPlaying = false;
+        PlayCurrent();
+    }
+
+    private void StopMainSources()
+    {
+        StopAllCoroutines();
+        isCrossfading = false;
+        foreach (var s in sources) { s.Stop(); s.volume = 0f; }
+        sources[activeSrc].volume = musicVolume;
     }
 }
