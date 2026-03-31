@@ -34707,12 +34707,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 98341b7db11672947991f62fb8cea094, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  musicSource: {fileID: 1187111147}
   playlist:
   - {fileID: 8300000, guid: f569343821bf5894ca872f244a4c312f, type: 3}
   - {fileID: 8300000, guid: c0cbd11354a38004c9282497adfdc298, type: 3}
   - {fileID: 8300000, guid: c769b693e55779e48973b489889e4473, type: 3}
   - {fileID: 8300000, guid: 8db29f7af909ac5488caab1d07be1883, type: 3}
+  shufflePlaylist: 0
+  crossfadeDuration: 2
 --- !u!4 &1187111149
 Transform:
   m_ObjectHideFlags: 0
@@ -40245,7 +40246,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1377875283
 RectTransform:
   m_ObjectHideFlags: 0

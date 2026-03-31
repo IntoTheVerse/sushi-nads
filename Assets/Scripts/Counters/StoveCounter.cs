@@ -48,7 +48,6 @@ public class StoveCounter : BaseCounter, IHasProgress
                 ResetToIdle();
                 return;
             }
-
             switch (state) {
                 case State.Idle:
                     break;

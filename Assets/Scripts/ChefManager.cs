@@ -148,9 +148,6 @@ public class ChefManager : MonoBehaviour
         TouchScreenKeyboard.hideInput = true;
 
         Instance = this;
-        // Wire the loading indicator to the singleton
-        if (LoadingManager.Instance != null)
-            LoadingManager.Instance.SetLoadingObject(loadingIndicator);
         ResolvePanelReferences();
         SetMenuUiState(MenuUiState.Loading);
         
@@ -234,6 +231,12 @@ public class ChefManager : MonoBehaviour
 
     private void Start()
     {
+        // Wire the loading indicator to the singleton
+        if (LoadingManager.Instance != null && loadingIndicator != null)
+        {
+            LoadingManager.Instance.SetLoadingObject(loadingIndicator);
+        }
+
         // Wait for Privy to initialize
         StartCoroutine(WaitForPrivyAndInitialize());
     }
@@ -314,6 +317,8 @@ public class ChefManager : MonoBehaviour
 
     public async void CheckExistingChef()
     {
+        // Clear login/other panels while we check
+        SetMenuUiState(MenuUiState.Loading);
         await EnsureProfileRefreshAsync(showStatus: true, source: "CheckExistingChef");
     }
 
@@ -331,6 +336,10 @@ public class ChefManager : MonoBehaviour
 
     private async Task RefreshProfileInternalAsync(bool showStatus, string source)
     {
+        if (LoadingManager.Instance != null && loadingIndicator != null)
+        {
+            LoadingManager.Instance.SetLoadingObject(loadingIndicator);
+        }
         LoadingManager.Instance?.Show();
         try
         {
@@ -451,22 +460,11 @@ public class ChefManager : MonoBehaviour
                 {
                     ShowStatusMessage($"{chefName} #{tokenId} | Gas: FREE (sponsored)", Color.green);
                 }
-                SetMenuUiState(MenuUiState.Ready);
-
-                Debug.Log($"✅ Chef NFT minted successfully!");
-                Debug.Log($"   Name: {chefName}");
-                Debug.Log($"   Token ID: {tokenId}");
-                Debug.Log($"   Tx Hash: {response.txHash}");
-                Debug.Log($"   Gas Sponsored: {response.gasSponsored}");
-                
                 // Update UI
                 if (chefTokenIdText != null)
                 {
                     chefTokenIdText.text = $"Chef #{tokenId}: {chefName}";
                 }
-                
-                // Hide mint panel after successful mint
-                SetMenuUiState(MenuUiState.Ready);
                 
                 // Wait for blockchain to index the transaction
                 Debug.Log("⏳ Waiting for blockchain confirmation...");
@@ -480,6 +478,9 @@ public class ChefManager : MonoBehaviour
                 
                 // Show next step message
                 ShowStatusMessage($"Chef ready! Refill energy to play.", Color.green);
+                
+                // Hide mint panel and show Play screen ONLY AFTER fully loaded
+                SetMenuUiState(MenuUiState.Ready);
             }
             else
             {
