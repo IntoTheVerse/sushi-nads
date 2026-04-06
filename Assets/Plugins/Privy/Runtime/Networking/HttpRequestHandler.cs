@@ -9,6 +9,7 @@ namespace Privy
 {
     internal class HttpRequestHandler : IHttpRequestHandler
     {
+        private const string DefaultEditorOrigin = "http://localhost:8080";
         private string _baseUrl;
         private string _appId;
         private string _clientId;
@@ -47,7 +48,7 @@ namespace Privy
                 request.uploadHandler = new UploadHandlerRaw(bodyRaw);
                 request.downloadHandler = new DownloadHandlerBuffer();
 
-                request.SetRequestHeader("Content-Type", "application/json");
+                request.SetRequestHeader("Content-Type", ContentType);
 
                 // app id header
                 request.SetRequestHeader(Constants.PRIVY_APP_ID_HEADER, _appId);
@@ -63,22 +64,40 @@ namespace Privy
                 request.SetRequestHeader(Constants.PRIVY_CLIENT_ANALYTICS_ID_HEADER, clientAnalyticsId);
 
                 // Only send native app identifier on actual native builds (Android/iOS).
-                // Skip for WebGL (causes invalid_native_app_id) and Editor (same package ID, no valid origin).
                 bool isNativeBuild = Application.platform == RuntimePlatform.Android
                     || Application.platform == RuntimePlatform.IPhonePlayer;
                 if (_appIdentifier != null && isNativeBuild)
                 {
                     request.SetRequestHeader(Constants.PRIVY_NATIVE_APP_IDENTIFIER, _appIdentifier);
                 }
-                else
+
+                bool originApplied = false;
+                string originUsed = string.Empty;
+
+                // Unity Editor/desktop requests are not browser-originated and therefore don't include Origin.
+                // Privy requires an Origin header for these requests.
+                // NOTE: In Editor with WebGL build target, UNITY_WEBGL can be defined.
+                // Keep Editor path enabled so Play Mode auth still sends Origin.
+#if UNITY_EDITOR || !UNITY_WEBGL
+                bool requiresManualOrigin = Application.isEditor
+                    || (!isNativeBuild && Application.platform != RuntimePlatform.WebGLPlayer);
+                if (requiresManualOrigin)
                 {
-                    // Non-native (Editor/WebGL): Privy requires Origin header. Use page URL origin when
-                    // available (WebGL), else fallback for Editor testing (must be in Privy allowed origins).
-                    string origin = GetOriginForRequest();
+                    string origin = GetEditorOrigin();
                     if (!string.IsNullOrEmpty(origin))
                     {
                         request.SetRequestHeader("Origin", origin);
+                        originApplied = true;
+                        originUsed = origin;
                     }
+                }
+#endif
+
+                if ((Application.isEditor || Debug.isDebugBuild) && ShouldLogOriginDebugForPath(path))
+                {
+                    Debug.Log(
+                        $"[PrivyAuth][HttpRequestHandler] platform={Application.platform}, isEditor={Application.isEditor}, isNativeBuild={isNativeBuild}, originApplied={originApplied}, origin={(string.IsNullOrEmpty(originUsed) ? "(none)" : originUsed)}, path={path}"
+                    );
                 }
 
                 if (customHeaders != null)
@@ -106,7 +125,8 @@ namespace Privy
                 }
                 else
                 {
-                    string errorMessage = $"HTTP request failed: {request.error}";
+                    int statusCode = (int)request.responseCode;
+                    string errorMessage = $"HTTP request failed (status {statusCode}): {request.error}";
 
                     if (request.downloadHandler != null)
                     {
@@ -121,28 +141,31 @@ namespace Privy
 
         public string GetFullUrl(string path) => $"{_baseUrl}/{path}";
 
-        /// <summary>
-        /// Gets the Origin value for non-native requests. WebGL uses the page URL; Editor uses a fallback.
-        /// </summary>
-        private static string GetOriginForRequest()
+        private static string GetEditorOrigin()
         {
-            string url = Application.absoluteURL;
-            if (!string.IsNullOrEmpty(url))
+            // Optional override to match the Privy dashboard allowlist.
+            string overrideOrigin = Environment.GetEnvironmentVariable("PRIVY_ORIGIN");
+            if (!string.IsNullOrEmpty(overrideOrigin))
             {
-                try
-                {
-                    var uri = new Uri(url);
-                    int port = uri.Port;
-                    bool defaultPort = (uri.Scheme == "https" && port == 443) || (uri.Scheme == "http" && port == 80);
-                    string origin = defaultPort
-                        ? $"{uri.Scheme}://{uri.Host}"
-                        : $"{uri.Scheme}://{uri.Host}:{port}";
-                    return origin;
-                }
-                catch { /* fall through to fallback */ }
+                return overrideOrigin;
             }
-            // Editor fallback: use localhost:8080 (must be in Privy Web allowed origins)
-            return "http://localhost:8080";
+
+            return DefaultEditorOrigin;
         }
+
+        private static bool ShouldLogOriginDebugForPath(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+            {
+                return false;
+            }
+
+            // Keep only auth + wallet critical path logs to reduce noise.
+            return path.Contains("passwordless")
+                || path.Contains("sessions")
+                || path.Contains("wallets")
+                || path.Contains("apps/");
+        }
+
     }
 }

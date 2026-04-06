@@ -40,6 +40,7 @@ public static class WebGLBuild
         if (developmentBuild)
         {
             options |= BuildOptions.Development;
+            options |= BuildOptions.AllowDebugging; // Enables Script Debugging in development builds.
         }
 
         var report = BuildPipeline.BuildPlayer(
@@ -52,6 +53,7 @@ public static class WebGLBuild
         if (report.summary.result == BuildResult.Succeeded)
         {
             Debug.Log($"[WebGLBuild] Build succeeded. Output: {System.IO.Path.GetFullPath(BuildOutputPath)}");
+            Debug.Log($"[WebGLBuild] Build options: {options}");
         }
         else
         {

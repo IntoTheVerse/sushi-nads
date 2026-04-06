@@ -1,5 +1,17 @@
 mergeInto(LibraryManager.library, {
   _oAuth: null,
+  _getUnityInstance: function () {
+    if (
+      window.unityInstance &&
+      typeof window.unityInstance.SendMessage === "function"
+    ) {
+      return window.unityInstance;
+    }
+    if (typeof unityInstance !== "undefined" && unityInstance) {
+      return unityInstance;
+    }
+    return null;
+  },
 
   oAuthInit: function () {
     this._oAuth =
@@ -22,7 +34,12 @@ mergeInto(LibraryManager.library, {
               event.data.stateCode &&
               event.data.authorizationCode
             ) {
-              unityInstance.SendMessage(
+              const unity = LibraryManager.library._getUnityInstance();
+              if (!unity) {
+                console.warn("Unity instance not ready; dropping OAuth response.");
+                return;
+              }
+              unity.SendMessage(
                 "WebGLPopupMessageInterceptor",
                 "SignedIn",
                 JSON.stringify({
@@ -34,7 +51,12 @@ mergeInto(LibraryManager.library, {
             }
 
             if (event.data.type === "PRIVY_OAUTH_ERROR") {
-              unityInstance.SendMessage(
+              const unity = LibraryManager.library._getUnityInstance();
+              if (!unity) {
+                console.warn("Unity instance not ready; dropping OAuth error.");
+                return;
+              }
+              unity.SendMessage(
                 "WebGLPopupMessageInterceptor",
                 "SignInFailed",
               );

@@ -41,10 +41,9 @@ namespace CartoonFX
 #pragma warning disable 0649
         [SerializeField] CFXR_ParticleTextFontAsset font;
 #pragma warning restore 0649
-
-#if UNITY_EDITOR
         [HideInInspector] [SerializeField] bool autoUpdateEditor = true;
 
+#if UNITY_EDITOR
         void OnValidate()
         {
             if (text == null || font == null)

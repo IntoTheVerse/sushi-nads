@@ -80,6 +80,16 @@ namespace Privy
             //The source of the iframe, is the Privy embedded wallet url
             //We also add an event listener on to the page, to listen to events coming from the iframe
             string jsCode = $@"
+            function __privyGetUnityInstance() {{
+                if (window.unityInstance && typeof window.unityInstance.SendMessage === 'function') {{
+                    return window.unityInstance;
+                }}
+                if (typeof unityInstance !== 'undefined' && unityInstance && typeof unityInstance.SendMessage === 'function') {{
+                    return unityInstance;
+                }}
+                return null;
+            }}
+
             var iframe = document.createElement('iframe');
             iframe.id = 'myIframe';
             iframe.style.position = 'absolute';
@@ -90,11 +100,16 @@ namespace Privy
             window.addEventListener('message', function(event) {{
                 // Check that the message is coming from the correct origin
                 if (event.origin === new URL(iframe.src).origin) {{
+                    var unity = __privyGetUnityInstance();
+                    if (!unity) {{
+                        console.warn('Unity instance not ready; dropping iframe message.');
+                        return;
+                    }}
                     if(event.data === 'ready') {{
-                        unityInstance.SendMessage('{BrowserDomIframeObject.SingletonGameObjectName}', 'OnWebViewReady', '');
+                        unity.SendMessage('{BrowserDomIframeObject.SingletonGameObjectName}', 'OnWebViewReady', '');
                     }} else {{
                         let data = JSON.stringify(event.data);
-                        unityInstance.SendMessage('{BrowserDomIframeObject.SingletonGameObjectName}', 'OnMessageReceived', data);
+                        unity.SendMessage('{BrowserDomIframeObject.SingletonGameObjectName}', 'OnMessageReceived', data);
                     }}
                 }} else {{
                     console.warn('Message received from unknown origin:', event.origin);

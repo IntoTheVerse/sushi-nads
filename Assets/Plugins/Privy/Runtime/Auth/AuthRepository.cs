@@ -1,5 +1,6 @@
 using System;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 
@@ -31,8 +32,10 @@ namespace Privy
             try
             {
                 string jsonResponse = await _httpRequestHandler.SendRequestAsync(path, serializedRequest);
-                var response = JsonConvert.DeserializeObject<SendCodeResponseData>(jsonResponse);
-                return response.Success; //this response could be failure, which is why return type is a bool
+                // WebGL/IL2CPP can fail reflection-based DTO construction even when response is valid.
+                // Parse manually to avoid constructor metadata edge cases.
+                JObject response = JObject.Parse(jsonResponse);
+                return response.Value<bool?>("success") ?? false; // this response could be failure
             }
             catch (Exception ex)
             {
@@ -183,14 +186,45 @@ namespace Privy
 
         private ValidSessionResponse DeserializeSessionResponse(string jsonResponse)
         {
-            JsonSerializerSettings settings = new JsonSerializerSettings
+            JsonSerializerSettings linkedAccountSettings = new JsonSerializerSettings
             {
-                TypeNameHandling = TypeNameHandling.All,
                 Converters = new List<JsonConverter> { new LinkedAccountConverter() }
             };
 
-            ValidSessionResponse authResponse =
-                JsonConvert.DeserializeObject<ValidSessionResponse>(jsonResponse, settings);
+            JObject root = JObject.Parse(jsonResponse);
+            ValidSessionResponse authResponse = new ValidSessionResponse
+            {
+                Token = root.Value<string>("token"),
+                RefreshToken = root.Value<string>("refresh_token"),
+                IdentityToken = root.Value<string>("identity_token"),
+                SessionUpdateAction = root.Value<string>("session_update_action"),
+                IsNewUser = root.Value<bool?>("is_new_user") ?? false
+            };
+
+            JObject userToken = root["user"] as JObject;
+            if (userToken != null)
+            {
+                var user = new UserResponse
+                {
+                    Id = userToken.Value<string>("id"),
+                    CreatedAt = userToken.Value<long?>("created_at") ?? 0,
+                    HasAcceptedTerms = userToken.Value<bool?>("has_accepted_terms") ?? false,
+                    CustomMetadata = userToken["custom_metadata"]?.ToObject<Dictionary<string, string>>() ??
+                                     new Dictionary<string, string>(),
+                    LinkedAccounts = Array.Empty<LinkedAccountResponse>()
+                };
+
+                JToken linkedAccountsToken = userToken["linked_accounts"];
+                if (linkedAccountsToken != null && linkedAccountsToken.Type != JTokenType.Null)
+                {
+                    var serializer = JsonSerializer.Create(linkedAccountSettings);
+                    user.LinkedAccounts = linkedAccountsToken.ToObject<LinkedAccountResponse[]>(serializer) ??
+                                          Array.Empty<LinkedAccountResponse>();
+                }
+
+                authResponse.User = user;
+            }
+
             return authResponse;
         }
     }

@@ -306,10 +306,9 @@ public class ChefManager : MonoBehaviour
 
     private void UpdateWalletDisplay()
     {
-        var wallet = PrivyManager.Instance?.User?.EmbeddedWallets?.FirstOrDefault();
-        if (wallet != null && walletAddressText != null)
+        string address = GetCurrentWalletAddress();
+        if (!string.IsNullOrEmpty(address) && walletAddressText != null)
         {
-            string address = wallet.Address;
             playerProfilewalletAddressTxt.text = $"Wallet: {address.Substring(0, 6)}...{address.Substring(address.Length - 4)}";
             playPanelWalletAddressTxt.text = $"{address.Substring(0, 6)}...{address.Substring(address.Length - 4)}";
         }
@@ -1384,6 +1383,19 @@ public class ChefManager : MonoBehaviour
 
     private string GetCurrentWalletAddress()
     {
+        try
+        {
+            string resolved = PrivyAndroidLogin.Instance?.GetAddress() ?? string.Empty;
+            if (!string.IsNullOrEmpty(resolved))
+            {
+                return resolved;
+            }
+        }
+        catch
+        {
+            // Keep fallback path below.
+        }
+
         var wallet = PrivyManager.Instance?.User?.EmbeddedWallets?.FirstOrDefault();
         return wallet?.Address ?? string.Empty;
     }
