@@ -39,9 +39,9 @@ namespace Privy
 
             PrivyLogger.Debug("Message from WebView: " + message);
 
-            // Check if the message is URL-encoded (contains '%')
-            // For some reason messages are received as an encoded URL on Android
-            if (Uri.IsWellFormedUriString(message, UriKind.RelativeOrAbsolute) && message.Contains("%"))
+            // For some Android flows, message payload arrives URL-encoded.
+            // Only decode if it is not raw JSON and contains encoded characters.
+            if (!message.TrimStart().StartsWith("{") && message.Contains("%"))
             {
                 message = Uri.UnescapeDataString(message);
                 PrivyLogger.Debug("Decoded message from WebView: " + message);
@@ -118,7 +118,9 @@ namespace Privy
                 JsonConvert.DeserializeObject<IframeResponse>(
                     responseString); //This could throw an error as well, however we may not need a custom exception here
 
-            if (responseString.Contains("error"))
+            // Don't use substring matching; a successful payload can contain the word "error".
+            // The response is an actual error only when event === "error".
+            if (baseResponse != null && baseResponse.Event == "error")
             {
                 var errorResponse = JsonConvert.DeserializeObject<IframeResponseError>(responseString);
                 return errorResponse;
@@ -214,6 +216,12 @@ namespace Privy
                 {
                     //Fail silently, to have loop continue
                     PrivyLogger.Debug("Success response not received, pinging again");
+                }
+
+                if (!readyTcs.Task.IsCompleted)
+                {
+                    // Avoid hot-looping on WebGL main thread.
+                    await Task.Delay(100);
                 }
             }
 

@@ -1,6 +1,24 @@
 var unityWebView =
 {
     loaded: [],
+    getUnityInstance: function () {
+        if (typeof window !== 'undefined' && window.unityInstance && typeof window.unityInstance.SendMessage === 'function') {
+            return window.unityInstance;
+        }
+        if (typeof unityInstance !== 'undefined' && unityInstance && typeof unityInstance.SendMessage === 'function') {
+            return unityInstance;
+        }
+        return null;
+    },
+    sendUnityMessage: function (name, method, payload) {
+        var instance = this.getUnityInstance();
+        if (!instance) {
+            console.warn('[unity-webview] unityInstance not ready for', method);
+            return false;
+        }
+        instance.SendMessage(name, method, payload);
+        return true;
+    },
 
     init : function (name) {
         $containers = $('.webviewContainer');
@@ -22,7 +40,7 @@ var unityWebView =
                 contents.find('a').click(function (e) {
                     var href = $.trim($(this).attr('href'));
                     if (href.substr(0, 6) === 'unity:') {
-                        unityInstance.SendMessage(name, "CallFromJS", href.substring(6, href.length));
+                        unityWebView.sendUnityMessage(name, "CallFromJS", href.substring(6, href.length));
                         e.preventDefault();
                     } else {
                         w.location.replace(href);
@@ -37,18 +55,18 @@ var unityWebView =
                         if ($this.attr('method').toLowerCase() == 'get') {
                             message += '?' + $this.serialize();
                         }
-                        unityInstance.SendMessage(name, "CallFromJS", message);
+                        unityWebView.sendUnityMessage(name, "CallFromJS", message);
                         return false;
                     }
                     return true;
                 });
 
-                unityInstance.SendMessage(name, "CallOnLoaded", location.href);
+                unityWebView.sendUnityMessage(name, "CallOnLoaded", location.href);
             });
     },
 
     sendMessage: function (name, message) {
-        unityInstance.SendMessage(name, "CallFromJS", message);
+        this.sendUnityMessage(name, "CallFromJS", message);
     },
 
     setMargins: function (name, left, top, right, bottom) {

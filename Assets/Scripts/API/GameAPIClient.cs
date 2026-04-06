@@ -129,12 +129,47 @@ public class GameAPIClient : MonoBehaviour
 
     private string GetWalletAddress()
     {
+        // Prefer the login manager resolver; it already handles WebGL hydration fallbacks.
+        try
+        {
+            string resolvedByLoginManager = PrivyAndroidLogin.Instance?.GetAddress() ?? string.Empty;
+            if (!string.IsNullOrEmpty(resolvedByLoginManager))
+            {
+                cachedWalletAddress = resolvedByLoginManager;
+                return cachedWalletAddress;
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"⚠️ Login manager wallet resolver unavailable: {e.Message}");
+        }
+
         try
         {
             var wallet = PrivyManager.Instance?.User?.EmbeddedWallets?.FirstOrDefault();
             if (wallet != null && !string.IsNullOrEmpty(wallet.Address))
             {
                 cachedWalletAddress = wallet.Address;
+                return cachedWalletAddress;
+            }
+
+            var linkedPrimary = PrivyManager.Instance?.User?.LinkedAccounts?
+                .OfType<PrivyEmbeddedWalletAccount>()
+                .FirstOrDefault(account => account != null
+                                           && account.WalletIndex == 0
+                                           && !string.IsNullOrEmpty(account.Address));
+            if (linkedPrimary != null)
+            {
+                cachedWalletAddress = linkedPrimary.Address;
+                return cachedWalletAddress;
+            }
+
+            var linkedAny = PrivyManager.Instance?.User?.LinkedAccounts?
+                .OfType<PrivyEmbeddedWalletAccount>()
+                .FirstOrDefault(account => account != null && !string.IsNullOrEmpty(account.Address));
+            if (linkedAny != null)
+            {
+                cachedWalletAddress = linkedAny.Address;
                 return cachedWalletAddress;
             }
         }

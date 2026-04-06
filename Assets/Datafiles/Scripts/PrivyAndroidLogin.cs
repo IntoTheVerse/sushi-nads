@@ -37,6 +37,10 @@ public class PrivyAndroidLogin : MonoBehaviour
     private static bool _inited;
     private bool isLoggingOut = false;
     private bool hasRequestedProfileForCurrentLogin = false;
+    private string _pendingOtpEmail = string.Empty;
+    private bool _isOtpStepActive = false;
+    private bool _isAuthActionInFlight = false;
+    private bool _isPostLoginRecoveryInProgress = false;
 
     private void Awake()
     {
@@ -83,6 +87,8 @@ public class PrivyAndroidLogin : MonoBehaviour
     private void RefreshButtons()
     {
         bool hasUser = PrivyManager.Instance?.User != null;
+        bool hasWallet = !string.IsNullOrEmpty(GetAddress());
+        bool otpFlowActive = _isOtpStepActive || !string.IsNullOrWhiteSpace(_pendingOtpEmail);
         if (isLoggingOut && !hasUser)
         {
             isLoggingOut = false;
@@ -91,7 +97,12 @@ public class PrivyAndroidLogin : MonoBehaviour
         bool isLoggedIn = hasUser && !isLoggingOut;
         if (isLoggedIn)
         {
-            if (!hasRequestedProfileForCurrentLogin)
+            if (!hasWallet)
+            {
+                // WebGL can lag wallet hydration after auth; avoid premature profile checks.
+                hasRequestedProfileForCurrentLogin = false;
+            }
+            else if (!hasRequestedProfileForCurrentLogin)
             {
                 hasRequestedProfileForCurrentLogin = true;
                 ChefManager.Instance?.CheckExistingChef();
@@ -100,7 +111,11 @@ public class PrivyAndroidLogin : MonoBehaviour
         else
         {
             hasRequestedProfileForCurrentLogin = false;
-            ChefManager.Instance?.ShowLoggedOutState();
+            // Keep OTP step stable while waiting for verify; avoid flipping back to "Send otp" mid-flow.
+            if (!otpFlowActive)
+            {
+                ChefManager.Instance?.ShowLoggedOutState();
+            }
         }
         if (managePanelsDirectly)
         {
@@ -118,10 +133,18 @@ public class PrivyAndroidLogin : MonoBehaviour
         }
         else if (!isLoggedIn)
         {
-            otpField.text = string.Empty;
+            if (!otpFlowActive)
+            {
+                otpField.text = string.Empty;
+                SetOtpStep(false);
+            }
         }
         if (playButton) { playButton.gameObject.SetActive(isLoggedIn); playButton.interactable = isLoggedIn; }
-        if (loginButton) { loginButton.gameObject.SetActive(!isLoggedIn); loginButton.interactable = !isLoggedIn; }
+        if (loginButton)
+        {
+            loginButton.gameObject.SetActive(!isLoggedIn);
+            loginButton.interactable = !isLoggedIn && !_isAuthActionInFlight;
+        }
         if (quitButton) quitButton.gameObject.SetActive(true);
         if (playPanelLogoutButton)
         {
@@ -134,6 +157,22 @@ public class PrivyAndroidLogin : MonoBehaviour
     }
 
     private void Log(string msg) { Debug.Log(msg); if (statusLabel) statusLabel.text = msg; }
+
+    private void SetAuthInFlight(bool isInFlight)
+    {
+        _isAuthActionInFlight = isInFlight;
+        if (loginButton) loginButton.interactable = !isInFlight;
+        if (googleLoginButton) googleLoginButton.interactable = !isInFlight && string.IsNullOrEmpty(emailField?.text);
+        if (xLoginButton) xLoginButton.interactable = !isInFlight && string.IsNullOrEmpty(emailField?.text);
+    }
+
+    private void SetOtpStep(bool active)
+    {
+        _isOtpStepActive = active;
+        if (_loginBtnTxt != null) _loginBtnTxt.text = active ? "Login" : "Send otp";
+        if (emailField != null) emailField.gameObject.SetActive(!active);
+        if (otpField != null) otpField.gameObject.SetActive(active);
+    }
 
     //When user starts typing in email field ->
     public void DisableOtherLoginOpt()
@@ -154,56 +193,116 @@ public class PrivyAndroidLogin : MonoBehaviour
 
     public async void SendOtp()
     {
-        var email = (emailField?.text ?? "").Trim();
+        if (_isAuthActionInFlight)
+        {
+            return;
+        }
+
+        var email = (emailField?.text ?? "").Trim().ToLowerInvariant();
         if (string.IsNullOrWhiteSpace(email))
         {
             Log("Enter email"); return;
         }
-        bool ok = await PrivyManager.Instance.Email.SendCode(email);
-        if (ok)
+
+        SetAuthInFlight(true);
+        try
         {
-            _loginBtnTxt.text = "Login";
-            emailField.gameObject.SetActive(false);
-            otpField.gameObject.SetActive(true);
+            bool ok = await PrivyManager.Instance.Email.SendCode(email);
+            if (ok)
+            {
+                _pendingOtpEmail = email;
+                SetOtpStep(true);
+            }
+            else
+            {
+                SetOtpStep(false);
+            }
+
+            Log(ok ? $"Code sent to {email}" : "Failed to send code");
         }
-        Log(ok ? $"Code sent to {email}" : "Failed to send code");
+        catch (Exception ex)
+        {
+            SetOtpStep(false);
+            Log("Failed to send code: " + ex.Message);
+        }
+        finally
+        {
+            SetAuthInFlight(false);
+        }
     }
 
     public async void VerifyOtp()
     {
-        var email = (emailField?.text ?? "").Trim();
-        var code = (otpField?.text ?? "").Trim();
+        if (_isAuthActionInFlight)
+        {
+            return;
+        }
+
+        var email = string.IsNullOrWhiteSpace(_pendingOtpEmail)
+            ? (emailField?.text ?? "").Trim().ToLowerInvariant()
+            : _pendingOtpEmail;
+        var code = new string(((otpField?.text ?? "").Trim()).Where(char.IsLetterOrDigit).ToArray());
         if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(code))
         {
             Log("Enter email + code"); return;
         }
 
-        await PrivyManager.Instance.Email.LoginWithCode(email, code);
+        SetAuthInFlight(true);
+        try
+        {
+            await PrivyManager.Instance.Email.LoginWithCode(email, code);
+            var user = PrivyManager.Instance.User;
+            if (user != null)
+            {
+                playPanelLogoutButton.gameObject.SetActive(true);
+                mintPanelLogoutButton.gameObject.SetActive(true);
+            }
+            else
+            {
+                Log("user is null");
+            }
 
-        // Ensure embedded wallet exists
-        var user = PrivyManager.Instance.User;
-        if (user != null && !user.EmbeddedWallets.Any())
-        {
-            await user.CreateWallet();
-        }
-        if (user != null)
-        {
-            playPanelLogoutButton.gameObject.SetActive(true);
-            mintPanelLogoutButton.gameObject.SetActive(true);
-        }
-        else
-        {
-            Log("user is null");
-        }
             // No token needed - using wallet-based auth
-            Log("Login complete. Wallet: " + GetAddress());
-        RefreshButtons();
+            _pendingOtpEmail = string.Empty;
+            if (otpField != null) otpField.text = string.Empty;
+            SetOtpStep(false);
+            Log("Login complete. Finalizing wallet/session...");
+            RefreshButtons();
+            BeginPostLoginRecovery("otp");
+        }
+        catch (Exception ex)
+        {
+            string msg = ex.Message ?? string.Empty;
+            if (msg.Contains("Invalid email and code combination") || msg.Contains("422"))
+            {
+                try { await PrivyManager.Instance.GetAuthState(); } catch { }
+                if (PrivyManager.Instance?.User != null)
+                {
+                    // Session already established despite 422 in some webgl race paths.
+                    RefreshButtons();
+                }
+                else
+                {
+                    Log("Invalid or expired OTP. Request a new code and try again.");
+                    _pendingOtpEmail = string.Empty;
+                    if (otpField != null) otpField.text = string.Empty;
+                    SetOtpStep(false);
+                }
+            }
+            else
+            {
+                Log("Login failed: " + msg);
+            }
+        }
+        finally
+        {
+            SetAuthInFlight(false);
+        }
     }
 
     public string GetAddress()
     {
-        var w = PrivyManager.Instance?.User?.EmbeddedWallets?.FirstOrDefault();
-        return w != null ? w.Address : "";
+        return GetAnyKnownWalletAddress();
     }
 
     private void SaveAuthToken()
@@ -266,13 +365,228 @@ public class PrivyAndroidLogin : MonoBehaviour
     }
 
     // Ensure an embedded EVM wallet exists after any login
-    private async System.Threading.Tasks.Task EnsureWalletAsync()
+    private async System.Threading.Tasks.Task<bool> EnsureWalletAsync(float timeoutSeconds = 8f, int pollMs = 250)
     {
-        var user = PrivyManager.Instance.User;
-        if (user != null && !user.EmbeddedWallets.Any())
-            await user.CreateWallet();
-        Debug.Log("Wallet: " + (PrivyManager.Instance?.User?.EmbeddedWallets?.FirstOrDefault()?.Address ?? "(none)"));
+        var user = PrivyManager.Instance?.User;
+        if (user == null)
+        {
+            Debug.Log("[PrivyAuth] EnsureWalletAsync: user is null at start.");
+            return false;
+        }
+
+        string userId = user.Id;
+        int startingWalletCount = user.EmbeddedWallets?.Length ?? 0;
+        string startingPrimary = user.EmbeddedWallets?.FirstOrDefault()?.Address ?? string.Empty;
+        string startingKnownAddress = GetAnyKnownWalletAddress(user);
+        Debug.Log($"[PrivyAuth] EnsureWalletAsync start. userId={userId}, walletCount={startingWalletCount}, primary={startingPrimary}, knownAddress={startingKnownAddress}");
+
+        if (!string.IsNullOrEmpty(startingKnownAddress))
+        {
+            Debug.Log($"[PrivyAuth] EnsureWalletAsync: wallet already known at start: {startingKnownAddress}");
+            return true;
+        }
+
+        if (user.EmbeddedWallets == null || !user.EmbeddedWallets.Any())
+        {
+            try
+            {
+                Debug.Log("[PrivyAuth] EnsureWalletAsync: no wallets found, calling CreateWallet().");
+                var createWalletTask = user.CreateWallet();
+                var createWalletTimeoutTask = System.Threading.Tasks.Task.Delay(3000);
+                var createWalletCompleted = await System.Threading.Tasks.Task.WhenAny(createWalletTask, createWalletTimeoutTask);
+                if (createWalletCompleted == createWalletTask)
+                {
+                    await createWalletTask;
+                    Debug.Log("[PrivyAuth] EnsureWalletAsync: CreateWallet() completed.");
+                }
+                else
+                {
+                    Debug.LogWarning("[PrivyAuth] EnsureWalletAsync: CreateWallet() timed out after 3000ms; continuing with polling.");
+                }
+            }
+            catch (Exception ex)
+            {
+                // WebGL can report create failure before user/wallet state catches up.
+                Debug.LogWarning($"[PrivyAuth] EnsureWalletAsync: CreateWallet() threw: {ex.Message}");
+            }
+        }
+        else
+        {
+            Debug.Log("[PrivyAuth] EnsureWalletAsync: wallet already present, skipping CreateWallet().");
+        }
+
+        DateTime start = DateTime.UtcNow;
+        TimeSpan timeout = TimeSpan.FromSeconds(Mathf.Max(1f, timeoutSeconds));
+        int pollCount = 0;
+        while (DateTime.UtcNow - start < timeout)
+        {
+            pollCount++;
+            string address = GetAnyKnownWalletAddress(PrivyManager.Instance?.User);
+            int walletCount = PrivyManager.Instance?.User?.EmbeddedWallets?.Length ?? 0;
+            if (!string.IsNullOrEmpty(address))
+            {
+                Debug.Log($"[PrivyAuth] EnsureWalletAsync success on poll {pollCount}. walletCount={walletCount}, address={address}");
+                return true;
+            }
+
+            try
+            {
+                bool refreshed = await TryRefreshAuthStateWithTimeout(1500);
+                if (!refreshed && (pollCount == 1 || pollCount % 4 == 0))
+                {
+                    Debug.LogWarning($"[PrivyAuth] EnsureWalletAsync poll {pollCount}: auth refresh timed out; continuing.");
+                }
+            }
+            catch
+            {
+                // Keep polling through transient WebGL hydration delays.
+                if (pollCount == 1 || pollCount % 4 == 0)
+                {
+                    Debug.LogWarning($"[PrivyAuth] EnsureWalletAsync poll {pollCount}: GetAuthState() threw.");
+                }
+            }
+
+            await System.Threading.Tasks.Task.Delay(Mathf.Max(50, pollMs));
+        }
+
+        Debug.LogWarning($"[PrivyAuth] EnsureWalletAsync timeout after {pollCount} polls and {(DateTime.UtcNow - start).TotalMilliseconds:0}ms.");
+        Debug.Log("Wallet: (none)");
+        return false;
     }
+
+    private async System.Threading.Tasks.Task<bool> TryRefreshAuthStateWithTimeout(int timeoutMs)
+    {
+        var getAuthStateTask = PrivyManager.Instance.GetAuthState();
+        var timeoutTask = System.Threading.Tasks.Task.Delay(Mathf.Max(250, timeoutMs));
+        var completed = await System.Threading.Tasks.Task.WhenAny(getAuthStateTask, timeoutTask);
+        if (completed == getAuthStateTask)
+        {
+            await getAuthStateTask;
+            return true;
+        }
+
+        return false;
+    }
+
+    private string GetAnyKnownWalletAddress()
+    {
+        return GetAnyKnownWalletAddress(PrivyManager.Instance?.User);
+    }
+
+    private string GetAnyKnownWalletAddress(IPrivyUser user)
+    {
+        if (user == null)
+        {
+            return string.Empty;
+        }
+
+        var embeddedWallet = user.EmbeddedWallets?.FirstOrDefault();
+        if (embeddedWallet != null && !string.IsNullOrEmpty(embeddedWallet.Address))
+        {
+            return embeddedWallet.Address;
+        }
+
+        var primaryLinkedEmbedded = user.LinkedAccounts?
+            .OfType<PrivyEmbeddedWalletAccount>()
+            .FirstOrDefault(account => account != null
+                                       && account.WalletIndex == 0
+                                       && !string.IsNullOrEmpty(account.Address));
+        if (primaryLinkedEmbedded != null)
+        {
+            return primaryLinkedEmbedded.Address;
+        }
+
+        var anyLinkedEmbedded = user.LinkedAccounts?
+            .OfType<PrivyEmbeddedWalletAccount>()
+            .FirstOrDefault(account => account != null && !string.IsNullOrEmpty(account.Address));
+        if (anyLinkedEmbedded != null)
+        {
+            return anyLinkedEmbedded.Address;
+        }
+
+        var externalWallet = user.LinkedAccounts?
+            .OfType<ExternalWalletAccount>()
+            .FirstOrDefault(account =>
+                account != null
+                && !string.IsNullOrEmpty(account.Address)
+                && (string.IsNullOrEmpty(account.ChainType)
+                    || account.ChainType.Equals("ethereum", StringComparison.OrdinalIgnoreCase)));
+        if (externalWallet != null)
+        {
+            return externalWallet.Address;
+        }
+
+        return string.Empty;
+    }
+    private async System.Threading.Tasks.Task<bool> EnsureWalletWithTimeout(int timeoutMs)
+    {
+        var ensureTask = EnsureWalletAsync();
+        var timeoutTask = System.Threading.Tasks.Task.Delay(Mathf.Max(500, timeoutMs));
+        var completed = await System.Threading.Tasks.Task.WhenAny(ensureTask, timeoutTask);
+        if (completed == ensureTask)
+        {
+            return await ensureTask;
+        }
+
+        bool hasAnyAddress = !string.IsNullOrEmpty(GetAnyKnownWalletAddress());
+        Debug.LogWarning($"[PrivyAuth] EnsureWalletWithTimeout hit timeout ({timeoutMs}ms). knownAddressPresent={hasAnyAddress}");
+        return hasAnyAddress;
+    }
+
+    private void BeginPostLoginRecovery(string source)
+    {
+        if (_isPostLoginRecoveryInProgress)
+        {
+            Debug.Log($"[PrivyAuth] BeginPostLoginRecovery skipped (already in progress). source={source}");
+            return;
+        }
+
+        _ = RunPostLoginRecoveryAsync(source);
+    }
+
+    private async System.Threading.Tasks.Task RunPostLoginRecoveryAsync(string source)
+    {
+        if (PrivyManager.Instance?.User == null)
+        {
+            return;
+        }
+
+        _isPostLoginRecoveryInProgress = true;
+        try
+        {
+            bool hasWallet = !string.IsNullOrEmpty(GetAddress());
+            for (int attempt = 1; attempt <= 4 && !hasWallet; attempt++)
+            {
+                hasWallet = await EnsureWalletWithTimeout(2500);
+                if (!hasWallet)
+                {
+                    Debug.LogWarning($"[PrivyAuth] Post-login recovery attempt {attempt}/4 has no wallet yet. source={source}");
+                    await System.Threading.Tasks.Task.Delay(600);
+                }
+            }
+
+            string address = GetAddress();
+            if (!string.IsNullOrEmpty(address))
+            {
+                Log("Wallet: " + address);
+            }
+            else
+            {
+                Debug.LogWarning($"[PrivyAuth] Post-login recovery could not resolve wallet. source={source}");
+            }
+
+            // Force one profile refresh attempt after auth settles, even if wallet hydration lags.
+            // GameAPIClient now uses wallet fallbacks and cached values.
+            hasRequestedProfileForCurrentLogin = true;
+            ChefManager.Instance?.CheckExistingChef();
+            RefreshButtons();
+        }
+        finally
+        {
+            _isPostLoginRecoveryInProgress = false;
+        }
+    }
+
     void OnEnable()
     {
         try
@@ -281,8 +595,7 @@ public class PrivyAndroidLogin : MonoBehaviour
             {
                 if (PrivyManager.Instance.User != null)
                 {
-                    await EnsureWalletAsync();
-                    Log("Wallet: " + GetAddress());
+                    BeginPostLoginRecovery("auth-state-change");
                 }
                 RefreshButtons();
             });
@@ -307,8 +620,7 @@ public class PrivyAndroidLogin : MonoBehaviour
             // If a session exists, User will be populated
             if (PrivyManager.Instance.User != null)
             {
-                await EnsureWalletAsync();
-                Log("Wallet: " + GetAddress());
+                BeginPostLoginRecovery("resume-session");
                 if (managePanelsDirectly)
                 {
                     loginPanel.SetActive(false);
@@ -333,6 +645,7 @@ public class PrivyAndroidLogin : MonoBehaviour
     {
         isLoggingOut = true;
         hasRequestedProfileForCurrentLogin = false;
+        _isPostLoginRecoveryInProgress = false;
         try
         {
            PrivyManager.Instance.Logout();   // if your SDK is sync: PrivyManager.Instance.Logout();
@@ -344,7 +657,8 @@ public class PrivyAndroidLogin : MonoBehaviour
            PrivyTokenHelper.ClearToken();  // Clear saved auth token
             otpField.gameObject.SetActive(false);
             emailField.gameObject.SetActive(true);
-            _loginBtnTxt.text = "Send otp";
+            _pendingOtpEmail = string.Empty;
+            SetOtpStep(false);
             playPanelLogoutButton.gameObject.SetActive(false);
             mintPanelLogoutButton.gameObject.SetActive(false);
            
@@ -370,8 +684,8 @@ public class PrivyAndroidLogin : MonoBehaviour
                 playPanelLogoutButton.gameObject.SetActive(true);
                 mintPanelLogoutButton.gameObject.SetActive(true);
             }
-            await EnsureWalletAsync();
-            Log("Google login complete. " + GetAddress());
+            BeginPostLoginRecovery("google-oauth");
+            Log("Google login complete. Finalizing wallet/session...");
             RefreshButtons();
         }
         catch (System.Exception e) { Log("Google login failed: " + e.Message); }
@@ -383,8 +697,8 @@ public class PrivyAndroidLogin : MonoBehaviour
         try
         {
             await PrivyManager.Instance.OAuth.LoginWithProvider(OAuthProvider.Twitter, PRIVY_REDIRECT); // if this errors, try "twitter"
-            await EnsureWalletAsync();
-            Log("X login complete. " + GetAddress());
+            BeginPostLoginRecovery("x-oauth");
+            Log("X login complete. Finalizing wallet/session...");
             RefreshButtons();
         }
         catch (System.Exception e) { Log("X login failed: " + e.Message); }
@@ -392,8 +706,12 @@ public class PrivyAndroidLogin : MonoBehaviour
 
     private void ShowLoginStep()
     {
-        // if code is filled, verify; else send code
-        if (!string.IsNullOrWhiteSpace(otpField?.text)) VerifyOtp();
+        if (_isAuthActionInFlight)
+        {
+            return;
+        }
+
+        if (_isOtpStepActive) VerifyOtp();
         else SendOtp();
     }
 }

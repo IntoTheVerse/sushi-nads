@@ -222,6 +222,15 @@ namespace Privy
                 EmbeddedWallets.FirstOrDefault(wallet =>
                     wallet.Address == walletAddress); //Get the first wallet with matching address, else null
 
+            // On WebGL, the linked account update can lag shortly behind wallet create.
+            // Retry a few forced refreshes before treating this as a hard failure.
+            for (int attempt = 0; embeddedWallet == null && attempt < 3; attempt++)
+            {
+                await Task.Delay(250 * (attempt + 1));
+                await _authDelegator.RefreshSession(forceRefresh: true);
+                embeddedWallet = EmbeddedWallets.FirstOrDefault(wallet => wallet.Address == walletAddress);
+            }
+
             // We could technically return null here, and it would be more performant if we did
             // But to maintain consistency - I think we go with the approach of the dev catching errors, as oppose to parsing nulls
             // If we returned a null here, the docs also become inconsistent, where in some places they'd be checking for nulls, and other places they'd be catching errors
@@ -252,6 +261,13 @@ namespace Privy
 
             var embeddedWallet =
                 EmbeddedSolanaWallets.FirstOrDefault(wallet => wallet.Address == walletAddress);
+
+            for (int attempt = 0; embeddedWallet == null && attempt < 3; attempt++)
+            {
+                await Task.Delay(250 * (attempt + 1));
+                await _authDelegator.RefreshSession(forceRefresh: true);
+                embeddedWallet = EmbeddedSolanaWallets.FirstOrDefault(wallet => wallet.Address == walletAddress);
+            }
 
             if (embeddedWallet == null)
                 throw new PrivyException.EmbeddedWalletException(

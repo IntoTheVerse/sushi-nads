@@ -71,26 +71,26 @@ namespace Privy
     internal class SendCodeResponseData
     {
         [JsonProperty("success")]
-        public bool Success;
+        public bool Success { get; set; }
     }
 
     internal class UserResponse
     {
         [JsonProperty("id")]
-        public string Id;
+        public string Id { get; set; }
 
         // TODO: convert these to dates
         [JsonProperty("created_at")]
-        public long CreatedAt;
+        public long CreatedAt { get; set; }
 
         [JsonProperty("has_accepted_terms")]
-        public bool HasAcceptedTerms;
+        public bool HasAcceptedTerms { get; set; }
 
         [JsonProperty("linked_accounts")]
-        public LinkedAccountResponse[] LinkedAccounts;
+        public LinkedAccountResponse[] LinkedAccounts { get; set; }
 
         [JsonProperty("custom_metadata")]
-        public Dictionary<string, string> CustomMetadata = new Dictionary<string, string>();
+        public Dictionary<string, string> CustomMetadata { get; set; } = new Dictionary<string, string>();
 
         // TODO: implement mfa_methods
     }
@@ -98,21 +98,22 @@ namespace Privy
     internal class ValidSessionResponse
     {
         [JsonProperty("user")]
-        public UserResponse User;
+        public UserResponse User { get; set; }
 
         [JsonProperty("is_new_user")]
-        public bool IsNewUser;
+        public bool IsNewUser { get; set; }
 
-        public string Token;
+        [JsonProperty("token")]
+        public string Token { get; set; }
 
         [JsonProperty("refresh_token")]
-        public string RefreshToken;
+        public string RefreshToken { get; set; }
 
         [JsonProperty("identity_token")]
-        public string IdentityToken;
+        public string IdentityToken { get; set; }
 
         [JsonProperty("session_update_action")]
-        public string SessionUpdateAction;
+        public string SessionUpdateAction { get; set; }
     }
 
     internal class InitiateOAuthFlowResponse
