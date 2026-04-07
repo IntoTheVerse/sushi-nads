@@ -307,10 +307,98 @@ public class ChefManager : MonoBehaviour
     private void UpdateWalletDisplay()
     {
         string address = GetCurrentWalletAddress();
-        if (!string.IsNullOrEmpty(address) && walletAddressText != null)
+        if (!string.IsNullOrEmpty(address))
         {
-            playerProfilewalletAddressTxt.text = $"Wallet: {address.Substring(0, 6)}...{address.Substring(address.Length - 4)}";
-            playPanelWalletAddressTxt.text = $"{address.Substring(0, 6)}...{address.Substring(address.Length - 4)}";
+            string shortAddress = $"{address.Substring(0, 6)}...{address.Substring(address.Length - 4)}";
+
+            if (walletAddressText != null)
+            {
+                walletAddressText.text = $"Wallet: {shortAddress}";
+            }
+
+            if (playerProfilewalletAddressTxt != null)
+            {
+                playerProfilewalletAddressTxt.text = $"Wallet: {shortAddress}";
+            }
+
+            if (playPanelWalletAddressTxt != null)
+            {
+                playPanelWalletAddressTxt.text = shortAddress;
+            }
+        }
+    }
+
+    private void UpdateUsernameDisplay(string nameOverride = null)
+    {
+        ResolveUsernameTextReferences();
+
+        string displayName = string.IsNullOrWhiteSpace(nameOverride) ? chefName : nameOverride;
+        if (string.IsNullOrWhiteSpace(displayName))
+        {
+            displayName = "user";
+        }
+
+        if (playPanelUsernameTxt != null)
+        {
+            playPanelUsernameTxt.text = displayName;
+        }
+
+        if (playerProfileUsernameTxt != null)
+        {
+            playerProfileUsernameTxt.text = displayName;
+        }
+    }
+
+    private void ResolveUsernameTextReferences()
+    {
+        if (playPanel != null && playPanelUsernameTxt == null)
+        {
+            var playTexts = playPanel.GetComponentsInChildren<TMP_Text>(true);
+            playPanelUsernameTxt = Array.Find(playTexts, t =>
+            {
+                if (t == null || t.gameObject == null) return false;
+
+                string objectName = t.gameObject.name.ToLowerInvariant();
+                string value = (t.text ?? string.Empty).ToLowerInvariant();
+
+                bool looksLikeUsernameLabel = objectName.Contains("username")
+                                              || objectName.Contains("playername")
+                                              || (objectName.Contains("name")
+                                                  && !objectName.Contains("wallet")
+                                                  && !objectName.Contains("chef"));
+                bool looksLikeDefaultUsernameValue = value == "user";
+                return looksLikeUsernameLabel || looksLikeDefaultUsernameValue;
+            });
+        }
+
+        if (playerProfileUsernameTxt == null)
+        {
+            var profileRoot = FindObjectOfType<ProfilePanelUI>(true);
+            if (profileRoot != null)
+            {
+                var profileTexts = profileRoot.GetComponentsInChildren<TMP_Text>(true);
+                playerProfileUsernameTxt = Array.Find(profileTexts, t =>
+                {
+                    if (t == null || t.gameObject == null) return false;
+
+                    string objectName = t.gameObject.name.ToLowerInvariant();
+                    string value = (t.text ?? string.Empty).Trim().ToLowerInvariant();
+                    return objectName.Contains("username")
+                           || objectName == "usernametxt"
+                           || value == "chef master";
+                });
+            }
+        }
+    }
+
+    public void RefreshIdentityDisplay()
+    {
+        UpdateUsernameDisplay();
+        UpdateWalletDisplay();
+
+        if (hasChef && tokenId > 0 && playerProfileChefIdTxt != null)
+        {
+            playerProfileChefIdTxt.text = $"#{tokenId}";
         }
     }
 
@@ -452,6 +540,7 @@ public class ChefManager : MonoBehaviour
                 chefName = response.name;
                 tokenId = response.tokenId;
                 CacheChefState(chefName, tokenId);
+                UpdateUsernameDisplay(chefName);
                 
                 ShowStatusMessage($"Chef minted! You are {chefName} (#{tokenId})", Color.green);
                 
@@ -465,21 +554,15 @@ public class ChefManager : MonoBehaviour
                     chefTokenIdText.text = $"Chef #{tokenId}: {chefName}";
                 }
                 
-                // Wait for blockchain to index the transaction
-                Debug.Log("⏳ Waiting for blockchain confirmation...");
-                await Task.Delay(5000); // 5 second delay
-                
-                // Load player profile
-                await LoadPlayerProfile();
-                
                 // Update wallet display after minting (ensures it's visible)
                 UpdateWalletDisplay();
-                
-                // Show next step message
-                ShowStatusMessage($"Chef ready! Refill energy to play.", Color.green);
-                
-                // Hide mint panel and show Play screen ONLY AFTER fully loaded
+
+                // Move to playable state immediately after mint success.
+                // Profile sync can happen in background without blocking UI.
                 SetMenuUiState(MenuUiState.Ready);
+                ShowStatusMessage($"Chef ready! Refill energy to play.", Color.green);
+
+                _ = FinalizePostMintProfileSyncAsync();
             }
             else
             {
@@ -499,6 +582,21 @@ public class ChefManager : MonoBehaviour
         finally
         {
             LoadingManager.Instance?.Hide();
+        }
+    }
+
+    private async Task FinalizePostMintProfileSyncAsync()
+    {
+        try
+        {
+            Debug.Log("⏳ Waiting for blockchain confirmation...");
+            await Task.Delay(5000); // Let indexers catch up.
+            await LoadPlayerProfile();
+            UpdateWalletDisplay();
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"⚠️ Post-mint profile sync did not complete immediately: {e.Message}");
         }
     }
 
@@ -544,11 +642,16 @@ public class ChefManager : MonoBehaviour
         if (chefTokenIdText != null)
         {
             chefTokenIdText.text = $"Chef #{profile.player.tokenId}: {profile.player.name}";
-            playerProfileChefIdTxt.text = $"#{profile.player.tokenId}";
-            playerProfileUsernameTxt.text = profile.player.name;
-            // playerProfileEnergyTxt.text = $"Energy: {profile.player.energy}";
-            // playerProfileenergyFill.fillAmount = Mathf.Clamp01((float)profile.player.energy / maxEnergy);
         }
+
+        if (playerProfileChefIdTxt != null)
+        {
+            playerProfileChefIdTxt.text = $"#{profile.player.tokenId}";
+        }
+
+        UpdateUsernameDisplay(profile.player.name);
+        // playerProfileEnergyTxt.text = $"Energy: {profile.player.energy}";
+        // playerProfileenergyFill.fillAmount = Mathf.Clamp01((float)profile.player.energy / maxEnergy);
         
         // Update wallet address display (in case it wasn't ready earlier)
         UpdateWalletDisplay();
@@ -1423,10 +1526,9 @@ public class ChefManager : MonoBehaviour
         tokenId = cachedChefTokenId;
         hasResolvedTutorialGate = false;
 
-        if (playPanelUsernameTxt != null) playPanelUsernameTxt.text = chefName;
+        UpdateUsernameDisplay(chefName);
         if (chefTokenIdText != null) chefTokenIdText.text = $"Chef #{tokenId}: {chefName}";
         if (playerProfileChefIdTxt != null) playerProfileChefIdTxt.text = $"#{tokenId}";
-        if (playerProfileUsernameTxt != null) playerProfileUsernameTxt.text = chefName;
 
         SetMenuUiState(MenuUiState.Ready);
         LogTutorialGate("TryApplyCachedChefState", $"Applied cached chef. wallet={GetCurrentWalletAddress()}, chef={chefName}, tokenId={tokenId}. Waiting for silent refresh.");
@@ -1444,11 +1546,7 @@ public class ChefManager : MonoBehaviour
         hasChef = true;
         chefName = profile.player.name;
         tokenId = profile.player.tokenId;
-
-        if (playPanelUsernameTxt != null)
-        {
-            playPanelUsernameTxt.text = profile.player.name;
-        }
+        UpdateUsernameDisplay(profile.player.name);
 
         UpdateUI(profile);
         UpdateWalletDisplay();
@@ -1561,6 +1659,7 @@ public class ChefManager : MonoBehaviour
         if (mintChefButton != null) mintChefButton.interactable = false;
         if (chefNameInput != null) chefNameInput.interactable = true;
         if (playButton != null) playButton.interactable = false;
+        UpdateUsernameDisplay("user");
         LogTutorialGate("ShowLoggedOutState", "Reset all profile and tutorial gate state to logged out.");
     }
 

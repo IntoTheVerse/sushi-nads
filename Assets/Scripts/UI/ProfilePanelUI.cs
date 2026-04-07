@@ -30,6 +30,7 @@ public class ProfilePanelUI : MonoBehaviour
     private void OnEnable()
     {
         EnsureTabButtonsEnabled();
+        ChefManager.Instance?.RefreshIdentityDisplay();
         RefreshProfileStats();
     }
 
