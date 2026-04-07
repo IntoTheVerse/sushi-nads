@@ -2,43 +2,66 @@ import express from 'express';
 import { leaderboard, chefNFT, gameCore } from '../services/blockchain.service.js';
 import { optionalAuth } from '../middleware/auth.js';
 import { getCachedLeaderboard, setCachedLeaderboard } from '../services/cache.service.js';
-import { safePlayerHasChef, safeGetChefTokenId, safeGetChefName } from '../utils/contractHelpers.js';
+import { safeGetChefTokenId, safeGetChefName } from '../utils/contractHelpers.js';
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+async function retryRpcRead(fn, label, attempts = 4, waitMs = 250) {
+    let lastError = null;
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+        try {
+            return await fn();
+        } catch (error) {
+            lastError = error;
+            if (attempt < attempts) {
+                await delay(waitMs * attempt);
+            }
+        }
+    }
+
+    if (label) {
+        console.warn(`⚠️  ${label} failed after ${attempts} attempts:`, lastError?.message || lastError);
+    }
+    throw lastError;
+}
+
 async function fetchAllChefProfiles() {
     try {
-        const totalChefs = Number(await chefNFT.totalChefs());
+        const totalChefs = Number(await retryRpcRead(() => chefNFT.totalChefs(), 'Reading totalChefs'));
         if (!totalChefs) {
             return [];
         }
 
-        const tokenIds = Array.from({ length: totalChefs }, (_, index) => index + 1);
-        const chefs = await Promise.all(
-            tokenIds.map(async tokenId => {
-                try {
-                    const [owner, name] = await Promise.all([
-                        chefNFT.ownerOf(tokenId),
-                        chefNFT.chefNames(tokenId)
-                    ]);
+        // Read sequentially with retries to avoid transient RPC flakiness/rate limits.
+        const chefs = [];
+        for (let tokenId = 1; tokenId <= totalChefs; tokenId++) {
+            try {
+                const owner = await retryRpcRead(
+                    () => chefNFT.ownerOf(tokenId),
+                    `Loading owner for chef token ${tokenId}`
+                );
+                const name = await retryRpcRead(
+                    () => chefNFT.chefNames(tokenId),
+                    `Loading name for chef token ${tokenId}`
+                );
 
-                    if (!owner || owner === ZERO_ADDRESS) {
-                        return null;
-                    }
-
-                    return {
-                        tokenId,
-                        player: owner,
-                        playerName: name || null
-                    };
-                } catch (error) {
-                    console.warn(`⚠️  Failed to load chef token ${tokenId}:`, error.message);
-                    return null;
+                if (!owner || owner === ZERO_ADDRESS) {
+                    continue;
                 }
-            })
-        );
 
-        return chefs.filter(Boolean);
+                chefs.push({
+                    tokenId,
+                    player: owner,
+                    playerName: name || null
+                });
+            } catch (error) {
+                console.warn(`⚠️  Skipping chef token ${tokenId} after retries:`, error.message);
+            }
+        }
+
+        return chefs;
     } catch (error) {
         console.warn('⚠️  Failed to read chef roster from chain:', error.message);
         return [];
@@ -85,21 +108,57 @@ router.get('/top', optionalAuth, async (req, res, next) => {
             }));
         }
         
+        // Build a roster map once and use it to backfill names reliably.
+        const chefRoster = await fetchAllChefProfiles();
+        const chefNameByAddress = new Map(
+            chefRoster
+                .filter(chef => chef.player && chef.playerName && chef.playerName.trim().length > 0)
+                .map(chef => [normalizeAddress(chef.player), chef.playerName.trim()])
+        );
+
         // Enrich with player names
         let rankings = await Promise.all(
             entries.map(async (entry, index) => {
-                let name = 'Unknown';
+                const entryAddress = normalizeAddress(entry.player);
+                let name = chefNameByAddress.get(entryAddress) || 'Unknown';
                 try {
-                    const hasChef = await safePlayerHasChef(entry.player);
-                    if (hasChef) {
-                        const tokenIdBigInt = await safeGetChefTokenId(entry.player);
+                    // Only hit contracts when roster map didn't provide a name.
+                    if (name === 'Unknown') {
+                        // playerHasChef() can intermittently revert on some RPC nodes.
+                        // Direct token lookup is more reliable for leaderboard enrichment.
+                        const tokenIdBigInt = await retryRpcRead(
+                            () => safeGetChefTokenId(entry.player),
+                            `Resolving token for ${entry.player}`
+                        );
                         const tokenId = Number(tokenIdBigInt);
                         if (tokenId > 0) {
-                            name = await safeGetChefName(tokenId);
+                            const resolvedName = await retryRpcRead(
+                                () => safeGetChefName(tokenId),
+                                `Resolving name for token ${tokenId}`
+                            );
+                            if (resolvedName && resolvedName.trim().length > 0) {
+                                name = resolvedName.trim();
+                            }
+                        }
+                    }
+
+                    // Final fallback from roster map for any transient RPC miss above.
+                    if (name === 'Unknown' && entryAddress) {
+                        const rosterName = chefNameByAddress.get(entryAddress);
+                        if (rosterName) {
+                            name = rosterName;
                         }
                     }
                 } catch (error) {
                     console.warn(`Failed to get name for ${entry.player}:`, error.message);
+
+                    // On error, still attempt roster fallback before leaving as Unknown.
+                    if (entryAddress) {
+                        const rosterName = chefNameByAddress.get(entryAddress);
+                        if (rosterName) {
+                            name = rosterName;
+                        }
+                    }
                 }
                 
                 const computedRank = Number(entry.rank || 0);
@@ -116,7 +175,6 @@ router.get('/top', optionalAuth, async (req, res, next) => {
         );
 
         // Ensure every minted chef shows up even if they haven't posted a score yet.
-        const chefRoster = await fetchAllChefProfiles();
         if (chefRoster.length) {
             const rankedAddresses = new Set(
                 rankings
@@ -154,6 +212,15 @@ router.get('/top', optionalAuth, async (req, res, next) => {
                 rankings = rankings.concat(fallbackEntries);
             }
         }
+
+        // Last safety pass: if any ranked address is known in roster, replace Unknown.
+        rankings = rankings.map(entry => {
+            if (!entry || entry.playerName !== 'Unknown') {
+                return entry;
+            }
+            const rosterName = chefNameByAddress.get(normalizeAddress(entry.player));
+            return rosterName ? { ...entry, playerName: rosterName } : entry;
+        });
         
         // Cache result
         await setCachedLeaderboard(season, limit, rankings);
