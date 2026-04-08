@@ -103,6 +103,8 @@ namespace Crystal
         [SerializeField] bool ConformX = true;  // Conform to screen safe area on X-axis (default true, disable to ignore)
         [SerializeField] bool ConformY = true;  // Conform to screen safe area on Y-axis (default true, disable to ignore)
         [SerializeField] bool Logging = false;  // Conform to screen safe area on Y-axis (default true, disable to ignore)
+        [SerializeField] bool ApplyInEditor = false;  // Keep full-screen anchors in Editor unless explicitly enabled.
+        [SerializeField] bool ApplyOnDesktop = false; // Keep full-screen anchors on desktop platforms by default.
 
         void Awake ()
         {
@@ -143,6 +145,13 @@ namespace Crystal
 
         Rect GetSafeArea ()
         {
+            // In Editor/Desktop we usually want stable full-screen anchors.
+            // This avoids UI jumping when testing GameScene with non-mobile layouts.
+            if (!ShouldApplyDeviceSafeArea())
+            {
+                return new Rect(0, 0, Screen.width, Screen.height);
+            }
+
             Rect safeArea = Screen.safeArea;
 
             if (Application.isEditor && Sim != SimDevice.None)
@@ -183,6 +192,43 @@ namespace Crystal
             }
 
             return safeArea;
+        }
+
+        bool ShouldApplyDeviceSafeArea()
+        {
+            if (Application.isEditor)
+            {
+                // In editor, keep previous opt-in behavior but also apply when
+                // a real inset safe area is reported (e.g. Device Simulator).
+                return ApplyInEditor || Sim != SimDevice.None || HasInsetSafeArea();
+            }
+
+            if (Application.isMobilePlatform)
+            {
+                return true;
+            }
+
+            // For desktop/WebGL, normally disabled, but allow automatic conforming
+            // if platform/browser reports actual non-fullscreen safe area.
+            return ApplyOnDesktop || HasInsetSafeArea();
+        }
+
+        bool HasInsetSafeArea()
+        {
+            if (Screen.width <= 0 || Screen.height <= 0)
+            {
+                return false;
+            }
+
+            Rect safe = Screen.safeArea;
+            const float epsilon = 0.5f;
+
+            bool insetLeft = safe.xMin > epsilon;
+            bool insetBottom = safe.yMin > epsilon;
+            bool insetRight = safe.xMax < Screen.width - epsilon;
+            bool insetTop = safe.yMax < Screen.height - epsilon;
+
+            return insetLeft || insetBottom || insetRight || insetTop;
         }
 
         void ApplySafeArea (Rect r)
