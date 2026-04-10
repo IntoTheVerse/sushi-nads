@@ -7,7 +7,7 @@ import { validateSessionId } from '../middleware/validation.js';
 import { getCachedSession, setCachedSession, deleteCachedSession, clearLeaderboardCache, deleteCachedProfile } from '../services/cache.service.js';
 import { GAME_CONFIG } from '../config/constants.js';
 import { clearSessionQueue, queueEndSession } from './gameplay.routes.js';
-import { safePlayerHasChef, safeGetPlayerEnergy } from '../utils/contractHelpers.js';
+import { safePlayerHasChef, safeGetChefTokenId, safeGetPlayerEnergy } from '../utils/contractHelpers.js';
 
 const router = express.Router();
 const SESSION_TIMEOUT_SECONDS = Number(process.env.SESSION_TIMEOUT_SECONDS || GAME_CONFIG.DURATION || 600);
@@ -74,6 +74,28 @@ async function resolveActiveSessionRecovery(sessionId, session) {
     };
 }
 
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function retryRpcRead(fn, label, attempts = 3, delayMs = 250) {
+    let lastError;
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+        try {
+            return await fn();
+        } catch (error) {
+            lastError = error;
+            if (attempt === attempts) break;
+            console.warn(
+                `⚠️ ${label} failed (attempt ${attempt}/${attempts}): ${error.message}. Retrying...`
+            );
+            await sleep(delayMs * attempt);
+        }
+    }
+
+    throw lastError;
+}
+
 /**
  * POST /api/session/start
  * Start a new game session
@@ -85,8 +107,19 @@ router.post('/start', requireAuth, async (req, res, next) => {
         
         console.log(`🎮 Starting session for ${playerAddress}`);
         
-        // Check if player has chef
-        const hasChef = await safePlayerHasChef(playerAddress);
+        // Check if player has chef (retry to smooth transient RPC read errors).
+        let hasChef = await retryRpcRead(
+            () => safePlayerHasChef(playerAddress),
+            `Checking chef for ${playerAddress}`
+        );
+        if (!hasChef) {
+            // Fallback: some RPC nodes intermittently fail on boolean reads.
+            const tokenIdFallback = await retryRpcRead(
+                () => safeGetChefTokenId(playerAddress),
+                `Checking chef tokenId fallback for ${playerAddress}`
+            );
+            hasChef = Number(tokenIdFallback) > 0;
+        }
         if (!hasChef) {
             return res.status(400).json({ 
                 error: 'No chef NFT found',
@@ -126,8 +159,11 @@ router.post('/start', requireAuth, async (req, res, next) => {
             }
         }
         
-        // Check energy
-        const energyBigInt = await safeGetPlayerEnergy(playerAddress);
+        // Check energy (retry to smooth transient RPC read errors).
+        const energyBigInt = await retryRpcRead(
+            () => safeGetPlayerEnergy(playerAddress),
+            `Checking energy for ${playerAddress}`
+        );
         const energy = Number(energyBigInt);
         const requiredEnergy = GAME_CONFIG.MOVE_COST * 5; // Contract requires MOVE_COST * 5
         if (energy < requiredEnergy) {
@@ -219,6 +255,45 @@ router.post('/start', requireAuth, async (req, res, next) => {
                 });
             }
             
+            // Fallback recovery: if tx submission/reporting failed but session is now active
+            // on-chain, return success so client can continue gameplay.
+            try {
+                const recoveredSessionId = await gameCore.getCurrentSessionId(playerAddress);
+                if (recoveredSessionId != 0n) {
+                    const recoveredSession = await gameCore.getSession(recoveredSessionId);
+                    if (recoveredSession?.isActive) {
+                        const sessionId = Number(recoveredSessionId);
+                        const startTime = Number(recoveredSession.startTime || 0) * 1000 || Date.now();
+
+                        await setCachedSession(sessionId, {
+                            sessionId,
+                            player: playerAddress,
+                            startTime,
+                            lastHeartbeatAt: Date.now(),
+                            isActive: true,
+                            moveCount: Number(recoveredSession.moveCount || 0),
+                            recipesDelivered: Number(recoveredSession.recipesDelivered || 0),
+                            recipesDiscarded: Number(recoveredSession.recipesDiscarded || 0)
+                        });
+
+                        return res.json({
+                            success: true,
+                            sessionId,
+                            txHash: null,
+                            startTime,
+                            energyRemaining: Number(energy),
+                            recovered: true,
+                            message: 'Recovered active on-chain session after transient start error'
+                        });
+                    }
+                }
+            } catch (recoveryError) {
+                console.warn(
+                    `⚠️ Failed to recover session state after start error for ${playerAddress}:`,
+                    recoveryError.message
+                );
+            }
+
             // Pass other errors to error handler
             next(error);
         }
